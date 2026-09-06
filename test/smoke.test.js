@@ -20,7 +20,7 @@ async function waitForServer(proc) {
 
 async function main() {
   const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-    env: { ...process.env, PORT: String(PORT), BUILD_SHA: 'test-sha', BROWSERLESS_TOKEN: '' },
+    env: { ...process.env, PORT: String(PORT), BUILD_SHA: 'test-sha', BROWSERLESS_TOKEN: '', SUPABASE_SERVICE_ROLE_KEY: '' },
     stdio: ['ignore', 'inherit', 'inherit']
   });
   try {
@@ -65,6 +65,15 @@ async function main() {
       const j = await r.json();
       assert.strictEqual(j.connected, false);
       assert.strictEqual(j.connectUrl, '/api/microsoft?action=connect');
+    });
+    await check('/s/<token> QR route answers without a service key', async () => {
+      const bad = await fetch(`${BASE}/s/short`);
+      assert.strictEqual(bad.status, 404);
+      const r = await fetch(`${BASE}/s/abcdefghijklmnopqrstuvwx`);
+      assert.strictEqual(r.status, 503);
+      assert.match(r.headers.get('content-type'), /text\/html/);
+      assert.match(await r.text(), /SUPABASE_SERVICE_ROLE_KEY/);
+      assert.strictEqual((await fetch(`${BASE}/s/`)).status, 404);
     });
     await check('unknown api route is 404', async () => {
       assert.strictEqual((await fetch(`${BASE}/api/nope`)).status, 404);

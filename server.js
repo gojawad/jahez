@@ -17,7 +17,10 @@ const API = {
   'microsoft': require('./api/microsoft'),
   'public-shipment': require('./api/public-shipment'),
   'render-bsgt-pdf': require('./api/render-bsgt-pdf'),
+  'qr-package': require('./api/qr-package'),
 };
+// /s/<token> — رابط رمز QR القصير المطبوع على الفواتير
+const QR_ROUTE = /^\/s\/([A-Za-z0-9_-]+)\/?$/;
 
 // الملفات الثابتة المسموح تقديمها فقط (لا SQL ولا ملفات الخادم ولا الملفات المخفية)
 const MIME = {
@@ -141,6 +144,12 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({ ok: true, app: 'jahez', commitSha: BUILD_SHA, deployedAt: DEPLOYED_AT }));
   }
   if (url.pathname.startsWith('/api/')) return handleApi(req, res, url);
+  const qr = url.pathname.match(QR_ROUTE);
+  if (qr) {
+    url.searchParams.set('token', qr[1]);
+    url.pathname = '/api/qr-package';
+    return handleApi(req, res, url);
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.statusCode = 405;
     res.setHeader('Allow', 'GET, HEAD');

@@ -14786,6 +14786,44 @@ function bolSheet(r){
 // ===== قالب الفاتورة الاحترافي (مبني بالكامل، مش صورة) =====
 function esc(t){ return escapeHtml(t==null?'':String(t)); }
 
+// ===== رابط QR القصير: حزمة العملية الكاملة من الخادم =====
+// الرمز السري يُحفظ في الشحنة (qrToken) ويُطبع داخل QR كرابط قصير
+// /s/<token>. عند كل «تجميع الحزمة الكاملة PDF» يُرفع الملف المدموج إلى
+// التخزين ويُسجَّل مساره (qrPackagePath) فيفتحه الخادم لمن يمسح الرمز.
+function newQrToken(){
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function qrPackageUrl(r){
+  return r?.qrToken ? `${location.origin}/s/${r.qrToken}` : '';
+}
+async function persistQrFields(r){
+  const row = recordToRow(r);
+  const {error} = await sb.from('shipments').update({data: row.data}).eq('id', r.id);
+  if(error) throw error;
+  const i = records.findIndex(x=>x.id===r.id);
+  if(i>=0 && records[i]!==r){ records[i].qrToken = r.qrToken; records[i].qrPackagePath = r.qrPackagePath; records[i].qrPublishedAt = r.qrPublishedAt; }
+}
+async function ensureQrToken(r){
+  if(!r?.id || !isUuid(r.id) || r.qrToken) return;
+  r.qrToken = newQrToken();
+  await persistQrFields(r);
+}
+async function publishQrPackage(r, blob){
+  if(!r?.id || !isUuid(r.id)) return;
+  await ensureQrToken(r);
+  const path = `qr-package/${r.id}/${Date.now()}.pdf`;
+  const {error: upErr} = await sb.storage.from('shipment-files').upload(path, blob, {contentType:'application/pdf', cacheControl:'0', upsert:false});
+  if(upErr) throw new Error('تعذّر نشر حزمة QR: ' + upErr.message);
+  const previous = r.qrPackagePath;
+  r.qrPackagePath = path;
+  r.qrPublishedAt = new Date().toISOString();
+  await persistQrFields(r);
+  if(previous && previous !== path){ try{ await sb.storage.from('shipment-files').remove([previous]); }catch(e){} }
+  toast('تم تحديث حزمة رمز QR لهذه العملية ✓', 'ok');
+}
+
 // The QR only contains a link to the protected shipment screen. The invoice
 // itself never exposes customer or collection data inside the encoded value.
 function shipmentOperationQr(r, className, position){
@@ -14796,7 +14834,8 @@ function shipmentOperationQr(r, className, position){
       r.portLoading,r.portDischarge,r.paymentTerm,r.bankName,r.bankDetails,r.notes];
     const raw = JSON.stringify(payload);
     const encoded = typeof LZString !== 'undefined' ? `z${LZString.compressToEncodedURIComponent(raw)}` : `b${btoa(unescape(encodeURIComponent(raw)))}`;
-    const target = `${location.origin}/public-shipment.html#d=${encoded}`;
+    // الرابط القصير لحزمة العملية إن وُجد رمزها، وإلا الرابط القديم ببيانات مضغوطة.
+    const target = qrPackageUrl(r) || `${location.origin}/public-shipment.html#d=${encoded}`;
     const code = qrcode(0, 'M');
     code.addData(target);
     code.make();
@@ -16873,9 +16912,14 @@ async function mergeFullPackage(r, lang, triggerBtn){
   let tempPath = null;
   let step = 'تحضير المستندات';
   try{
+    // رمز QR داخل الفاتورة يجب أن يكون معروفاً قبل بناء صفحاتها.
+    step = 'تجهيز رمز QR للعملية';
+    await ensureQrToken(r);
     if(isBaharSwakenCompany(companyDataFor(r))){
       step = 'تجهيز صفحات BSGT داخل المتصفح';
       const blob = await mergeBsgtPackageLocally(r, lang);
+      step = 'نشر الحزمة لرمز QR';
+      await publishQrPackage(r, blob);
       const url = URL.createObjectURL(blob);
       openPdfPreview(url, 'الحزمة الكاملة المدموجة');
       toast('تم تجهيز حزمة BSGT ودمجها بنجاح في ملف PDF واحد.', 'ok');
@@ -16935,6 +16979,8 @@ async function mergeFullPackage(r, lang, triggerBtn){
 
     step = 'تحميل الملف النهائي المدموج';
     const blob = await ilovepdfDownload(token, server, finalTask);
+    step = 'نشر الحزمة لرمز QR';
+    await publishQrPackage(r, blob);
     const url = URL.createObjectURL(blob);
     openPdfPreview(url, 'الحزمة الكاملة مدموجة');
     toast('تم تجهيز الحزمة بنجاح. يمكنك معاينتها أو تنزيلها من النافذة.', 'ok');
