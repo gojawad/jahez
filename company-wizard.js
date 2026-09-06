@@ -673,9 +673,16 @@
 
   const legacyInvoiceSheet = window.invoiceSheet;
   const isBaharSwaken = value => /بحر\s*سواكن|bahar\s*swaken/i.test(`${value?.nameAr || ''} ${value?.nameEn || ''}`);
-  const setting = () => {
-    try { return JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
-    catch (_) { return {}; }
+  const setting = sourceCompany => {
+    const shared = sourceCompany?.settings?.invoiceBranding || sourceCompany?.settings?.collectionBranding || {};
+    try {
+      const local = JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}');
+      const merged = Object.assign({}, shared);
+      Object.entries(local || {}).forEach(([key, value]) => {
+        if(value !== '' && value !== null && value !== undefined) merged[key] = value;
+      });
+      return merged;
+    } catch (_) { return shared; }
   };
   const safe = value => typeof esc === 'function' ? esc(value ?? '') : String(value ?? '');
   // Generate the QR before the sheet is printed, so it remains visible in both
@@ -762,7 +769,7 @@
   };
   const baharSheet = (record, kind, sourceCompany = companyForShipment(record)) => {
     const currentCompany = sourceCompany;
-    const settings = setting();
+    const settings = setting(currentCompany);
     const proforma = kind === 'proforma';
     const isPack = kind === 'packing';
     const rows = Array.from({ length: 15 }, (_, index) => {

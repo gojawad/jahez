@@ -10605,6 +10605,16 @@ function companyDataFor(r){
   s.tagline = c.tagline || s.tagline;
   return s;
 }
+// Keep shared artwork when a browser has an older draft with empty image fields.
+function mergeBsgtBranding(...sources){
+  const merged = {};
+  sources.forEach(source => {
+    Object.entries(source || {}).forEach(([key, value]) => {
+      if(value !== '' && value !== null && value !== undefined) merged[key] = value;
+    });
+  });
+  return merged;
+}
 // The first visit from the legacy domain moves its browser-only BSGT artwork
 // into the company record, making it available on every domain and device.
 async function migrateLocalBsgtBranding(){
@@ -10616,7 +10626,7 @@ async function migrateLocalBsgtBranding(){
   catch (_) { return; }
   if(!local || !Object.keys(local).length) return;
   const current = target.settings || {};
-  const merged = Object.assign({}, current.collectionBranding || {}, current.invoiceBranding || {}, local);
+  const merged = mergeBsgtBranding(current.collectionBranding, current.invoiceBranding, local);
   if(JSON.stringify(current.collectionBranding || {}) === JSON.stringify(merged) && JSON.stringify(current.invoiceBranding || {}) === JSON.stringify(merged)) return;
   const settings = Object.assign({}, current, {collectionBranding:merged, invoiceBranding:merged});
   try {
@@ -14890,7 +14900,7 @@ function isBaharSwakenCompany(c){
 function baharInvoiceRuntimeSettings(r){
   const companySettings = companyDataFor(r) || company || {};
   const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
-  try { return Object.assign({}, shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
+  try { return mergeBsgtBranding(shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
   catch(e) { return shared; }
 }
 // بحر سواكن لها جدول مستقل. لا نمررها عبر قالب الفاتورة القديم حتى لا تتحول
@@ -16678,7 +16688,7 @@ async function waitForDocumentImages(root){
 function bsgtPdfSettings(record){
   const companySettings = companyDataFor(record) || company || {};
   const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
-  try { return Object.assign({}, shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
+  try { return mergeBsgtBranding(shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
   catch (_) { return shared; }
 }
 function bsgtPdfColor(hex, fallback){
