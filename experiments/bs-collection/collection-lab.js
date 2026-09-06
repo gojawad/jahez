@@ -133,7 +133,7 @@ async function loadSharedCollectionBranding(company){
     const merged=Object.assign({},remote,local);
     sharedCollectionBranding=merged;
     if(JSON.stringify(remote)!==JSON.stringify(merged)){
-      const settings=Object.assign({},company.settings||{}, {collectionBranding:merged});
+      const settings=Object.assign({},company.settings||{}, {collectionBranding:merged,invoiceBranding:merged});
       const {error}=await sb.from('companies').update({settings}).eq('id',company.id);
       if(error) console.warn('collection branding sync',error);
     }

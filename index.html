@@ -14865,15 +14865,17 @@ const INV_I18N = {
 function isBaharSwakenCompany(c){
   return /بحر\s*سواكن|bahar\s*swaken/i.test(`${c?.nameAr||''} ${c?.nameEn||''}`);
 }
-function baharInvoiceRuntimeSettings(){
-  try { return JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
-  catch(e) { return {}; }
+function baharInvoiceRuntimeSettings(r){
+  const companySettings = companyDataFor(r) || company || {};
+  const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
+  try { return Object.assign({}, shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
+  catch(e) { return shared; }
 }
 // بحر سواكن لها جدول مستقل. لا نمررها عبر قالب الفاتورة القديم حتى لا تتحول
 // صور الترويسة والتذييل إلى عناصر داخل الصفحة وتدفع البيانات إلى صفحة ثانية.
 function baharSwakenInvoiceSheet(r, kind, lang){
   const c = company;
-  const settings = baharInvoiceRuntimeSettings();
+  const settings = baharInvoiceRuntimeSettings(r);
   const isProforma = kind === 'proforma';
   const title = isProforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE';
   const number = isProforma ? r.proformaNo : r.invoiceNo;
@@ -16651,9 +16653,11 @@ async function waitForDocumentImages(root){
 // BSGT pages are drawn as real PDF text instead of a canvas screenshot. Canvas
 // rendering was joining spaces in some browsers, while PDF text keeps each
 // value searchable, printable, and correctly spaced.
-function bsgtPdfSettings(){
-  try { return JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
-  catch (_) { return {}; }
+function bsgtPdfSettings(record){
+  const companySettings = companyDataFor(record) || company || {};
+  const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
+  try { return Object.assign({}, shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
+  catch (_) { return shared; }
 }
 function bsgtPdfColor(hex, fallback){
   const value = String(hex || fallback || '#86191f').replace('#', '').trim();
@@ -16740,7 +16744,7 @@ async function drawBsgtPdfPage(doc, record, kind, embeddedFonts){
   const {rgb, StandardFonts} = PDFLib;
   const page = doc.addPage([595.28, 841.89]);
   const {width:PW, height:PH} = page.getSize();
-  const settings = bsgtPdfSettings();
+  const settings = bsgtPdfSettings(record);
   const companyData = companyDataFor(record) || company || {};
   const transparentCells = !!settings.transparentTableCells;
   const accent = bsgtPdfColor(settings.tableHeader || settings.accent || companyData.accent || '#86191f');

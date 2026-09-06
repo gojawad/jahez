@@ -198,7 +198,9 @@
 
   function getInvoicePreviewSettings() {
     try {
-      const settings = Object.assign({}, invoicePreviewDefaults(), JSON.parse(localStorage.getItem(invoicePreviewSettingsKey) || '{}'));
+      const active = typeof activeCompany === 'function' ? activeCompany() : null;
+      const shared = active?.settings?.invoiceBranding || active?.settings?.collectionBranding || {};
+      const settings = Object.assign({}, invoicePreviewDefaults(), shared, JSON.parse(localStorage.getItem(invoicePreviewSettingsKey) || '{}'));
       // Bahar Swaken uses a letterhead watermark, so opaque cells would hide it.
       settings.transparentTableCells = true;
       return settings;
@@ -423,14 +425,20 @@
       scheduleLivePreview();
     };
     window.addEventListener('message', overlay._baharLiveMessageHandler);
-    const store = () => {
+    const store = async () => {
       const next = collect(); localStorage.setItem(invoicePreviewSettingsKey, JSON.stringify(next)); localStorage.removeItem(invoicePreviewDraftKey);
       const stampToggle = document.getElementById('ce_showStamp'), signatureToggle = document.getElementById('ce_showSigLine');
       if (stampToggle) { stampToggle.checked = next.showStamp; stampToggle.dispatchEvent(new Event('change', { bubbles:true })); }
       if (signatureToggle) { signatureToggle.checked = next.showSigLine; signatureToggle.dispatchEvent(new Event('change', { bubbles:true })); }
+      const active = typeof activeCompany === 'function' ? activeCompany() : null;
+      if (active?.id && typeof saveCompanyById === 'function') {
+        const settings = Object.assign({}, active.settings || {}, {invoiceBranding:next, collectionBranding:next});
+        try { await saveCompanyById(active.id, settings); }
+        catch (error) { console.warn('Could not save shared BSGT invoice branding', error); }
+      }
     };
-    one('.bs-save').addEventListener('click', () => { store(); if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken'); });
-    one('.bs-preview').addEventListener('click', () => { store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
+    one('.bs-save').addEventListener('click', async () => { await store(); if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken'); });
+    one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
   }
 
   function syncBaharInvoiceSettings() {
