@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>بوابة إرسال مستندات البنك المُرسل - بحر سواكن</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="collection-lab.css?v=20260905-6">
+  <link rel="stylesheet" href="collection-lists.css?v=20260905-6">
+</head>
+<body>
+  <header class="lab-header">
+    <div class="lab-brand">
+      <a class="lab-site-logo" href="/" aria-label="الصفحة الرئيسية" title="الرئيسية"><img id="portalBrandImage" alt="شعار المنصة" hidden><i id="portalBrandIcon" class="bx bx-ship"></i></a>
+      <div><span class="lab-kicker">BSGT / EXPERIMENTAL</span><h1>بوابة إرسال مستندات البنك المُرسل - بحر سواكن</h1><p>مرحلة تجهيز وإرسال المستندات، ثم متابعتها من بوابة التحصيل.</p></div>
+    </div>
+    <div class="lab-header-side">
+      <div class="lab-quick-nav" aria-label="تنقل البوابة"><button id="portalBackBtn" type="button" title="الرجوع للصفحة السابقة"><i class="bx bx-right-arrow-alt"></i><span>رجوع</span></button><a href="/" title="الصفحة الرئيسية"><i class="bx bx-home-alt-2"></i><span>الرئيسية</span></a><button id="portalLogoutBtn" type="button" title="تسجيل الخروج"><i class="bx bx-log-out"></i><span>تسجيل الخروج</span></button></div>
+      <div id="portalUserProfile" class="lab-user-profile" title="الحساب المستخدم حالياً"><span id="portalUserAvatar" class="lab-user-avatar"><i class="bx bx-user"></i></span><span class="lab-user-copy"><strong id="portalUserName">جاري تحميل الحساب...</strong><small id="portalUserRole">الحساب الحالي</small></span></div>
+      <div class="lab-actions"><button id="resetBtn" class="btn btn-secondary"><i class="bx bx-reset"></i> إعادة تعيين التجربة</button><button id="recordCollectionBtn" class="btn btn-secondary"><i class="bx bx-send"></i> إرسال للبنك المُرسل</button><button id="printBtn" class="btn btn-primary"><i class="bx bx-printer"></i> طباعة المستند الحالي</button></div>
+    </div>
+  </header>
+
+  <main class="lab-shell">
+    <nav id="portalStepGrid" class="portal-step-grid" aria-label="مراحل بوابة الإرسال">
+      <button class="portal-step-card" type="button" data-step-section="picker-section"><span class="step-number">01</span><i class="bx bx-package"></i><strong>اختيار الشحنات</strong><small data-step-description="picker-section">جاري تحميل شحنات بحر سواكن...</small></button>
+      <button class="portal-step-card" type="button" data-step-section="draft-section"><span class="step-number">02</span><i class="bx bx-file"></i><strong>مسودة الإرسال للبنك المُرسل</strong><small data-step-description="draft-section">اختر شحنة واحدة أو أكثر لبدء المعاينة.</small></button>
+      <button class="portal-step-card" type="button" data-step-section="settings-section"><span class="step-number">03</span><i class="bx bx-edit-alt"></i><strong>بيانات الإرسال للبنك المُرسل</strong><small data-step-description="settings-section">مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</small></button>
+      <button class="portal-step-card" type="button" data-step-section="preview-section"><span class="step-number">04</span><i class="bx bx-show"></i><strong>معاينة مستندات الإرسال</strong><small data-step-description="preview-section">تتحدث فوراً من مسودة الإرسال المحلية.</small></button>
+      <button class="portal-step-card" type="button" data-step-section="collection-portal-section"><span class="step-number">05</span><i class="bx bx-building-house"></i><strong>بوابة التحصيل</strong><small data-step-description="collection-portal-section">المستندات المرسلة للبنك المُرسل والتي تنتظر التحصيل.</small></button>
+    </nav>
+    <section class="lab-section picker-section">
+      <div class="section-heading"><div class="collapsible-heading-title"><span>01</span><h2>اختيار الشحنات</h2><button class="section-collapse-btn" type="button" data-collapse-section="picker-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p id="shipmentCount">جاري تحميل شحنات بحر سواكن...</p></div>
+      <div class="filters"><label><i class="bx bx-search"></i><input id="searchInput" type="search" placeholder="ابحث برقم الشحنة أو الصنف أو الفاتورة أو البوليصة أو المستورد"></label><select id="currencyFilter"><option value="">كل العملات</option></select><select id="consigneeFilter"><option value="">كل المستوردين</option></select></div>
+      <div id="shipmentList" class="shipment-list"><div class="empty-state">جاري جلب البيانات للقراءة فقط...</div></div>
+    </section>
+
+    <section class="lab-section draft-section">
+      <div class="section-heading"><div class="collapsible-heading-title"><span>02</span><h2>مسودة الإرسال للبنك المُرسل</h2><button class="section-collapse-btn" type="button" data-collapse-section="draft-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p id="selectionHint">اختر شحنة واحدة أو أكثر لبدء المعاينة.</p></div>
+      <div class="compact-collection-summary" aria-label="ملخص الإرسال">
+        <button id="compactRecordCollectionBtn" class="summary-card summary-action" type="button"><i class="bx bx-send"></i><span><small>الإرسال</small><strong>إرسال (<b id="compactCollectionCount">0</b>)</strong></span></button>
+        <label class="summary-card summary-rate"><i class="bx bx-line-chart"></i><span><small>سعر الصرف</small><input id="collectionExchangeRate" type="number" min="0" step="0.0001" value="3.6725" disabled></span><em>AED</em></label>
+        <button id="convertToAedBtn" class="summary-card summary-currency" type="button"><i class="bx bx-coin-stack"></i><span><small>العملة</small><strong id="compactCollectionCurrency">AED</strong></span></button>
+        <div class="summary-card"><i class="bx bx-package"></i><span><small>عدد الشحنات</small><strong id="compactShipmentCount">0</strong></span></div>
+        <div class="summary-card summary-total"><i class="bx bx-wallet"></i><span><small>إجمالي المستحق</small><strong id="compactCollectionTotal">-</strong></span></div>
+        <small id="collectionConversionPreview" class="compact-conversion-preview">اختر شحنة لعرض التحويل.</small>
+      </div>
+      <div id="warnings"></div>
+      <div id="selectedTableWrap" class="table-wrap"><div class="empty-state">لا توجد شحنات مختارة بعد.</div></div>
+      <div id="totalsBar" class="totals-bar" hidden></div>
+      <button id="groupByConsignee" class="text-btn" type="button" hidden><i class="bx bx-group"></i> عرض التقسيم المقترح حسب المستورد</button>
+      <div id="consigneeGroups" class="consignee-groups" hidden></div>
+    </section>
+
+    <section class="lab-section settings-section">
+      <div class="section-heading"><div class="collapsible-heading-title"><span>03</span><h2>بيانات الإرسال للبنك المُرسل</h2><button class="section-collapse-btn" type="button" data-collapse-section="settings-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p>مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</p></div>
+      <form id="settingsForm" class="settings-grid" autocomplete="off">
+        <label>تاريخ الإرسال<input name="collectionDate" type="date"></label>
+        <label>البنك المُرسِل<select name="remittingBank"></select></label>
+        <label>عنوان بنك الإرسال للخطاب<select name="remittingBankLetterAddress"></select></label>
+        <label>عنوان بنك الإرسال للتعهد<select name="remittingBankAddress"></select></label>
+        <label>رقم حساب بنك الإرسال<select name="remittingBankAccountNo"></select></label>
+        <label class="span2">بنك التحصيل وعنوانه<select name="collectingBankProfile"></select></label>
+        <label class="span2">نوع بوليصة الشحن (Bill of Lading Type)<select name="billOfLadingType"></select></label>
+        <label class="span2">تعليمات Bill By<select name="billBy"></select></label>
+        <label class="span2">شرط الدفع (Term Of Payment)<select name="term"></select></label>
+        <label>المُصدّر / Drawer<select name="drawer"></select></label>
+        <label>الشخص المفوض<select name="authorizedPerson"></select></label>
+        <label>المنصب<select name="title"></select></label>
+        <label>عنوان المستورد<select name="draweeAddress"></select></label>
+        <section class="collection-lists span-all" aria-labelledby="collectionListsTitle">
+          <div><strong id="collectionListsTitle">قوائم بيانات الإرسال</strong><small>أضف بيانات الجهات مرة واحدة ثم اخترها من القوائم أعلاه.</small></div>
+          <div class="collection-list-controls"><select id="collectionListField"></select><input id="collectionListValue" type="text" placeholder="اكتب القيمة الجديدة"><input id="collectionListAddress" type="text" placeholder="عنوان البنك" hidden><button id="addCollectionListValue" type="button" class="mini-btn">إضافة للقائمة</button></div>
+          <div id="collectionListValues" class="collection-list-values"></div>
+        </section>
+      </form>
+    </section>
+
+    <section class="lab-section preview-section">
+      <div class="section-heading"><div class="collapsible-heading-title preview-heading-title"><span>04</span><h2>معاينة مستندات الإرسال</h2><button id="togglePreviewSectionBtn" class="section-collapse-btn preview-collapse-btn" type="button" data-collapse-section="preview-section" aria-expanded="true" title="طي المعاينة"><i class="bx bx-chevron-up"></i><span>طي المعاينة</span></button></div><p>تتحدث فوراً من مسودة الإرسال المحلية.</p></div>
+      <div class="preview-tools"><div class="preview-tabs" id="previewTabs"><button class="active" data-preview="letter">Collection Letter</button><button data-preview="undertaking">Undertaking Letter</button><button data-preview="exchange">Bill of Exchange</button></div><div class="preview-actions"><details class="text-position-controls"><summary><i class="bx bx-move"></i> ضبط موضع النص</summary><div><label>يمين / يسار <input id="textOffsetX" type="range" min="-25" max="25" value="0" step="1"><output id="textOffsetXValue">0 mm</output></label><label>أعلى / أسفل <input id="textOffsetY" type="range" min="-25" max="25" value="0" step="1"><output id="textOffsetYValue">0 mm</output></label><button id="toggleTextBlockModeBtn" class="text-btn" type="button"><i class="bx bx-target-lock"></i> تحريك النص أو الفقرة</button><button id="resetSelectedTextBlockBtn" class="text-btn" type="button" hidden><i class="bx bx-reset"></i> استرجاع الفقرة المحددة</button><div class="text-format-actions"><span>تنسيق المحدد</span><button id="textStyleNormalBtn" type="button" title="نص عادي">A</button><button id="textStyleBoldBtn" type="button" title="نص عريض"><b>B</b></button><button id="textStyleSmallerBtn" type="button" title="تصغير النص">A−</button><button id="textStyleLargerBtn" type="button" title="تكبير النص">A+</button></div><small>فعّل الخيار، اسحب النص نفسه لتحريكه وحده أو اسحب مساحة الفقرة لتحريكها. الأسهم تعمل للمحدد، ومع Shift للحركة الأكبر.</small><button id="resetTextOffsetBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع النص</button></div></details><span class="stamp-hint">اسحب الختم داخل المعاينة لتحريكه</span><button id="resetStampBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع الختم</button><button id="printAllBtn" class="btn btn-primary" type="button"><i class="bx bx-printer"></i> طباعة الحزمة كاملة (3 مستندات)</button></div></div>
+      <div id="documentPreview" class="document-preview"><div class="empty-state">اختر شحنات لعرض المستند التجريبي.</div></div>
+    </section>
+
+    <section class="lab-section collection-portal-section">
+      <div class="section-heading"><div class="collapsible-heading-title"><span>05</span><h2>بوابة التحصيل</h2><button class="section-collapse-btn" type="button" data-collapse-section="collection-portal-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p>المستندات المرسلة للبنك المُرسل والتي تنتظر التحصيل.</p></div>
+      <div id="collectionNotice" class="collection-notice" hidden></div>
+      <div id="pendingCollectionList" class="pending-collection-list"><div class="empty-state">لا توجد مستندات بانتظار التحصيل.</div></div>
+    </section>
+
+    <details class="debug-panel"><summary><i class="bx bx-code-alt"></i> بيانات التجربة</summary><pre id="debugOutput"></pre></details>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="collection-lab.js?v=20260905-7"></script>
+</body>
+</html>

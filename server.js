@@ -108,6 +108,9 @@ async function handleApi(req, res, url) {
 function serveStatic(req, res, url) {
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/index.html';
+  // Support static portal folders such as /experiments/bs-collection/.
+  // They are published as normal directory indexes, just like on Vercel.
+  else if (pathname.endsWith('/')) pathname += 'index.html';
   // امنع أي مسار يخرج من الجذر أو يشير لملف مخفي أو لمجلدات الخادم
   const segments = pathname.split('/').filter(Boolean);
   if (segments.some(s => s === '..' || s.startsWith('.')) ||

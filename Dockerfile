@@ -15,6 +15,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server.js ./
 COPY api ./api
+COPY experiments ./experiments
 COPY index.html public-shipment.html ./
 COPY *.js *.css *.png *.pdf ./
 
