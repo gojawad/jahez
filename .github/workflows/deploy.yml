@@ -30,6 +30,7 @@ jobs:
       # الـrunner يعمل داخل حاوية مستقلة؛ هذا الاسم يحل إلى مضيف UGREEN نفسه.
       JAHEZ_HEALTH_URL: "http://host.docker.internal:7790/healthz"
       TARGET_REF: ${{ inputs.ref || github.sha }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Fetch the requested ref into the stable deploy directory
         run: |
@@ -52,6 +53,13 @@ jobs:
           echo "TARGET_SHA=$TARGET" >> "$GITHUB_ENV"
           echo "Deploying $TARGET_REF -> $TARGET"
 
+      - name: Write private server configuration
+        run: |
+          set -Eeuo pipefail
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          umask 077
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SUPABASE_SERVICE_ROLE_KEY" > "$JAHEZ_DIR/.env"
+
       - name: Record the currently live version (for rollback)
         run: |
           set -Eeuo pipefail
@@ -61,9 +69,6 @@ jobs:
           echo "previously live: ${PREVIOUS:-none}"
           if [ "${PREVIOUS:-}" = "$TARGET_SHA" ]; then
             echo "already live at $TARGET_SHA"
-          fi
-          if [ ! -f "$JAHEZ_DIR/.env" ]; then
-            echo "::warning::$JAHEZ_DIR/.env is missing — the site runs, but the QR package link needs SUPABASE_SERVICE_ROLE_KEY (see .env.example)"
           fi
 
       - name: Build the image
