@@ -14829,17 +14829,13 @@ async function publishQrPackage(r, blob){
 function shipmentOperationQr(r, className, position){
   if(!r?.id || typeof qrcode !== 'function') return '';
   try{
-    const payload = [r.operationNo,r.status,r.invoiceNo,r.invoiceDate,r.proformaNo,r.billNo||r.billOfLadingNo,
-      r.consignee,r.consigneeAddress,r.itemDesc,r.totalQty||r.qty,r.qtyUnit,r.totalAmount,r.currency,
-      r.portLoading,r.portDischarge,r.paymentTerm,r.bankName,r.bankDetails,r.notes];
-    const raw = JSON.stringify(payload);
-    const encoded = typeof LZString !== 'undefined' ? `z${LZString.compressToEncodedURIComponent(raw)}` : `b${btoa(unescape(encodeURIComponent(raw)))}`;
-    // الرابط القصير لحزمة العملية إن وُجد رمزها، وإلا الرابط القديم ببيانات مضغوطة.
-    const target = qrPackageUrl(r) || `${location.origin}/public-shipment.html#d=${encoded}`;
-    const code = qrcode(0, 'M');
+    const target = qrPackageUrl(r);
+    // A QR without a saved package must not expose an obsolete data page.
+    if(!target) return '';
+    const code = qrcode(0, 'H');
     code.addData(target);
     code.make();
-    const width = position ? Math.max(Number(position.widthPercent)||0, 11) : 11;
+    const width = position ? (Number(position.widthPercent)||12) : 12;
     const style = position ? ` style="left:${Number(position.xPercent)||0}%;top:${Number(position.yPercent)||0}%;width:${width}%;transform:rotate(${Number(position.rotate)||0}deg)"` : '';
     return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'ملف العملية')}"><span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span></a>`;
   }catch(error){
