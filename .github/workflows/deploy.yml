@@ -27,6 +27,8 @@ jobs:
       JAHEZ_REPO: ${{ github.server_url }}/${{ github.repository }}.git
       JAHEZ_DIR: /home/gojawad/projects/jahez
       JAHEZ_PORT: "7790"
+      # الـrunner يعمل داخل حاوية مستقلة؛ هذا الاسم يحل إلى مضيف UGREEN نفسه.
+      JAHEZ_HEALTH_URL: "http://host.docker.internal:7790/healthz"
       TARGET_REF: ${{ inputs.ref || github.sha }}
     steps:
       - name: Fetch the requested ref into the stable deploy directory
@@ -53,7 +55,7 @@ jobs:
       - name: Record the currently live version (for rollback)
         run: |
           set -Eeuo pipefail
-          PREVIOUS="$(curl --max-time 5 -fsS "http://127.0.0.1:$JAHEZ_PORT/healthz" \
+          PREVIOUS="$(curl --max-time 5 -fsS "$JAHEZ_HEALTH_URL" \
             | sed -n 's/.*"commitSha":"\([^"]*\)".*/\1/p' || true)"
           echo "PREVIOUS_SHA=${PREVIOUS:-}" >> "$GITHUB_ENV"
           echo "previously live: ${PREVIOUS:-none}"
@@ -80,7 +82,7 @@ jobs:
           export DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker compose up -d --no-build
           for i in $(seq 1 30); do
-            if curl --max-time 3 -fsS "http://127.0.0.1:$JAHEZ_PORT/healthz" | grep -q "$TARGET_SHA"; then
+            if curl --max-time 3 -fsS "$JAHEZ_HEALTH_URL" | grep -q "$TARGET_SHA"; then
               echo "jahez $TARGET_SHA is live on port $JAHEZ_PORT"
               docker image prune -f --filter "label=none" >/dev/null 2>&1 || true
               exit 0
