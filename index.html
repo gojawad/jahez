@@ -10585,6 +10585,7 @@ async function loadCompanies(force){
       activeCompanyId = def ? def.id : null;
     }
     applyActiveCompany();
+    void migrateLocalBsgtBranding();
     if(document.getElementById('apaneCompanies')?.classList.contains('active')) renderCompaniesAdmin();
     return companies;
   })();
@@ -10603,6 +10604,27 @@ function companyDataFor(r){
   s.nameEn = c.name_en || s.nameEn;
   s.tagline = c.tagline || s.tagline;
   return s;
+}
+// The first visit from the legacy domain moves its browser-only BSGT artwork
+// into the company record, making it available on every domain and device.
+async function migrateLocalBsgtBranding(){
+  if(!isAdmin()) return;
+  const target = activeCompany();
+  if(!target || !isBaharSwakenCompany(companyDataFor())) return;
+  let local;
+  try { local = JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
+  catch (_) { return; }
+  if(!local || !Object.keys(local).length) return;
+  const current = target.settings || {};
+  const merged = Object.assign({}, current.collectionBranding || {}, current.invoiceBranding || {}, local);
+  if(JSON.stringify(current.collectionBranding || {}) === JSON.stringify(merged) && JSON.stringify(current.invoiceBranding || {}) === JSON.stringify(merged)) return;
+  const settings = Object.assign({}, current, {collectionBranding:merged, invoiceBranding:merged});
+  try {
+    const {error} = await sb.from('companies').update({settings}).eq('id', target.id);
+    if(error) throw error;
+    target.settings = settings;
+    if(target.id === activeCompanyId) applyActiveCompany();
+  } catch (error) { console.warn('Could not migrate local BSGT branding', error); }
 }
 // تبديل إعدادات الشركة أثناء الطباعة
 function withCompany(r, fn){
