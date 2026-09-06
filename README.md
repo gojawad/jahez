@@ -27,14 +27,29 @@
 
 ### الطريقة الأولى — من GitHub Actions (المفضّلة)
 
-في مستودع `bahar-swaken-platform` يوجد Workflow اسمه **Deploy JAHEZ** يعمل على
-نفس الـ runner الذاتي المثبت على السيرفر:
+الملف `.github/workflows/deploy.yml` ينشر تلقائياً **عند كل دفع إلى main**، ويمكن
+تشغيله يدوياً من Actions ← **Deploy JAHEZ** ← Run workflow (مع اختيار ref).
 
-1. GitHub ← `bahar-swaken-platform` ← Actions ← **Deploy JAHEZ** ← Run workflow.
-2. اترك `ref` على `main` واضغط Run.
+يعمل على runner ذاتي مثبت على السيرفر ومسجَّل على هذا المستودع بالوسم `jahez`.
+تسجيله مرة واحدة (بحساب gojawad على bahar-ugreen):
 
-الـ Workflow يستنسخ هذا المستودع إلى `/home/gojawad/projects/jahez`، يبني الصورة،
+1. GitHub ← هذا المستودع ← Settings ← Actions ← Runners ← **New self-hosted runner**
+   ← Linux / x64. تظهر أوامر التنزيل مع توكن صالح لساعة.
+2. نفّذ الأوامر كما هي، لكن في مجلد مستقل حتى لا يتداخل مع أي runner آخر على
+   السيرفر، مثلاً `~/actions-runner-jahez`.
+3. عند `./config.sh` اكتب في سؤال الوسوم (labels): `jahez`. باقي الأسئلة بالافتراضي.
+4. ثبّته كخدمة تعمل دائماً:
+
+   ```bash
+   sudo ./svc.sh install gojawad
+   sudo ./svc.sh start
+   ```
+
+5. تأكد أن الـ runner ظهر بحالة Idle في صفحة Runners، ثم شغّل Deploy JAHEZ.
+
+الـ Workflow يستنسخ المستودع إلى `/home/gojawad/projects/jahez`، يبني الصورة،
 يشغّل الحاوية، ويتحقق من `/healthz`. إن فشل الفحص يعيد النسخة السابقة تلقائياً.
+ملف `.env` يبقى في ذلك المجلد ولا يمسّه النشر.
 
 ### الطريقة الثانية — يدوياً على السيرفر
 

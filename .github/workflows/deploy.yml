@@ -1,0 +1,97 @@
+name: Deploy JAHEZ
+
+# ينشر هذا المستودع على سيرفر bahar-ugreen عبر runner ذاتي مسجَّل على هذا
+# المستودع بالوسم "jahez". يعمل تلقائياً عند كل دفع إلى main، ويدوياً من Actions.
+# الحاوية مستقلة تماماً على المنفذ 7790 ولا تلمس أي مشروع آخر على السيرفر.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "git ref to deploy (branch, tag, or SHA)"
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-jahez
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy-jahez
+    runs-on: [self-hosted, jahez]
+    timeout-minutes: 30
+    env:
+      JAHEZ_REPO: ${{ github.server_url }}/${{ github.repository }}.git
+      JAHEZ_DIR: /home/gojawad/projects/jahez
+      JAHEZ_PORT: "7790"
+      TARGET_REF: ${{ inputs.ref || github.sha }}
+    steps:
+      - name: Fetch the requested ref into the stable deploy directory
+        run: |
+          set -Eeuo pipefail
+          if [ ! -d "$JAHEZ_DIR/.git" ]; then
+            mkdir -p "$(dirname "$JAHEZ_DIR")"
+            git clone "$JAHEZ_REPO" "$JAHEZ_DIR"
+          fi
+          git -C "$JAHEZ_DIR" fetch --prune origin
+          if git -C "$JAHEZ_DIR" show-ref --verify --quiet "refs/remotes/origin/$TARGET_REF"; then
+            TARGET="$(git -C "$JAHEZ_DIR" rev-parse "refs/remotes/origin/$TARGET_REF^{commit}")"
+          elif git -C "$JAHEZ_DIR" cat-file -e "$TARGET_REF^{commit}" 2>/dev/null; then
+            TARGET="$(git -C "$JAHEZ_DIR" rev-parse "$TARGET_REF^{commit}")"
+          else
+            echo "unknown ref: $TARGET_REF" >&2
+            exit 2
+          fi
+          git -C "$JAHEZ_DIR" checkout --quiet --detach "$TARGET"
+          test -z "$(git -C "$JAHEZ_DIR" status --porcelain --untracked-files=no)"
+          echo "TARGET_SHA=$TARGET" >> "$GITHUB_ENV"
+          echo "Deploying $TARGET_REF -> $TARGET"
+
+      - name: Record the currently live version (for rollback)
+        run: |
+          set -Eeuo pipefail
+          PREVIOUS="$(curl --max-time 5 -fsS "http://127.0.0.1:$JAHEZ_PORT/healthz" \
+            | sed -n 's/.*"commitSha":"\([^"]*\)".*/\1/p' || true)"
+          echo "PREVIOUS_SHA=${PREVIOUS:-}" >> "$GITHUB_ENV"
+          echo "previously live: ${PREVIOUS:-none}"
+          if [ "${PREVIOUS:-}" = "$TARGET_SHA" ]; then
+            echo "already live at $TARGET_SHA"
+          fi
+          if [ ! -f "$JAHEZ_DIR/.env" ]; then
+            echo "::warning::$JAHEZ_DIR/.env is missing — the site runs, but the QR package link needs SUPABASE_SERVICE_ROLE_KEY (see .env.example)"
+          fi
+
+      - name: Build the image
+        run: |
+          set -Eeuo pipefail
+          cd "$JAHEZ_DIR"
+          export BUILD_SHA="$TARGET_SHA"
+          export DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker compose build --pull
+
+      - name: Start the new version and verify it
+        run: |
+          set -Eeuo pipefail
+          cd "$JAHEZ_DIR"
+          export BUILD_SHA="$TARGET_SHA"
+          export DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker compose up -d --no-build
+          for i in $(seq 1 30); do
+            if curl --max-time 3 -fsS "http://127.0.0.1:$JAHEZ_PORT/healthz" | grep -q "$TARGET_SHA"; then
+              echo "jahez $TARGET_SHA is live on port $JAHEZ_PORT"
+              docker image prune -f --filter "label=none" >/dev/null 2>&1 || true
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::jahez did not become healthy at $TARGET_SHA" >&2
+          docker compose logs --tail 100 || true
+          if [ -n "${PREVIOUS_SHA:-}" ] && [ "$PREVIOUS_SHA" != "unknown" ] \
+             && docker image inspect "jahez:$PREVIOUS_SHA" >/dev/null 2>&1; then
+            echo "rolling back to $PREVIOUS_SHA"
+            BUILD_SHA="$PREVIOUS_SHA" docker compose up -d --no-build
+          fi
+          exit 1
