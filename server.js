@@ -128,8 +128,9 @@ function serveStatic(req, res, url) {
     if (err || !stat.isFile()) { res.statusCode = 404; return res.end('Not found'); }
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', stat.size);
-    // الواجهة ملف واحد يتغير مع كل نشر — لا تخزينه مؤقتاً. الأصول الأخرى تُخزن لفترة قصيرة.
-    res.setHeader('Cache-Control', ext === '.html' ? 'no-cache, must-revalidate' : 'public, max-age=3600');
+    // HTML and application scripts change with each deployment. Never let a CDN
+    // serve an older invoice renderer after the rest of the app has updated.
+    res.setHeader('Cache-Control', ['.html', '.js'].includes(ext) ? 'no-cache, must-revalidate' : 'public, max-age=3600');
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(filePath).pipe(res);
   });
