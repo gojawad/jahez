@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>بيانات الشحنة</title>
+  <style>
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;background:#eef3f8;color:#102a43;font-family:Tahoma,'IBM Plex Sans Arabic',sans-serif}.sheet{max-width:850px;margin:32px auto;background:#fff;border:1px solid #dce6f1;border-radius:16px;padding:34px;box-shadow:0 14px 40px #17355d14}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:3px solid #9b1c24;padding-bottom:18px}.brand{color:#9b1c24;font-size:13px;font-weight:800;letter-spacing:.8px}.head h1{margin:6px 0 0;font-size:26px}.operation{display:inline-block;background:#edf5ff;color:#1769e8;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:800;direction:ltr}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0}.field{border:1px solid #dbe5ef;border-radius:10px;padding:12px;background:#fbfdff;min-width:0}.field b{display:block;font-size:11px;color:#64748b;margin-bottom:5px}.field span{display:block;font-size:14px;font-weight:700;word-break:break-word;direction:auto}.section{margin-top:23px}.section h2{font-size:16px;margin:0 0 9px;color:#9b1c24}.note{white-space:pre-line;line-height:1.8;border:1px solid #dbe5ef;border-radius:10px;padding:13px;background:#fbfdff}.print{border:0;border-radius:9px;padding:10px 14px;background:#1769e8;color:#fff;font:inherit;font-weight:800;cursor:pointer}@media(max-width:600px){.sheet{margin:0;border:0;border-radius:0;padding:20px}.grid{grid-template-columns:1fr}.head{display:block}.print{margin-top:14px}}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0;border:0;box-shadow:none}.print{display:none}.head{border-bottom-color:#000}.section h2,.brand{color:#000}}
+  </style>
+</head>
+<body>
+  <main class="sheet" id="app"></main>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <script>
+    const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    const field = (label, value) => value ? `<div class="field"><b>${esc(label)}</b><span>${esc(value)}</span></div>` : '';
+    let data = null;
+    try {
+      const encoded = new URLSearchParams(location.hash.slice(1)).get('d') || '';
+      const raw = encoded.startsWith('z') && typeof LZString !== 'undefined'
+        ? LZString.decompressFromEncodedURIComponent(encoded.slice(1))
+        : decodeURIComponent(escape(atob(encoded.startsWith('b') ? encoded.slice(1) : encoded)));
+      data = JSON.parse(raw);
+      if (Array.isArray(data)) {
+        const [operationNo,status,invoiceNo,invoiceDate,proformaNo,billNo,consignee,consigneeAddress,itemDesc,totalQty,qtyUnit,totalAmount,currency,portLoading,portDischarge,paymentTerm,bankName,bankDetails,notes] = data;
+        data = {operationNo,status,invoiceNo,invoiceDate,proformaNo,billNo,consignee,consigneeAddress,itemDesc,totalQty,qtyUnit,totalAmount,currency,portLoading,portDischarge,paymentTerm,bankName,bankDetails,notes};
+      }
+    } catch (_) {}
+    if (!data) {
+      document.getElementById('app').innerHTML = '<h1>تعذر قراءة بيانات الشحنة</h1><p>امسح رمز QR من الفاتورة مرة أخرى.</p>';
+    } else {
+      const title = data.itemDesc || data.operationNo || data.invoiceNo || 'بيانات الشحنة';
+      document.title = title + ' | بيانات الشحنة';
+      const details = [
+        ['رقم العملية',data.operationNo],['حالة الشحنة',data.status],['رقم الفاتورة',data.invoiceNo],['تاريخ الفاتورة',data.invoiceDate],
+        ['رقم البروفورما',data.proformaNo],['رقم البوليصة',data.billNo],['العميل / المستلم',data.consignee],['العنوان',data.consigneeAddress],
+        ['وصف البضاعة',data.itemDesc],['الكمية',[data.totalQty,data.qtyUnit].filter(Boolean).join(' ')],['القيمة الإجمالية',[data.currency,data.totalAmount].filter(Boolean).join(' ')],
+        ['ميناء التحميل',data.portLoading],['ميناء الوصول',data.portDischarge],['شرط الدفع',data.paymentTerm],['البنك',data.bankName],['بيانات البنك',data.bankDetails]
+      ].map(([label,value]) => field(label,value)).join('');
+      document.getElementById('app').innerHTML = `<header class="head"><div><div class="brand">BAHAR SWAKEN GENERAL TRADING L.L.C</div><h1>${esc(title)}</h1><div class="operation">${esc(data.operationNo || '')}</div></div><button class="print" onclick="window.print()">طباعة البيانات</button></header><section class="grid">${details}</section>${data.notes ? `<section class="section"><h2>ملاحظات</h2><div class="note">${esc(data.notes)}</div></section>` : ''}`;
+    }
+  </script>
+</body>
+</html>

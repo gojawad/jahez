@@ -1,0 +1,7 @@
+/* Shared scroll-safe layout for the application's standard dialogs. */
+.overlay .detail-card{max-height:88vh;overflow-y:auto;overscroll-behavior:contain;scrollbar-color:#b8c7d8 transparent;scrollbar-width:thin}
+.overlay .detail-card>.dh{position:sticky;top:0;z-index:4;box-shadow:0 1px 0 var(--border)}
+.overlay .detail-card .detail-actions{position:sticky;bottom:0;z-index:3;background:linear-gradient(transparent,#fff 22%);padding-top:20px;padding-bottom:3px}
+/* These dialogs already provide their own internal scrolling or canvas layout. */
+#companyEditOverlay .detail-card,#profileOverlay .detail-card,#pdfPreviewOverlay .detail-card,#clientDashOverlay .detail-card,#userDashOverlay .detail-card{overflow:hidden}
+@media (max-width:700px){.overlay{padding:0}.overlay .detail-card{max-height:100vh;border-radius:0}.overlay .detail-card>.dh{padding:16px 20px}.overlay .detail-card>div:not(.dh){padding-inline:20px!important}.overlay .detail-card .detail-actions{margin-inline:0}}

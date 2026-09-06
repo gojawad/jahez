@@ -1,0 +1,23 @@
+services:
+  jahez:
+    build:
+      context: .
+      args:
+        BUILD_SHA: ${BUILD_SHA:-unknown}
+        DEPLOYED_AT: ${DEPLOYED_AT:-unknown}
+    image: jahez:${BUILD_SHA:-latest}
+    container_name: jahez
+    restart: unless-stopped
+    # المنفذ 7790 على المضيف — المنصة تستخدم 7780، وسكربت النشر يستخدم 7782 مؤقتاً.
+    ports:
+      - "7790:3000"
+    env_file:
+      - path: .env
+        required: false
+    # Chromium يحتاج ذاكرة مشتركة أكبر من الافتراضي (64MB) عند طباعة صفحات ثقيلة.
+    shm_size: 512m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

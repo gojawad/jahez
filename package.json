@@ -1,0 +1,15 @@
+{
+  "name": "jahez",
+  "version": "1.0.0",
+  "private": true,
+  "description": "جاهز — نظام متابعة الشحنات، نسخة الاستضافة الذاتية",
+  "main": "server.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.test.js"
+  },
+  "dependencies": {
+    "playwright-core": "1.58.2"
+  }
+}
