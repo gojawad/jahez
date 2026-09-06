@@ -69,11 +69,15 @@ curl -s http://127.0.0.1:7790/healthz
 **إن كان bsgt يعمل عبر Cloudflare Tunnel** (سجل DNS من نوع CNAME ينتهي بـ
 `cfargotunnel.com`):
 
-1. Cloudflare ← Zero Trust ← Networks ← Tunnels ← النفق الحالي ← Configure.
-2. Public Hostname ← Add a public hostname:
+1. Cloudflare ← Zero Trust ← Networks ← Tunnels & Mesh ← النفق `bsgt-erp`.
+2. تبويب **Published application routes** ← Add a published application route:
    - Subdomain: `jahez` — Domain: `swaken.net`
-   - Type: `HTTP` — URL: `localhost:7790`
+   - Type: `HTTP` — URL: نفس عنوان السيرفر المستخدم في صف bsgt مع المنفذ 7790،
+     أي `192.168.70.179:7790` (cloudflared لا يعمل على سيرفر Docker نفسه، لذلك
+     `localhost` لا يصلح هنا).
 3. احفظ. سجل DNS يُنشأ تلقائياً والشهادة من Cloudflare.
+
+تم تنفيذ هذا فعلياً في 2026-09-06.
 
 **إن كان bsgt يعمل بسجل A مباشر مع nginx أو Caddy على السيرفر**:
 
