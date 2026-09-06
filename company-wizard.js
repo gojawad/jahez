@@ -674,7 +674,8 @@
   const legacyInvoiceSheet = window.invoiceSheet;
   const isBaharSwaken = value => /بحر\s*سواكن|bahar\s*swaken/i.test(`${value?.nameAr || ''} ${value?.nameEn || ''}`);
   const setting = sourceCompany => {
-    const shared = sourceCompany?.settings?.invoiceBranding || sourceCompany?.settings?.collectionBranding || {};
+    const shared = sourceCompany?.invoiceBranding || sourceCompany?.collectionBranding
+      || sourceCompany?.settings?.invoiceBranding || sourceCompany?.settings?.collectionBranding || {};
     try {
       const local = JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}');
       const merged = Object.assign({}, shared);
