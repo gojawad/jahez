@@ -13,8 +13,9 @@
 | توليد PDF عبر خدمة Browserless المدفوعة | Chromium داخل الحاوية (مجاني)، وBrowserless يبقى خياراً |
 | قاعدة البيانات Supabase | **لم تتغير** — نفس المشروع ونفس البيانات ونفس المستخدمين |
 
-الواجهة `index.html` **لم تُعدَّل بحرف**. ملفات SQL والأدلة الأصلية نُقلت إلى مجلد
-`supabase/` للرجوع إليها فقط، ولا تُقدَّم للمتصفح.
+الواجهة `index.html` كما هي، باستثناء إضافة واحدة: رمز QR القصير لحزمة العملية
+(انظر قسم «رمز QR» أدناه). ملفات SQL والأدلة الأصلية نُقلت إلى مجلد `supabase/`
+للرجوع إليها فقط، ولا تُقدَّم للمتصفح.
 
 ## المتطلبات على السيرفر
 
@@ -54,7 +55,7 @@ curl -s http://127.0.0.1:7790/healthz
 
 | المتغير | يفعّل | من أين |
 |---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | صفحة الشحنة العامة من رمز QR (`/api/public-shipment`) | Supabase ← Project Settings ← API ← `service_role` |
+| `SUPABASE_SERVICE_ROLE_KEY` | فتح حزمة العملية من رمز QR (`/s/<token>`) والصفحة العامة القديمة (`/api/public-shipment`) | Supabase ← Project Settings ← API ← `service_role` |
 | `BROWSERLESS_TOKEN` | اختياري — استخدام Browserless بدل Chromium المحلي | Vercel ← Project ← Settings ← Environment Variables |
 | `MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` | ربط Word Online (`/api/microsoft`) | Azure App Registration |
 
@@ -127,9 +128,8 @@ curl -s http://127.0.0.1:7790/healthz
    استعادة كلمة المرور.
 2. **Azure** (إن كنت تستخدم ربط Word): أضف
    `https://jahez.swaken.net/api/microsoft?action=callback` في Redirect URIs.
-3. **رموز QR القديمة** المطبوعة على الفواتير تشير إلى `congstars.vercel.app`.
-   الرموز الجديدة تُبنى من رابط الموقع الحالي تلقائياً. أبقِ نسخة Vercel تعمل
-   فترة انتقالية، أو أعد توجيهها إلى الرابط الجديد.
+3. **رموز QR القديمة** المطبوعة قبل الانتقال تشير إلى `congstars.vercel.app`
+   ولن تعمل بعد إيقافه. الفواتير الجديدة تحمل الرابط القصير على jahez.swaken.net.
 4. أوقف مشروع Vercel عندما تطمئن.
 
 ## الفحص والتطوير
