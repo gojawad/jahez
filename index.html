@@ -11110,21 +11110,28 @@ ceStampHandle.addEventListener('pointerup', ()=>{ ceStampDrag = null; ceRenderPr
 ceStampHandle.addEventListener('pointercancel', ()=>{ ceStampDrag = null; });
 
 document.getElementById('ceSaveBtn').addEventListener('click', async ()=>{
-  const nameAr = readCeForm();
+  let nameAr = readCeForm();
   if(!nameAr){ alert('اكتب اسم الشركة — بالعربي أو بالإنجليزي.'); return; }
-  const row = {
-    name_ar: nameAr,
-    name_en: company.nameEn || null,
-    tagline: company.tagline || null,
-    code: document.getElementById('ce_code').value.trim() || null,
-    is_default: document.getElementById('ce_default').checked,
-    settings: company
-  };
   const saveBtn = document.getElementById('ceSaveBtn');
   const saveBtnOrig = saveBtn.textContent;
   saveBtn.disabled = true; saveBtn.textContent = 'جاري الحفظ…';
   netStart();
   try{
+    const baharEditor = document.getElementById('baharSimpleSettings');
+    if(compEditId && baharEditor && baharEditor.style.display !== 'none' && typeof window.saveBaharSwakenInvoiceSettings === 'function'){
+      await window.saveBaharSwakenInvoiceSettings((done, total)=>{
+        saveBtn.textContent = `تحديث الحزم ${done}/${total}`;
+      });
+      nameAr = readCeForm();
+    }
+    const row = {
+      name_ar: nameAr,
+      name_en: company.nameEn || null,
+      tagline: company.tagline || null,
+      code: document.getElementById('ce_code').value.trim() || null,
+      is_default: document.getElementById('ce_default').checked,
+      settings: company
+    };
     if(compEditId){
       const {error} = await sb.from('companies').update(row).eq('id', compEditId);
       if(error) throw error;
@@ -18249,7 +18256,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-company-target-fix2"></script>
+<script src="company-wizard.js?v=20260907-company-save-refresh"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>

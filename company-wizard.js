@@ -445,22 +445,17 @@
       await saveCompanyById(edited.id, settings);
       return next;
     };
-    one('.bs-save').addEventListener('click', async () => {
-      try {
-        await store();
-        if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken');
-      } catch (error) {
-        alert(error?.message || 'تعذر حفظ إعدادات فاتورة بحر سواكن.');
-      }
-    });
-    one('.bs-save-refresh').addEventListener('click', async event => {
-      const button = event.currentTarget;
+    const storeAndRefresh = async onProgress => {
+      await store();
+      if (typeof window.refreshAllPublishedBsgtQrPackages !== 'function') throw new Error('خدمة تحديث الحزم غير متاحة حالياً.');
+      return window.refreshAllPublishedBsgtQrPackages(onProgress);
+    };
+    window.saveBaharSwakenInvoiceSettings = storeAndRefresh;
+    const runSaveAndRefresh = async button => {
       const original = button.textContent;
       button.disabled = true;
       try {
-        await store();
-        if (typeof window.refreshAllPublishedBsgtQrPackages !== 'function') throw new Error('خدمة تحديث الحزم غير متاحة حالياً.');
-        const result = await window.refreshAllPublishedBsgtQrPackages((done, total) => {
+        const result = await storeAndRefresh((done, total) => {
           button.textContent = `جارٍ تحديث الحزم ${done}/${total}`;
         });
         if (result.failed.length) {
@@ -474,7 +469,9 @@
         button.disabled = false;
         button.textContent = original;
       }
-    });
+    };
+    one('.bs-save').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
+    one('.bs-save-refresh').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
     one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
   }
 
