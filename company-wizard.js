@@ -689,7 +689,7 @@
   const safe = value => typeof esc === 'function' ? esc(value ?? '') : String(value ?? '');
   // Generate the QR before the sheet is printed, so it remains visible in both
   // browser printing and the generated PDF without depending on an external image.
-  const operationQr = (record, position) => {
+  const operationQr = (record, position, showCaption = true) => {
     if (!record?.id || typeof qrcode !== 'function') return '';
     try {
       // The printed QR must always open the saved, full PDF package - never a data page.
@@ -700,7 +700,7 @@
       code.make();
       const pos = Object.assign({ xPercent: 85, yPercent: 20, widthPercent: 12, rotate: 0 }, position || {});
       const width = Number(pos.widthPercent) || 12;
-      return `<a class="operation-qr" href="${safe(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${safe(record.operationNo || '')}" style="left:${Number(pos.xPercent) || 0}%;top:${Number(pos.yPercent) || 0}%;width:${width}%;transform:rotate(${Number(pos.rotate) || 0}deg)"><img src="${code.createDataURL(4, 0)}" alt="QR: ${safe(record.operationNo || 'ملف العملية')}">${settings.showQrCaption === false ? '' : '<span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span>'}</a>`;
+      return `<a class="operation-qr" href="${safe(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${safe(record.operationNo || '')}" style="left:${Number(pos.xPercent) || 0}%;top:${Number(pos.yPercent) || 0}%;width:${width}%;transform:rotate(${Number(pos.rotate) || 0}deg)"><img src="${code.createDataURL(4, 0)}" alt="QR: ${safe(record.operationNo || 'ملف العملية')}">${showCaption === false ? '' : '<span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span>'}</a>`;
     } catch (error) {
       console.warn('BSGT operation QR', error);
       return '';
@@ -846,7 +846,7 @@
     const stampPos = Object.assign({ xPercent: 78, yPercent: 78, widthPercent: 13, rotate: 0 }, settings.stampPosition || {});
     const signPos = Object.assign({ xPercent: 10, yPercent: 81, widthPercent: 23, rotate: 0 }, settings.signaturePosition || {});
     const qrPos = Object.assign({ xPercent: 85, yPercent: 20, widthPercent: 12, rotate: 0 }, settings.qrPosition || {});
-    const qr = settings.showQr === false ? '' : operationQr(record, qrPos);
+    const qr = settings.showQr === false ? '' : operationQr(record, qrPos, settings.showQrCaption !== false);
     const date = typeof fmtDateByLang === 'function' ? fmtDateByLang(proforma ? record.proformaDate : record.invoiceDate, 'en') : (proforma ? record.proformaDate : record.invoiceDate);
     // WEIGHT column always shows in the packing list (its whole purpose), but in the
     // proforma/invoice it's opt-in per shipment via the entry form's "إظهار في الفاتورة" toggle.
