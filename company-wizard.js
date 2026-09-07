@@ -181,6 +181,10 @@
       labelFontSize:14, labelFontWeight:700, valueFontSize:13, valueFontWeight:400,
       titleFontSize:'', productHeaderFontSize:'', productValueFontSize:'', bottomLabelFontSize:'', bottomValueFontSize:'', addressFontSize:'',
       amountWordsFontSize:'', totalAmountFontSize:'', totalCartonsFontSize:'',
+      // International sale contract: compact enough to keep all fields, clauses and signatures on one A4 page.
+      contractTitleFontSize:6.2, contractDetailLabelFontSize:5.6, contractDetailValueFontSize:5.8,
+      contractClauseFontSize:5.4, contractSignatureFontSize:5.5, contractLineHeight:1,
+      contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractPageSideMm:10,
       // Text colors — same fallback-chain idea as the font sizes above: empty means "inherit"
       // (labels fall back to the accent color, values to the default dark ink), so nothing
       // changes visually until a color is explicitly picked.
@@ -251,6 +255,7 @@
     const fileControl = (key, title, accept, value, help) => `<div class="bs-file" data-key="${key}"><label>${title}</label><small>${help}</small><div class="bs-file-row"><button type="button" class="btn btn-ghost btn-small bs-pick">إضافة / استبدال</button><button type="button" class="btn btn-ghost btn-small bs-remove">إزالة</button><input type="file" accept="${accept}" hidden></div><div class="bs-thumb">${value ? `<img src="${value}" alt="${title}">` : '<span>لا توجد صورة مرفوعة</span>'}</div></div>`;
     const transformControls = (key, title, values) => `<div class="bs-transform" data-transform="${key}"><strong>${title}</strong><div class="bs-transform-grid"><label>أفقي <b data-value="xPercent">${values.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="100" step="0.5" value="${values.xPercent}"></label><label>عمودي <b data-value="yPercent">${values.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="100" step="0.5" value="${values.yPercent}"></label><label>الحجم <b data-value="widthPercent">${values.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="42" step="0.5" value="${values.widthPercent}"></label><label>التدوير <b data-value="rotate">${values.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${values.rotate}"></label></div></div>`;
     const fontSizeField = (key, title, value) => `<div class="field"><label>${title}</label><div style="display:flex;align-items:center;gap:6px"><button type="button" class="btn btn-ghost btn-small bs-fs-step" data-key="${key}" data-dir="-1">−</button><input type="number" class="bs-fs" data-key="${key}" min="8" max="30" step="1" value="${value || 14}" style="width:64px;text-align:center;padding:8px 4px"><button type="button" class="btn btn-ghost btn-small bs-fs-step" data-key="${key}" data-dir="1">+</button><span style="color:var(--muted);font-size:12px">px</span></div></div>`;
+    const contractNumberField = (key, title, value, min, max, step, unit) => `<div class="field"><label>${title}</label><div style="display:flex;align-items:center;gap:7px"><input type="number" class="bs-contract-setting" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${value}" style="width:100%;text-align:center"><span style="color:var(--muted);font-size:12px;white-space:nowrap">${unit}</span></div></div>`;
     const fontWeightField = (key, title, value, options) => `<div class="field"><label>${title}</label><select class="lookup-sel bs-fw" data-key="${key}">${options.map(o => `<option value="${o}" ${Number(value) === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
     const colorField = (key, title, value, fallbackHex) => `<div class="field"><label>${title}</label><input type="color" class="bs-color" data-key="${key}" value="${value || fallbackHex}"></div>`;
     const resolvedAccent = settings.tableHeader || settings.accent || company.accent || '#86191f';
@@ -330,6 +335,22 @@
           <button type="button" class="btn btn-ghost btn-small bs-typo-reset">استرجاع كل أحجام الخطوط الافتراضية</button>
           <button type="button" class="btn btn-ghost btn-small bs-color-reset">استرجاع كل الألوان الافتراضية</button>
         </div>
+        <details class="bs-contract-editor" open style="margin-top:18px;border:1px solid #dbe7f2;border-radius:12px;padding:14px;background:#f8fbff">
+          <summary style="cursor:pointer;font-weight:800;color:#12385e">عقد البيع الدولي — صفحة A4 واحدة</summary>
+          <p style="margin:8px 0 14px">تحكم في ضغط عقد بحر سواكن فقط. التباعد 1.0 يعني سطرًا مفردًا، وتُحفظ القيم على الموقع لكل المتصفحات.</p>
+          <div class="bs-grid">
+            ${contractNumberField('contractTitleFontSize', 'حجم عنوان العقد', settings.contractTitleFontSize, 5, 12, .1, 'px')}
+            ${contractNumberField('contractDetailLabelFontSize', 'حجم مسميات البيانات', settings.contractDetailLabelFontSize, 4.5, 10, .1, 'px')}
+            ${contractNumberField('contractDetailValueFontSize', 'حجم قيم البيانات', settings.contractDetailValueFontSize, 4.5, 10, .1, 'px')}
+            ${contractNumberField('contractClauseFontSize', 'حجم نص البنود', settings.contractClauseFontSize, 4.5, 10, .1, 'px')}
+            ${contractNumberField('contractSignatureFontSize', 'حجم نص التوقيعات', settings.contractSignatureFontSize, 4.5, 10, .1, 'px')}
+            ${contractNumberField('contractLineHeight', 'تباعد السطور', settings.contractLineHeight, .9, 1.4, .05, '1.0 = مفرد')}
+            ${contractNumberField('contractCellPaddingMm', 'هوامش الخلايا', settings.contractCellPaddingMm, .1, 2, .05, 'mm')}
+            ${contractNumberField('contractRowMinHeightMm', 'أقل ارتفاع للصف', settings.contractRowMinHeightMm, 2.5, 7, .1, 'mm')}
+            ${contractNumberField('contractPageSideMm', 'هامش جانبي للصفحة', settings.contractPageSideMm, 6, 18, .5, 'mm')}
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button type="button" class="btn btn-ghost btn-small bs-contract-reset">استرجاع الضغط الافتراضي</button><button type="button" class="btn btn-primary btn-small bs-contract-preview">حفظ ومعاينة عقد فعلي</button></div>
+        </details>
         ${fileControl('background', 'خلفية جدول الفاتورة', 'image/png,image/jpeg,image/webp', settings.background, 'PNG أو JPG. تستخدم الصورة الأصلية عند الطباعة وPDF.')}
         <label class="bs-toggle" style="margin-top:10px"><input class="bs-show-watermark" type="checkbox"> إظهار العلامة المائية</label>
         ${fileControl('watermark', 'العلامة المائية', 'image/png,image/jpeg,image/webp', settings.watermark, 'PNG أو JPG. تظهر في فاتورة بحر سواكن فقط، وفقط لو "إظهار العلامة المائية" مفعّل.')}
@@ -402,11 +423,13 @@
       simple.querySelectorAll('.bs-color').forEach(el => { out[el.dataset.key] = el.value || ''; });
       return out;
     };
+    const contractValues = () => Object.fromEntries([...simple.querySelectorAll('.bs-contract-setting')].map(el => [el.dataset.key, Number(el.value)]));
     const collect = () => ({
       name:one('.bs-name').value.trim() || invoicePreviewDefaults().name, tableFont:one('.bs-font').value, accent:one('.bs-accent').value, tableHeader:one('.bs-header').value,
       background:simple.querySelector('[data-key="background"]').dataset.value || settings.background || '', watermark:simple.querySelector('[data-key="watermark"]').dataset.value || settings.watermark || '',
       signature:simple.querySelector('[data-key="signature"]').dataset.value || settings.signature || '', watermarkOpacity:Number(one('.bs-opacity').value), stamp:simple.querySelector('[data-key="stamp"]').dataset.value || settings.stamp || company.stamp || '', showStamp:one('.bs-show-stamp').checked, showSigLine:one('.bs-show-signature').checked, showQr:one('.bs-show-qr').checked, showQrCaption:one('.bs-show-qr-caption').checked, qrCaptionAr:one('.bs-qr-caption-ar').value.trim(), qrCaptionEn:one('.bs-qr-caption-en').value.trim(), showWatermark:one('.bs-show-watermark').checked, transparentTableCells:one('.bs-transparent-cells').checked, stampPosition:transformValue('stamp'), qrPosition:transformValue('qr'), signaturePosition:transformValue('signature'),
-      ...typographyValues()
+      ...typographyValues(),
+      ...contractValues()
     });
     const liveFrame = one('.bs-live-frame');
     let liveTimer;
@@ -493,6 +516,28 @@
     });
     one('.bs-save-refresh').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
     one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
+    one('.bs-contract-reset').addEventListener('click', () => {
+      const defaults = invoicePreviewDefaults();
+      simple.querySelectorAll('.bs-contract-setting').forEach(el => { el.value = defaults[el.dataset.key]; });
+      one('.bs-contract-setting').dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    one('.bs-contract-preview').addEventListener('click', async event => {
+      const button = event.currentTarget;
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'جارٍ الحفظ...';
+      try {
+        await store();
+        const record = typeof records !== 'undefined' && typeof isBsgtRecord === 'function' ? records.find(isBsgtRecord) : null;
+        if (!record) throw new Error('لا توجد شحنة BSGT لمعاينة العقد عليها.');
+        await printSingle(record, 'contract', 'en');
+      } catch (error) {
+        alert(error?.message || 'تعذرت معاينة عقد البيع الدولي.');
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    });
   }
 
   function syncBaharInvoiceSettings() {

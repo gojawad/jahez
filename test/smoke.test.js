@@ -50,6 +50,13 @@ async function main() {
       assert.ok(!appHtml.includes('companyId: (prev && prev.companyId) || document.getElementById(\'f_company\').value'));
       assert.ok(!appHtml.includes('isBaharSwakenCompany(companyDataFor(r))'));
     });
+    await check('Bahar sale contract is a compact configurable single A4 sheet', async () => {
+      assert.ok(appHtml.includes('function baharSwakenContractSheet(r)'));
+      assert.ok(appHtml.includes('${decorations(true,true)}${brand()}'));
+      assert.ok(appHtml.includes('--contract-line-height:${contractLayout.lineHeight}'));
+      assert.ok(appHtml.includes('contractCellPaddingMm'));
+      assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));
+    });
     await check('static assets served with correct MIME', async () => {
       for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
