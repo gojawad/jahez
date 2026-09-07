@@ -5145,7 +5145,7 @@ SWIFT: NBEGEGCX"></textarea>
       <div class="section-title">عقد البيع الدولي</div>
       <div class="grid bsgt-invoice-grid">
         <div class="field"><label>رقم العقد</label><input type="text" id="bsgt_contractNo" dir="ltr"></div>
-        <div class="field"><label>تاريخ العقد</label><input type="date" id="bsgt_contractDate"></div>
+        <div class="field"><label>تاريخ العقد <small>تلقائي: قبل الفاتورة المبدئية بيوم</small></label><input type="date" id="bsgt_contractDate" readonly></div>
         <div class="field"><label>فترة الشحن</label><input type="text" id="bsgt_shipmentPeriod" dir="ltr"></div>
         <div class="field"><label>طريقة السداد</label><input type="text" id="bsgt_paymentMethod" dir="ltr"></div>
         <div class="field"><label>الشحن الجزئي</label><select class="lookup-sel" id="bsgt_partialShipment"><option value="Allowed">Allowed — مسموح</option><option value="Not Allowed">Not Allowed — غير مسموح</option></select></div>
@@ -13005,6 +13005,18 @@ function fmtDateEn(d){
   return d;
 }
 function fmtDateByLang(d, lang){ return lang==='en' ? fmtDateEn(d) : fmtDate(d); }
+function previousIsoDate(value){
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim());
+  if(!match) return value || '';
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if(date.getUTCFullYear() !== Number(match[1]) || date.getUTCMonth() !== Number(match[2]) - 1 || date.getUTCDate() !== Number(match[3])) return value;
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+function bsgtContractDate(r){
+  if(r?.proformaDate) return previousIsoDate(r.proformaDate);
+  return r?.contractDate || r?.invoiceDate || toISODate(new Date());
+}
 function escapeHtml(s){
   if(!s) return '';
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -13469,7 +13481,7 @@ function openBsgtShipForm(id){
   document.getElementById('bsgt_invoiceDate').value = r?.invoiceDate || '';
   document.getElementById('bsgt_billNo').value = r?.billNo || '';
   document.getElementById('bsgt_contractNo').value = r?.contractNo || r?.operationNo || document.getElementById('bsgt_operationNo').value;
-  document.getElementById('bsgt_contractDate').value = r?.contractDate || r?.proformaDate || r?.invoiceDate || toISODate(new Date());
+  document.getElementById('bsgt_contractDate').value = bsgtContractDate(r);
   document.getElementById('bsgt_shipmentPeriod').value = r?.shipmentPeriod || 'As per shipping documents';
   document.getElementById('bsgt_paymentMethod').value = r?.paymentMethod || bsgtContractPaymentMethod(r?.paymentTerm);
   document.getElementById('bsgt_partialShipment').value = r?.partialShipment || 'Allowed';
@@ -13486,6 +13498,9 @@ function openBsgtShipForm(id){
   document.getElementById('bsgtShipOverlay').classList.add('open');
 }
 document.getElementById('bsgtNewBtn').addEventListener('click', ()=> openBsgtShipForm(null));
+document.getElementById('bsgt_proformaDate').addEventListener('input', event => {
+  if(event.currentTarget.value) document.getElementById('bsgt_contractDate').value = previousIsoDate(event.currentTarget.value);
+});
 document.getElementById('bsgtCollectionLabBtn').addEventListener('click', ()=>{
   window.open('/experiments/bs-collection/', '_blank', 'noopener');
 });
@@ -15426,7 +15441,7 @@ function baharSwakenContractSheet(r){
   const paymentMethod = r.paymentMethod || bsgtContractPaymentMethod(r.paymentTerm);
   const details = [
     ['رقم العقد', r.contractNo || r.operationNo || r.proformaNo, 'Contract No.'],
-    ['التاريخ', fmtDateByLang(r.contractDate || r.proformaDate || r.invoiceDate, 'en'), 'Date'],
+    ['التاريخ', fmtDateByLang(bsgtContractDate(r), 'en'), 'Date'],
     ['البائع', c.nameEn || 'BAHAR SWAKEN GENERAL TRADING L.L.C', 'Seller'],
     ['المشتري', r.consignee || '', 'Buyer'],
     ['البضاعة', unique(items.map(item=>item.description)) || r.itemDesc || '', 'Goods'],

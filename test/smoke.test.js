@@ -57,6 +57,9 @@ async function main() {
     });
     await check('Bahar sale contract is a compact configurable single A4 sheet', async () => {
       assert.ok(appHtml.includes('function baharSwakenContractSheet(r)'));
+      assert.ok(appHtml.includes('function previousIsoDate(value)'));
+      assert.ok(appHtml.includes('date.setUTCDate(date.getUTCDate() - 1)'));
+      assert.ok(appHtml.includes("fmtDateByLang(bsgtContractDate(r), 'en')"));
       assert.ok(appHtml.includes('${decorations(true,true)}${brand()}'));
       assert.ok(appHtml.includes('--contract-line-height:${contractLayout.lineHeight}'));
       assert.ok(appHtml.includes('contractCellPaddingMm'));
