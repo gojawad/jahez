@@ -397,6 +397,9 @@ body{padding-right:230px;}
 #bsgtShipOverlay input:focus,
 #bsgtShipOverlay select:focus,
 #bsgtShipOverlay textarea:focus{border-color:#2676d9;box-shadow:0 0 0 3px rgba(38,118,217,.10);outline:none;}
+#bsgtShipOverlay .bsgt-field-missing{border-color:#d93025!important;background:#fff8f7!important;box-shadow:0 0 0 3px rgba(217,48,37,.10)!important;}
+#bsgtShipOverlay .bsgt-validation-alert{display:none;margin:14px 26px 0;padding:11px 14px;border:1px solid #f1b8b3;border-radius:9px;background:#fff5f4;color:#a5261d;font-size:12px;font-weight:700;line-height:1.6;}
+#bsgtShipOverlay .bsgt-validation-alert.show{display:block;}
 #bsgtShipOverlay input[readonly]{background:#f6f9fd!important;color:#6a7d94!important;}
 #bsgtShipOverlay .field small{display:block;margin-top:4px;font-size:10.5px;line-height:1.25;}
 #bsgtShipOverlay #bsgt_aedToggle,
@@ -600,7 +603,11 @@ body{padding-right:230px;}
 .bsgt-detail-card .doc-action-btn .t{font-size:12px;color:#1b3c5d;}
 .bsgt-detail-card .doc-action-btn .s{font-size:10.5px;line-height:1.4;}
 .bsgt-doc-order{margin-top:13px;padding:12px;border:1px dashed #d4e2f1;border-radius:11px;background:#f8fbff;}
-.bsgt-doc-order .sf-head{font-size:11px;margin-bottom:8px;color:#4d6a88;}
+.bsgt-doc-order .sf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;color:#274e73;font-size:12px;font-weight:800;list-style:none;cursor:pointer;}
+.bsgt-doc-order .sf-head::-webkit-details-marker{display:none;}
+.bsgt-doc-order .sf-head:after{content:'فتح الترتيب';padding:5px 9px;border:1px solid #d4e2f1;border-radius:7px;background:#fff;color:#537391;font-size:10px;}
+.bsgt-doc-order[open] .sf-head{margin-bottom:10px;}
+.bsgt-doc-order[open] .sf-head:after{content:'إغلاق';}
 .bsgt-doc-order .sf-list{max-height:155px;overflow:auto;}
 .bsgt-data-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;}
 .bsgt-timeline{padding:13px;border:1px solid #e1eaf4;border-radius:11px;background:#fbfdff;}
@@ -2431,7 +2438,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="company-wizard.css">
   <link rel="stylesheet" href="profile-panel.css">
   <link rel="stylesheet" href="modal-layout.css">
-  <link rel="stylesheet" href="shipment-detail.css?v=20260907-file-drop">
+  <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
 </head>
 <body>
 
@@ -2879,6 +2886,9 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
         <span class="ico" data-ic="search"></span>
         <input type="text" id="issuedSearch" placeholder="ابحث في الشحنات الصادرة...">
       </div>
+      <select id="issuedClientFilter" class="lookup-sel" aria-label="اختيار العميل" style="min-width:220px;max-width:320px;">
+        <option value="">كل العملاء</option>
+      </select>
       <span class="fb-count" id="issuedCount"></span>
     </div>
     <div class="ledger">
@@ -5063,6 +5073,7 @@ SWIFT: NBEGEGCX"></textarea>
       </div>
       <button class="close-x" id="bsgtShipCloseX" data-ic="close"></button>
     </div>
+    <div class="bsgt-validation-alert" id="bsgtValidationAlert" role="alert"></div>
     <div class="bsgt-ship-body" style="padding:0 26px;">
       <div class="section-title">مركز العملية</div>
       <div class="grid">
@@ -7771,16 +7782,25 @@ function renderIssued(){
   const q = (document.getElementById('issuedSearch').value||'').trim().toLowerCase();
   let list = records.filter(r=>recStatus(r)==='sent' && inCompanyScope(r));
   const total = list.length;
+  const clientFilter = document.getElementById('issuedClientFilter');
+  const previousClient = clientFilter.value;
+  const clients = Array.from(new Set(list.map(r=>String(r.consignee||'').trim()).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b, 'ar'));
+  clientFilter.replaceChildren(new Option('كل العملاء', ''), ...clients.map(name=>new Option(name, name)));
+  clientFilter.hidden = currentCompanyScope !== 'bsgt';
+  clientFilter.value = clients.includes(previousClient) ? previousClient : '';
+  const selectedClient = clientFilter.value;
+  if(selectedClient) list = list.filter(r=>String(r.consignee||'').trim()===selectedClient);
   if(q){
     list = list.filter(r=>[r.operationNo,r.itemDesc,r.consignee,r.exporter,r.invoiceNo,r.proformaNo,
                            r.certNo,r.billNo,r.destBank].join(' ').toLowerCase().includes(q));
   }
-  list.sort((a,b)=> (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+  list.sort((a,b)=> (Number(b.updatedAt)||Number(b.createdAt)||0) - (Number(a.updatedAt)||Number(a.createdAt)||0));
 
   const badge = document.getElementById('issuedBadge');
   badge.textContent = total;
   badge.classList.toggle('zero', total===0);
-  document.getElementById('issuedCount').innerHTML = q
+  document.getElementById('issuedCount').innerHTML = (q || selectedClient)
     ? `عرض <b>${list.length}</b> من ${total}` : `<b>${total}</b> شحنة صادرة`;
 
   const body = document.getElementById('issuedBody');
@@ -7828,6 +7848,7 @@ function renderIssued(){
   });
 }
 document.getElementById('issuedSearch').addEventListener('input', ()=>{ issuedPage=1; renderIssued(); });
+document.getElementById('issuedClientFilter').addEventListener('change', ()=>{ issuedPage=1; renderIssued(); });
 
 function renderDrafts(){
   const drafts = records.filter(r=>recStatus(r)==='draft' && inCompanyScope(r))
@@ -13391,6 +13412,7 @@ function openBsgtShipForm(id){
   setLookupValue(document.getElementById('bsgt_paymentTerm'), r?.paymentTerm || '');
   setLookupValue(document.getElementById('bsgt_destBank'), r?.destBank || '');
   document.getElementById('bsgt_notes').value = r?.notes || '';
+  clearBsgtValidation();
   document.getElementById('bsgtShipOverlay').classList.add('open');
 }
 document.getElementById('bsgtNewBtn').addEventListener('click', ()=> openBsgtShipForm(null));
@@ -13400,8 +13422,74 @@ document.getElementById('bsgtCollectionLabBtn').addEventListener('click', ()=>{
 document.getElementById('bsgtShipCloseX').addEventListener('click', ()=> document.getElementById('bsgtShipOverlay').classList.remove('open'));
 document.getElementById('bsgtShipCancelBtn').addEventListener('click', ()=> document.getElementById('bsgtShipOverlay').classList.remove('open'));
 
+const BSGT_REQUIRED_FIELDS = [
+  ['bsgt_itemDesc','وصف الصنف'], ['bsgt_qty','الكمية'], ['bsgt_qtyUnit','نوع التعبئة'],
+  ['bsgt_totalAmount','مبلغ الصنف الأول'], ['bsgt_hsCode','رمز HS Code'],
+  ['bsgt_portDischarge','جهة الوصول'], ['bsgt_consignee','المرسل إليه'],
+  ['bsgt_consigneeAddress','عنوان المرسل إليه'], ['bsgt_proformaNo','رقم الفاتورة المبدئية'],
+  ['bsgt_proformaDate','تاريخ الفاتورة المبدئية'], ['bsgt_invoiceNo','رقم الفاتورة النهائية'],
+  ['bsgt_invoiceDate','تاريخ الفاتورة النهائية'], ['bsgt_billNo','رقم البوليصة'],
+  ['bsgt_incoterm','نوع التأمين'], ['bsgt_countryOrigin','بلد المنشأ'],
+  ['bsgt_paymentTerm','شروط الدفع'], ['bsgt_destBank','البنك المرسل إليه'],
+  ['bsgt_bankPick','العنوان البنكي']
+];
+function clearBsgtValidation(){
+  const overlay = document.getElementById('bsgtShipOverlay');
+  overlay.querySelectorAll('.bsgt-field-missing').forEach(el=>{
+    el.classList.remove('bsgt-field-missing');
+    el.removeAttribute('aria-invalid');
+  });
+  const alertBox = document.getElementById('bsgtValidationAlert');
+  alertBox.classList.remove('show');
+  alertBox.textContent = '';
+}
+function validateBsgtShipment(){
+  clearBsgtValidation();
+  const missing = [];
+  const missingElements = [];
+  BSGT_REQUIRED_FIELDS.forEach(([id,label])=>{
+    const el = document.getElementById(id);
+    if(!el || !String(el.value||'').trim()){
+      missing.push(label);
+      if(el){ el.classList.add('bsgt-field-missing'); el.setAttribute('aria-invalid','true'); missingElements.push(el); }
+    }
+  });
+  bsgtExtraItemsEl.querySelectorAll('.bsgt-extra-item').forEach(el=>{
+    const index = Number(el.dataset.index);
+    [['Desc','وصف الصنف'],['Qty','الكمية'],['Unit','نوع التعبئة'],['Amount','المبلغ'],['HsCode','رمز HS Code']].forEach(([suffix,label])=>{
+      const input = document.getElementById(`bsgt_item${index}${suffix}`);
+      if(input && !String(input.value||'').trim()){
+        missing.push(`${label} للصنف ${index}`);
+        input.classList.add('bsgt-field-missing');
+        input.setAttribute('aria-invalid','true');
+        missingElements.push(input);
+      }
+    });
+  });
+  if(!missing.length) return true;
+  const alertBox = document.getElementById('bsgtValidationAlert');
+  alertBox.textContent = `أكمل الحقول المطلوبة قبل الحفظ: ${missing.join('، ')}`;
+  alertBox.classList.add('show');
+  const first = missingElements[0];
+  if(first){ first.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>first.focus(),250); }
+  return false;
+}
+document.getElementById('bsgtShipOverlay').addEventListener('input', event=>{
+  if(event.target.classList?.contains('bsgt-field-missing')){
+    event.target.classList.remove('bsgt-field-missing');
+    event.target.removeAttribute('aria-invalid');
+  }
+});
+document.getElementById('bsgtShipOverlay').addEventListener('change', event=>{
+  if(event.target.classList?.contains('bsgt-field-missing') && String(event.target.value||'').trim()){
+    event.target.classList.remove('bsgt-field-missing');
+    event.target.removeAttribute('aria-invalid');
+  }
+});
+
 async function saveBsgtShipment(){
   if(!canEdit()){ toast('مالكش صلاحية لإضافة أو تعديل الشحنات','err'); return; }
+  if(!validateBsgtShipment()) return;
   const entry = baharCompanyEntry();
   if(!entry){ alert('شركة بحر سواكن مش موجودة في قائمة الشركات بعد — أضفها من لوحة التحكم أولاً.'); return; }
   const id = bsgtShipEditId || ('r'+Date.now());
@@ -13987,6 +14075,7 @@ function renderBsgtDetail(r){
             <div class="bsgt-summary-card"><div class="sum-top">${icon('folder',14)} مركز العملية</div><span class="sum-value">${escapeHtml(r.operationNo||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('user',14)} المرسل إليه</div><span class="sum-value">${escapeHtml(r.consignee||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('building',14)} المصدر</div><span class="sum-value">${escapeHtml(bsgtDetailSourceName(r))}</span></div>
+            <div class="bsgt-summary-card"><div class="sum-top">${icon('ship',14)} رقم البوليصة</div><span class="sum-value">${escapeHtml(r.billNo||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('box',14)} الكمية</div><span class="sum-value">${escapeHtml(String(quantity))}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('invoice',14)} الإجمالي</div><span class="sum-value amount">${escapeHtml(r.totalAmount||'—')}</span></div>
           </div>
@@ -13997,7 +14086,7 @@ function renderBsgtDetail(r){
           <h3>مركز العملية</h3>
           <p class="qr-package-status">المرجع الكامل للشحنة ومستنداتها وتحصلاتها. كل الملفات تُحفظ هنا تحت رقم العملية، وإذن الاستيراد يظهر أولا دائما.</p>
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
-          <div class="bsgt-doc-order"><div class="sf-head">${icon('list',14)} ترتيب مستندات الحزمة</div><div id="docOrderList" class="sf-list"></div></div>
+          <details class="bsgt-doc-order"><summary class="sf-head"><span>${icon('list',14)} ترتيب مستندات الحزمة</span></summary><div id="docOrderList" class="sf-list"></div></details>
         </section>
 
         <section class="bsgt-detail-section" id="bsgtShipmentData">
