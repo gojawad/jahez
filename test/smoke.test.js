@@ -130,11 +130,24 @@ async function main() {
       assert.ok(appHtml.includes("const note = isBsgtAudit ? [`بواسطة: ${actor}`, c.body]"));
     });
     await check('static assets served with correct MIME', async () => {
-      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
+      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
         assert.strictEqual(r.status, 200, file);
         assert.match(r.headers.get('content-type'), new RegExp(type), file);
       }
+    });
+    await check('Jahez Glass skin is isolated from generated documents', async () => {
+      assert.ok(appHtml.includes('jahez-glass.css?v=20260908-glass-1'));
+      const glass = await (await fetch(`${BASE}/jahez-glass.css`)).text();
+      assert.ok(glass.includes('--glass-bg-strong'));
+      assert.ok(glass.includes('.app-sidebar'));
+      assert.ok(glass.includes('.lab-header'));
+      assert.ok(glass.includes('@media print'));
+      assert.ok(!glass.includes('.doc-sheet'));
+      assert.ok(!glass.includes('.bahar-contract'));
+      assert.ok(!glass.includes('.bahar-inv'));
+      const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
+      assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-1'));
     });
     await check('server files and SQL are not exposed', async () => {
       for (const p of ['/server.js', '/package.json', '/.env', '/.git/config', '/supabase/1.sql', '/api/microsoft.js', '/../etc/passwd', '/%2e%2e/etc/passwd']) {
