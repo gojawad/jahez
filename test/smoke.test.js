@@ -28,6 +28,7 @@ async function main() {
     await waitForServer(proc);
     const results = [];
     let appHtml = '';
+    let companyWizard = '';
     const check = async (name, fn) => { await fn(); results.push(name); console.log('✔', name); };
 
     await check('healthz reports build sha', async () => {
@@ -42,6 +43,9 @@ async function main() {
       assert.strictEqual(r.headers.get('x-frame-options'), 'SAMEORIGIN');
       appHtml = await r.text();
       assert.ok(appHtml.includes('supabase'), 'index.html should be the app');
+      const wizardResponse = await fetch(`${BASE}/company-wizard.js`);
+      assert.strictEqual(wizardResponse.status, 200);
+      companyWizard = await wizardResponse.text();
     });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
@@ -62,6 +66,16 @@ async function main() {
       assert.ok(appHtml.includes("Number(qrPosition.yPercent) <= 36"));
       assert.ok(appHtml.includes('.bahar-contract-sheet.qr-top-right'));
       assert.ok(appHtml.includes('.bahar-contract-title{display:grid;gap:0;width:100%'));
+      assert.ok(appHtml.includes('function baharContractRuntimeSettings(r)'));
+      assert.ok(appHtml.includes('companySettings.contractBranding || {}'));
+      assert.ok(appHtml.includes('--contract-table-y:${contractLayout.tableTopMm}mm'));
+      assert.ok(appHtml.includes("grid-template-areas:'en value ar'"));
+      assert.ok(appHtml.includes('cc-contract">تعديل العقد'));
+      assert.ok(companyWizard.includes('window.openBaharContractEditor = id =>'));
+      assert.ok(companyWizard.includes('contractBranding:clone(draft)'));
+      assert.ok(companyWizard.includes('موضع ختم العقد فقط'));
+      assert.ok(companyWizard.includes('تحريك الجدول لأعلى أو أسفل'));
+      assert.ok(companyWizard.includes('Office 307 Al Faheem Building'));
       assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));
     });
     await check('BSGT shipment attachments have role-aware read-only UI', async () => {

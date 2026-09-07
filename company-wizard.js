@@ -181,10 +181,6 @@
       labelFontSize:14, labelFontWeight:700, valueFontSize:13, valueFontWeight:400,
       titleFontSize:'', productHeaderFontSize:'', productValueFontSize:'', bottomLabelFontSize:'', bottomValueFontSize:'', addressFontSize:'',
       amountWordsFontSize:'', totalAmountFontSize:'', totalCartonsFontSize:'',
-      // International sale contract: compact enough to keep all fields, clauses and signatures on one A4 page.
-      contractTitleFontSize:6.2, contractDetailLabelFontSize:5.6, contractDetailValueFontSize:5.8,
-      contractClauseFontSize:5.4, contractSignatureFontSize:5.5, contractLineHeight:1,
-      contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractMarginPreset:'narrow', contractPageSideMm:12.7,
       // Text colors — same fallback-chain idea as the font sizes above: empty means "inherit"
       // (labels fall back to the accent color, values to the default dark ink), so nothing
       // changes visually until a color is explicitly picked.
@@ -255,7 +251,6 @@
     const fileControl = (key, title, accept, value, help) => `<div class="bs-file" data-key="${key}"><label>${title}</label><small>${help}</small><div class="bs-file-row"><button type="button" class="btn btn-ghost btn-small bs-pick">إضافة / استبدال</button><button type="button" class="btn btn-ghost btn-small bs-remove">إزالة</button><input type="file" accept="${accept}" hidden></div><div class="bs-thumb">${value ? `<img src="${value}" alt="${title}">` : '<span>لا توجد صورة مرفوعة</span>'}</div></div>`;
     const transformControls = (key, title, values) => `<div class="bs-transform" data-transform="${key}"><strong>${title}</strong><div class="bs-transform-grid"><label>أفقي <b data-value="xPercent">${values.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="100" step="0.5" value="${values.xPercent}"></label><label>عمودي <b data-value="yPercent">${values.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="100" step="0.5" value="${values.yPercent}"></label><label>الحجم <b data-value="widthPercent">${values.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="42" step="0.5" value="${values.widthPercent}"></label><label>التدوير <b data-value="rotate">${values.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${values.rotate}"></label></div></div>`;
     const fontSizeField = (key, title, value) => `<div class="field"><label>${title}</label><div style="display:flex;align-items:center;gap:6px"><button type="button" class="btn btn-ghost btn-small bs-fs-step" data-key="${key}" data-dir="-1">−</button><input type="number" class="bs-fs" data-key="${key}" min="8" max="30" step="1" value="${value || 14}" style="width:64px;text-align:center;padding:8px 4px"><button type="button" class="btn btn-ghost btn-small bs-fs-step" data-key="${key}" data-dir="1">+</button><span style="color:var(--muted);font-size:12px">px</span></div></div>`;
-    const contractNumberField = (key, title, value, min, max, step, unit) => `<div class="field"><label>${title}</label><div style="display:flex;align-items:center;gap:7px"><input type="number" class="bs-contract-setting" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${value}" style="width:100%;text-align:center"><span style="color:var(--muted);font-size:12px;white-space:nowrap">${unit}</span></div></div>`;
     const fontWeightField = (key, title, value, options) => `<div class="field"><label>${title}</label><select class="lookup-sel bs-fw" data-key="${key}">${options.map(o => `<option value="${o}" ${Number(value) === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
     const colorField = (key, title, value, fallbackHex) => `<div class="field"><label>${title}</label><input type="color" class="bs-color" data-key="${key}" value="${value || fallbackHex}"></div>`;
     const resolvedAccent = settings.tableHeader || settings.accent || company.accent || '#86191f';
@@ -335,23 +330,6 @@
           <button type="button" class="btn btn-ghost btn-small bs-typo-reset">استرجاع كل أحجام الخطوط الافتراضية</button>
           <button type="button" class="btn btn-ghost btn-small bs-color-reset">استرجاع كل الألوان الافتراضية</button>
         </div>
-        <details class="bs-contract-editor" open style="margin-top:18px;border:1px solid #dbe7f2;border-radius:12px;padding:14px;background:#f8fbff">
-          <summary style="cursor:pointer;font-weight:800;color:#12385e">عقد البيع الدولي — صفحة A4 واحدة</summary>
-          <p style="margin:8px 0 14px">تحكم في ضغط عقد بحر سواكن فقط. التباعد 1.0 يعني سطرًا مفردًا، وتُحفظ القيم على الموقع لكل المتصفحات.</p>
-          <div class="bs-grid">
-            <div class="field"><label>هوامش الجدول</label><select class="lookup-sel bs-contract-margin-preset"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></div>
-            ${contractNumberField('contractTitleFontSize', 'حجم عنوان العقد', settings.contractTitleFontSize, 5, 12, .1, 'px')}
-            ${contractNumberField('contractDetailLabelFontSize', 'حجم مسميات البيانات', settings.contractDetailLabelFontSize, 4.5, 10, .1, 'px')}
-            ${contractNumberField('contractDetailValueFontSize', 'حجم قيم البيانات', settings.contractDetailValueFontSize, 4.5, 10, .1, 'px')}
-            ${contractNumberField('contractClauseFontSize', 'حجم نص البنود', settings.contractClauseFontSize, 4.5, 10, .1, 'px')}
-            ${contractNumberField('contractSignatureFontSize', 'حجم نص التوقيعات', settings.contractSignatureFontSize, 4.5, 10, .1, 'px')}
-            ${contractNumberField('contractLineHeight', 'تباعد السطور', settings.contractLineHeight, .9, 1.4, .05, '1.0 = مفرد')}
-            ${contractNumberField('contractCellPaddingMm', 'هوامش الخلايا', settings.contractCellPaddingMm, .1, 2, .05, 'mm')}
-            ${contractNumberField('contractRowMinHeightMm', 'أقل ارتفاع للصف', settings.contractRowMinHeightMm, 2.5, 7, .1, 'mm')}
-            ${contractNumberField('contractPageSideMm', 'الهامش الجانبي المخصص', settings.contractPageSideMm, 6, 30, .1, 'mm')}
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button type="button" class="btn btn-ghost btn-small bs-contract-reset">استرجاع الضغط الافتراضي</button><button type="button" class="btn btn-primary btn-small bs-contract-preview">حفظ ومعاينة عقد فعلي</button></div>
-        </details>
         ${fileControl('background', 'خلفية جدول الفاتورة', 'image/png,image/jpeg,image/webp', settings.background, 'PNG أو JPG. تستخدم الصورة الأصلية عند الطباعة وPDF.')}
         <label class="bs-toggle" style="margin-top:10px"><input class="bs-show-watermark" type="checkbox"> إظهار العلامة المائية</label>
         ${fileControl('watermark', 'العلامة المائية', 'image/png,image/jpeg,image/webp', settings.watermark, 'PNG أو JPG. تظهر في فاتورة بحر سواكن فقط، وفقط لو "إظهار العلامة المائية" مفعّل.')}
@@ -372,7 +350,6 @@
     one('.bs-header').value = settings.tableHeader;
     one('.bs-opacity').value = settings.watermarkOpacity;
     one('.bs-opacity-value').textContent = settings.watermarkOpacity;
-    one('.bs-contract-margin-preset').value = settings.contractMarginPreset || 'narrow';
     simple.querySelectorAll('.bs-fs-step').forEach(btn => btn.addEventListener('click', () => {
       const input = simple.querySelector(`.bs-fs[data-key="${btn.dataset.key}"]`);
       const next = Math.max(8, Math.min(30, (Number(input.value) || 14) + Number(btn.dataset.dir)));
@@ -425,14 +402,11 @@
       simple.querySelectorAll('.bs-color').forEach(el => { out[el.dataset.key] = el.value || ''; });
       return out;
     };
-    const contractValues = () => Object.fromEntries([...simple.querySelectorAll('.bs-contract-setting')].map(el => [el.dataset.key, Number(el.value)]));
     const collect = () => ({
       name:one('.bs-name').value.trim() || invoicePreviewDefaults().name, tableFont:one('.bs-font').value, accent:one('.bs-accent').value, tableHeader:one('.bs-header').value,
       background:simple.querySelector('[data-key="background"]').dataset.value || settings.background || '', watermark:simple.querySelector('[data-key="watermark"]').dataset.value || settings.watermark || '',
       signature:simple.querySelector('[data-key="signature"]').dataset.value || settings.signature || '', watermarkOpacity:Number(one('.bs-opacity').value), stamp:simple.querySelector('[data-key="stamp"]').dataset.value || settings.stamp || company.stamp || '', showStamp:one('.bs-show-stamp').checked, showSigLine:one('.bs-show-signature').checked, showQr:one('.bs-show-qr').checked, showQrCaption:one('.bs-show-qr-caption').checked, qrCaptionAr:one('.bs-qr-caption-ar').value.trim(), qrCaptionEn:one('.bs-qr-caption-en').value.trim(), showWatermark:one('.bs-show-watermark').checked, transparentTableCells:one('.bs-transparent-cells').checked, stampPosition:transformValue('stamp'), qrPosition:transformValue('qr'), signaturePosition:transformValue('signature'),
-      ...typographyValues(),
-      ...contractValues(),
-      contractMarginPreset:one('.bs-contract-margin-preset').value
+      ...typographyValues()
     });
     const liveFrame = one('.bs-live-frame');
     let liveTimer;
@@ -519,29 +493,6 @@
     });
     one('.bs-save-refresh').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
     one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
-    one('.bs-contract-reset').addEventListener('click', () => {
-      const defaults = invoicePreviewDefaults();
-      simple.querySelectorAll('.bs-contract-setting').forEach(el => { el.value = defaults[el.dataset.key]; });
-      one('.bs-contract-margin-preset').value = defaults.contractMarginPreset;
-      one('.bs-contract-setting').dispatchEvent(new Event('input', { bubbles:true }));
-    });
-    one('.bs-contract-preview').addEventListener('click', async event => {
-      const button = event.currentTarget;
-      const original = button.textContent;
-      button.disabled = true;
-      button.textContent = 'جارٍ الحفظ...';
-      try {
-        await store();
-        const record = typeof records !== 'undefined' && typeof isBsgtRecord === 'function' ? records.find(isBsgtRecord) : null;
-        if (!record) throw new Error('لا توجد شحنة BSGT لمعاينة العقد عليها.');
-        await printSingle(record, 'contract', 'en');
-      } catch (error) {
-        alert(error?.message || 'تعذرت معاينة عقد البيع الدولي.');
-      } finally {
-        button.disabled = false;
-        button.textContent = original;
-      }
-    });
   }
 
   function syncBaharInvoiceSettings() {
@@ -666,6 +617,222 @@
     }, 0);
   }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
   if (overlay.classList.contains('open')) build();
+})();
+
+// Dedicated Bahar Swaken contract studio. Contract settings are stored in their
+// own company.settings.contractBranding object, so invoice positions never move.
+(() => {
+  const CONTRACT_ADDRESS = 'Office 307 Al Faheem Building, Al Wuha (1), Al Khaleej Street (Internal Access), Al Murar, Deira, Dubai, United Arab Emirates';
+  const defaults = () => ({
+    contractTitleFontSize:12,
+    contractDetailLabelFontSize:10,
+    contractDetailValueFontSize:10,
+    contractClauseFontSize:9,
+    contractSignatureFontSize:12,
+    contractLineHeight:1.05,
+    contractCellPaddingMm:.4,
+    contractRowMinHeightMm:3.2,
+    contractMarginPreset:'narrow',
+    contractPageSideMm:12.7,
+    contractTableTopMm:0,
+    sellerAddress:CONTRACT_ADDRESS,
+    showStamp:true,
+    stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
+    showQr:true,
+    showQrCaption:true,
+    qrPosition:{xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}
+  });
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const safe = value => typeof escapeHtml === 'function' ? escapeHtml(String(value ?? '')) : String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const isBahar = companyEntry => /بحر\s*سواكن|bahar\s*swaken/i.test(`${companyEntry?.name_ar || ''} ${companyEntry?.name_en || ''}`);
+  const mergedSettings = companyEntry => {
+    const base = defaults();
+    const saved = companyEntry?.settings?.contractBranding || {};
+    return Object.assign(base, saved, {
+      stampPosition:Object.assign({}, base.stampPosition, saved.stampPosition || {}),
+      qrPosition:Object.assign({}, base.qrPosition, saved.qrPosition || {})
+    });
+  };
+  const numberField = (key, label, value, min, max, step, unit) => `<label class="bce-field"><span>${label}</span><div><input class="bce-number" data-key="${key}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><small>${unit}</small></div></label>`;
+  const transformFields = (key, title, position) => `<section class="bce-transform" data-transform="${key}"><h4>${title}</h4><div class="bce-grid"><label>أفقي <b data-value="xPercent">${position.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="96" step=".5" value="${position.xPercent}"></label><label>عمودي <b data-value="yPercent">${position.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="94" step=".5" value="${position.yPercent}"></label><label>الحجم <b data-value="widthPercent">${position.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="35" step=".5" value="${position.widthPercent}"></label><label>التدوير <b data-value="rotate">${position.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${position.rotate}"></label></div></section>`;
+  let overlay;
+  let companyId = '';
+  let draft = defaults();
+  let previewTimer;
+
+  function ensureOverlay(){
+    if(overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.className = 'overlay bce-overlay';
+    overlay.id = 'baharContractEditorOverlay';
+    document.body.append(overlay);
+    overlay.addEventListener('click', event => {
+      if(event.target === overlay || event.target.closest('[data-bce-close]')) close();
+    });
+    return overlay;
+  }
+
+  function close(){
+    overlay?.classList.remove('open');
+    clearTimeout(previewTimer);
+  }
+
+  function collect(){
+    const next = defaults();
+    overlay.querySelectorAll('.bce-number').forEach(input => { next[input.dataset.key] = Number(input.value); });
+    next.contractMarginPreset = overlay.querySelector('.bce-margin').value;
+    next.sellerAddress = overlay.querySelector('.bce-address').value.trim() || CONTRACT_ADDRESS;
+    next.showStamp = overlay.querySelector('.bce-show-stamp').checked;
+    next.showQr = overlay.querySelector('.bce-show-qr').checked;
+    next.showQrCaption = overlay.querySelector('.bce-show-qr-caption').checked;
+    ['stamp','qr'].forEach(key => {
+      next[`${key}Position`] = Object.fromEntries([...overlay.querySelectorAll(`[data-transform="${key}"] input`)].map(input => [input.dataset.prop, Number(input.value)]));
+    });
+    return next;
+  }
+
+  function syncTransform(key, position){
+    const group = overlay.querySelector(`[data-transform="${key}"]`);
+    if(!group) return;
+    Object.entries(position).forEach(([prop, value]) => {
+      const input = group.querySelector(`[data-prop="${prop}"]`);
+      const output = group.querySelector(`[data-value="${prop}"]`);
+      if(input) input.value = value;
+      if(output) output.textContent = value;
+    });
+  }
+
+  function contractRecord(){
+    if(typeof records === 'undefined') return null;
+    return records.find(record => record.companyId === companyId && (typeof isBsgtRecord !== 'function' || isBsgtRecord(record)))
+      || records.find(record => typeof isBsgtRecord === 'function' && isBsgtRecord(record))
+      || null;
+  }
+
+  function attachStampDrag(frame){
+    const doc = frame.contentDocument;
+    const stamp = doc?.querySelector('.bahar-contract-stamp');
+    const sheet = doc?.querySelector('.bahar-contract-sheet');
+    if(!stamp || !sheet) return;
+    stamp.style.pointerEvents = 'auto';
+    stamp.style.cursor = 'move';
+    stamp.title = 'اسحب الختم لتغيير موضعه في العقد فقط';
+    stamp.addEventListener('pointerdown', event => {
+      event.preventDefault();
+      stamp.setPointerCapture(event.pointerId);
+      const current = collect().stampPosition;
+      const start = {x:event.clientX,y:event.clientY,left:current.xPercent,top:current.yPercent};
+      const move = moveEvent => {
+        const left = Math.max(0, Math.min(96, start.left + (moveEvent.clientX-start.x) / sheet.clientWidth * 100));
+        const top = Math.max(0, Math.min(94, start.top + (moveEvent.clientY-start.y) / sheet.clientHeight * 100));
+        const position = Object.assign({}, collect().stampPosition, {xPercent:Math.round(left*2)/2,yPercent:Math.round(top*2)/2});
+        syncTransform('stamp', position);
+        stamp.style.left = position.xPercent + '%';
+        stamp.style.top = position.yPercent + '%';
+      };
+      const up = () => {
+        stamp.removeEventListener('pointermove', move);
+        renderPreview();
+      };
+      stamp.addEventListener('pointermove', move);
+      stamp.addEventListener('pointerup', up, {once:true});
+      stamp.addEventListener('pointercancel', up, {once:true});
+    });
+  }
+
+  function renderPreview(){
+    clearTimeout(previewTimer);
+    const frame = overlay?.querySelector('.bce-frame');
+    const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
+    const record = contractRecord();
+    if(!frame || !companyEntry || !record){
+      if(frame) frame.srcdoc = '<!doctype html><html dir="rtl"><body style="font-family:Arial;padding:30px">لا توجد شحنة BSGT لمعاينة العقد عليها.</body></html>';
+      return;
+    }
+    draft = collect();
+    const originalSettings = companyEntry.settings || {};
+    let sheet = '';
+    try{
+      companyEntry.settings = Object.assign({}, originalSettings, {contractBranding:clone(draft)});
+      sheet = buildSheet(record, 'contract', 'en');
+    } finally {
+      companyEntry.settings = originalSettings;
+    }
+    frame.onload = () => attachStampDrag(frame);
+    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><style>${PRINT_STYLES}html,body{overflow:hidden}</style></head><body>${sheet}</body></html>`;
+  }
+
+  function schedulePreview(){
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, 80);
+  }
+
+  async function save(button){
+    const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
+    if(!companyEntry || !isBahar(companyEntry)) throw new Error('تعذر تحديد شركة بحر سواكن.');
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'جارٍ الحفظ...';
+    try{
+      draft = collect();
+      const settings = Object.assign({}, companyEntry.settings || {}, {contractBranding:clone(draft)});
+      await saveCompanyById(companyEntry.id, settings);
+      if(typeof toast === 'function') toast('تم حفظ إعدادات عقد بحر سواكن');
+      renderPreview();
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+
+  function render(){
+    const root = ensureOverlay();
+    const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
+    draft = mergedSettings(companyEntry);
+    root.innerHTML = `<style>
+      .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
+    </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>كل القيم هنا محفوظة على الموقع ومخصصة للعقد فقط.</p><div class="bce-grid"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section><div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
+    root.querySelector('.bce-margin').value = draft.contractMarginPreset;
+    root.querySelectorAll('input,select,textarea').forEach(input => input.addEventListener('input', schedulePreview));
+    root.querySelectorAll('.bce-transform input').forEach(input => input.addEventListener('input', () => {
+      const group = input.closest('.bce-transform');
+      group.querySelector(`[data-value="${input.dataset.prop}"]`).textContent = input.value;
+    }));
+    root.querySelector('.bce-save').addEventListener('click', async event => {
+      try{ await save(event.currentTarget); }catch(error){ alert(error?.message || 'تعذر حفظ إعدادات العقد.'); }
+    });
+    root.querySelector('.bce-print').addEventListener('click', async event => {
+      try{
+        await save(event.currentTarget);
+        const record = contractRecord();
+        if(!record) throw new Error('لا توجد شحنة BSGT لمعاينة العقد عليها.');
+        await printSingle(record, 'contract', 'en');
+      }catch(error){ alert(error?.message || 'تعذرت معاينة العقد.'); }
+    });
+    root.querySelector('.bce-reset').addEventListener('click', () => { draft = defaults(); render(); renderPreview(); });
+    root.querySelector('.bce-zoom').addEventListener('click', event => {
+      const button = event.target.closest('[data-zoom]');
+      if(!button) return;
+      const zoom = Number(button.dataset.zoom);
+      const frame = root.querySelector('.bce-frame');
+      const wrap = root.querySelector('.bce-frame-wrap');
+      frame.style.transform = `scale(${zoom})`;
+      wrap.style.width = `${Math.round(794*zoom)}px`;
+      wrap.style.height = `${Math.round(1123*zoom)}px`;
+    });
+    renderPreview();
+  }
+
+  window.openBaharContractEditor = id => {
+    const companyEntry = typeof companyById === 'function' ? companyById(id) : null;
+    if(!companyEntry || !isBahar(companyEntry)){
+      alert('بوابة العقد متاحة لشركة بحر سواكن فقط.');
+      return;
+    }
+    companyId = id;
+    render();
+    overlay.classList.add('open');
+  };
 })();
 
 // BSGT package merge: keep the generated invoices separate from the two

@@ -10883,6 +10883,7 @@ function renderCompaniesAdmin(){
   }
   el.innerHTML = companies.map(c=>{
     const s = c.settings || {};
+    const bahar = /بحر\s*سواكن|bahar\s*swaken/i.test(`${c.name_ar||''} ${c.name_en||''}`);
     return `<div class="comp-card ${c.active?'':'off'}" data-id="${c.id}">
       <div class="cc-logo">${s.logo ? `<img src="${s.logo}" alt="">` : escapeHtml((c.name_ar||'?').charAt(0))}</div>
       <div class="cc-info">
@@ -10894,6 +10895,7 @@ function renderCompaniesAdmin(){
         <div class="cc-meta" id="cnt-${c.id}"></div>
       </div>
       <div class="cc-acts">
+        ${bahar ? '<button class="btn btn-primary btn-small cc-contract">تعديل العقد</button>' : ''}
         <button class="btn btn-ghost btn-small cc-edit">تعديل</button>
         <button class="btn btn-ghost btn-small cc-toggle">${c.active?'إيقاف':'تفعيل'}</button>
         <button class="btn btn-danger btn-small cc-delete">حذف</button>
@@ -10903,6 +10905,7 @@ function renderCompaniesAdmin(){
 
   el.querySelectorAll('.comp-card').forEach(card=>{
     const id = card.dataset.id;
+    card.querySelector('.cc-contract')?.addEventListener('click', ()=> window.openBaharContractEditor?.(id));
     card.querySelector('.cc-edit').addEventListener('click', ()=> openCompanyModal(id));
     card.querySelector('.cc-toggle').addEventListener('click', async ()=>{
       const c = companyById(id);
@@ -15256,7 +15259,7 @@ async function publishQrPackage(r, blob, silent=false){
 
 // The QR only contains a link to the protected shipment screen. The invoice
 // itself never exposes customer or collection data inside the encoded value.
-function shipmentOperationQr(r, className, position){
+function shipmentOperationQr(r, className, position, qrSettingsOverride){
   if(!r?.id || typeof qrcode !== 'function') return '';
   try{
     const target = qrPackageUrl(r);
@@ -15267,7 +15270,7 @@ function shipmentOperationQr(r, className, position){
     code.make();
     const width = position ? (Number(position.widthPercent)||12) : 12;
     const style = position ? ` style="left:${Number(position.xPercent)||0}%;top:${Number(position.yPercent)||0}%;width:${width}%;transform:rotate(${Number(position.rotate)||0}deg)"` : '';
-    const qrSettings = baharInvoiceRuntimeSettings(r) || {};
+    const qrSettings = qrSettingsOverride || baharInvoiceRuntimeSettings(r) || {};
     const captionAr = qrSettings.qrCaptionAr ?? 'امسح الباركود للتحقق من صحة البيانات.';
     const captionEn = qrSettings.qrCaptionEn ?? 'Scan the QR to verify the data';
     const caption = qrSettings.showQrCaption === false ? '' : `<span class="operation-qr-caption"><b>${esc(captionAr)}</b><small>${esc(captionEn)}</small></span>`;
@@ -15302,6 +15305,10 @@ function isBaharSwakenCompany(c){
 function baharInvoiceRuntimeSettings(r){
   const companySettings = companyDataFor(r) || company || {};
   return companySettings.invoiceBranding || companySettings.collectionBranding || {};
+}
+function baharContractRuntimeSettings(r){
+  const companySettings = companyDataFor(r) || company || {};
+  return companySettings.contractBranding || {};
 }
 // بحر سواكن لها جدول مستقل. لا نمررها عبر قالب الفاتورة القديم حتى لا تتحول
 // صور الترويسة والتذييل إلى عناصر داخل الصفحة وتدفع البيانات إلى صفحة ثانية.
@@ -15368,30 +15375,40 @@ function baharSwakenInvoiceSheet(r, kind, lang){
 
 function baharSwakenContractSheet(r){
   const c = company;
-  const settings = baharInvoiceRuntimeSettings(r);
-  const background = settings.background || '';
-  const watermark = settings.watermark || c.watermark || c.logo || '';
-  const stamp = settings.stamp || c.stamp || '';
-  const stampPosition = Object.assign({xPercent:78,yPercent:78,widthPercent:13,rotate:0}, settings.stampPosition || {});
-  const signature = settings.signature || '';
-  const signaturePosition = Object.assign({xPercent:10,yPercent:81,widthPercent:23,rotate:0}, settings.signaturePosition || {});
-  const qrPosition = Object.assign({xPercent:85,yPercent:20,widthPercent:12,rotate:0}, settings.qrPosition || {});
-  const accent = settings.tableHeader || settings.accent || c.accent || '#86191f';
+  const invoiceSettings = baharInvoiceRuntimeSettings(r);
+  const settings = Object.assign({
+    contractTitleFontSize:12, contractDetailLabelFontSize:10, contractDetailValueFontSize:10,
+    contractClauseFontSize:9, contractSignatureFontSize:12, contractLineHeight:1.05,
+    contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractMarginPreset:'narrow',
+    contractPageSideMm:12.7, contractTableTopMm:0,
+    sellerAddress:'Office 307 Al Faheem Building, Al Wuha (1), Al Khaleej Street (Internal Access), Al Murar, Deira, Dubai, United Arab Emirates',
+    showStamp:true, stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
+    showQr:true, qrPosition:{xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}
+  }, baharContractRuntimeSettings(r));
+  const background = settings.background || invoiceSettings.background || '';
+  const watermark = settings.watermark || invoiceSettings.watermark || c.watermark || c.logo || '';
+  const stamp = settings.stamp || invoiceSettings.stamp || c.stamp || '';
+  const stampPosition = Object.assign({xPercent:44.5,yPercent:76,widthPercent:14,rotate:0}, settings.stampPosition || {});
+  const signature = settings.signature || invoiceSettings.signature || '';
+  const signaturePosition = Object.assign({xPercent:10,yPercent:81,widthPercent:23,rotate:0}, settings.signaturePosition || invoiceSettings.signaturePosition || {});
+  const qrPosition = Object.assign({xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}, settings.qrPosition || {});
+  const accent = settings.tableHeader || invoiceSettings.tableHeader || invoiceSettings.accent || c.accent || '#86191f';
   const font = 'IBM Plex Sans Arabic';
   const hasBackground = !!background;
   const bounded = (value, fallback, min, max) => Math.max(min, Math.min(max, Number(value) || fallback));
   const marginPreset = ['narrow','normal','custom'].includes(settings.contractMarginPreset) ? settings.contractMarginPreset : 'narrow';
   const presetSideMm = marginPreset === 'normal' ? 25.4 : marginPreset === 'custom' ? bounded(settings.contractPageSideMm, 12.7, 6, 30) : 12.7;
   const contractLayout = {
-    titleFontSize:bounded(settings.contractTitleFontSize, 6.2, 5, 12),
-    detailLabelFontSize:bounded(settings.contractDetailLabelFontSize, 5.6, 4.5, 10),
-    detailValueFontSize:bounded(settings.contractDetailValueFontSize, 5.8, 4.5, 10),
-    clauseFontSize:bounded(settings.contractClauseFontSize, 5.4, 4.5, 10),
-    signatureFontSize:bounded(settings.contractSignatureFontSize, 5.5, 4.5, 10),
-    lineHeight:bounded(settings.contractLineHeight, 1, .9, 1.4),
+    titleFontSize:bounded(settings.contractTitleFontSize, 12, 5, 14),
+    detailLabelFontSize:bounded(settings.contractDetailLabelFontSize, 10, 4.5, 12),
+    detailValueFontSize:bounded(settings.contractDetailValueFontSize, 10, 4.5, 12),
+    clauseFontSize:bounded(settings.contractClauseFontSize, 9, 4.5, 11),
+    signatureFontSize:bounded(settings.contractSignatureFontSize, 12, 4.5, 14),
+    lineHeight:bounded(settings.contractLineHeight, 1.05, .9, 1.4),
     cellPaddingMm:bounded(settings.contractCellPaddingMm, .4, .1, 2),
     rowMinHeightMm:bounded(settings.contractRowMinHeightMm, 3.2, 2.5, 7),
-    pageSideMm:presetSideMm
+    pageSideMm:presetSideMm,
+    tableTopMm:bounded(settings.contractTableTopMm, 0, -25, 25)
   };
   const items = Array.from({length:15}, (_, index) => {
     const suffix = index ? String(index + 1) : '';
@@ -15405,7 +15422,7 @@ function baharSwakenContractSheet(r){
   }).filter(item=>item.description || item.quantity || item.packaging || item.price || item.hsCode);
   const unique = values => Array.from(new Set(values.map(value=>String(value||'').trim()).filter(Boolean))).join(' / ');
   const quantity = items.map(item=>[item.quantity,item.packaging].filter(Boolean).join(' ')).filter(Boolean).join(' / ') || [r.totalQty||r.qty,r.qtyUnit].filter(Boolean).join(' ');
-  const sellerAddress = String(c.footerLinesEn || c.footerLines || '').split(/\r?\n/).filter(Boolean)[0] || '';
+  const sellerAddress = String(settings.sellerAddress || '').trim();
   const paymentMethod = r.paymentMethod || bsgtContractPaymentMethod(r.paymentTerm);
   const details = [
     ['رقم العقد', r.contractNo || r.operationNo || r.proformaNo, 'Contract No.'],
@@ -15444,7 +15461,7 @@ function baharSwakenContractSheet(r){
   const decorations = (showQr, showStamp) => `
     ${background ? `<img class="bahar-contract-bg" src="${background}" alt="">` : ''}
     ${watermark ? `<img class="bahar-contract-watermark" src="${watermark}" alt="">` : ''}
-    ${showQr && settings.showQr !== false ? shipmentOperationQr(r, 'bahar-inv-qr bahar-contract-qr', qrPosition) : ''}
+    ${showQr && settings.showQr !== false ? shipmentOperationQr(r, 'bahar-inv-qr bahar-contract-qr', qrPosition, Object.assign({}, invoiceSettings, settings)) : ''}
     ${showStamp && settings.showStamp !== false && stamp ? `<img class="bahar-contract-stamp" src="${stamp}" alt="" style="left:${stampPosition.xPercent}%;top:${stampPosition.yPercent}%;width:${stampPosition.widthPercent}%;transform:rotate(${stampPosition.rotate}deg)">` : ''}
     ${showStamp && signature ? `<img class="bahar-contract-signature" src="${signature}" alt="" style="left:${signaturePosition.xPercent}%;top:${signaturePosition.yPercent}%;width:${signaturePosition.widthPercent}%;transform:rotate(${signaturePosition.rotate}deg)">` : ''}`;
   const brand = () => !hasBackground ? `<header class="bahar-inv-brand"><div><b>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</b><small>${esc(c.nameAr||'')}</small></div>${c.logo ? `<img src="${c.logo}" alt="">` : ''}</header>` : '';
@@ -15452,7 +15469,7 @@ function baharSwakenContractSheet(r){
   const qrTopClass = settings.showQr !== false && Number(qrPosition.yPercent) <= 36
     ? (Number(qrPosition.xPercent) >= 50 ? ' qr-top-right' : ' qr-top-left')
     : '';
-  const style = `--bahar-red:${esc(accent)};--contract-font:${esc(font)},'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;--contract-title-fs:${contractLayout.titleFontSize}px;--contract-detail-label-fs:${contractLayout.detailLabelFontSize}px;--contract-detail-value-fs:${contractLayout.detailValueFontSize}px;--contract-clause-fs:${contractLayout.clauseFontSize}px;--contract-signature-fs:${contractLayout.signatureFontSize}px;--contract-line-height:${contractLayout.lineHeight};--contract-cell-pad:${contractLayout.cellPaddingMm}mm;--contract-row-min:${contractLayout.rowMinHeightMm}mm;--contract-page-side:${contractLayout.pageSideMm}mm;`;
+  const style = `--bahar-red:${esc(accent)};--contract-font:${esc(font)},'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;--contract-title-fs:${contractLayout.titleFontSize}px;--contract-detail-label-fs:${contractLayout.detailLabelFontSize}px;--contract-detail-value-fs:${contractLayout.detailValueFontSize}px;--contract-clause-fs:${contractLayout.clauseFontSize}px;--contract-signature-fs:${contractLayout.signatureFontSize}px;--contract-line-height:${contractLayout.lineHeight};--contract-cell-pad:${contractLayout.cellPaddingMm}mm;--contract-row-min:${contractLayout.rowMinHeightMm}mm;--contract-page-side:${contractLayout.pageSideMm}mm;--contract-table-y:${contractLayout.tableTopMm}mm;`;
   const detailsRows = details.map(([ar,value,en])=>`<div class="bahar-contract-row"><b class="ar" dir="rtl">${esc(ar)}</b><span dir="ltr">${esc(value)}</span><b class="en" dir="ltr">${esc(en)}</b></div>`).join('');
   const clauseRows = clauses.map(([ar,en])=>`<div class="bahar-contract-clause"><p dir="rtl">${esc(ar)}</p><p dir="ltr">${esc(en)}</p></div>`).join('');
   return `<div class="doc-sheet bahar-contract-sheet${hasBackground?' has-bg':''}${qrTopClass}" style="${style}">${decorations(true,true)}${brand()}<main class="bahar-contract-content">${title('')}<div class="bahar-contract-details">${detailsRows}</div><div class="bahar-contract-clauses">${clauseRows}</div><div class="bahar-contract-signatures"><section><b>البائع / Seller</b><span>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</span><small>${esc(sellerAddress)}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section><section><b>المشتري / Buyer</b><span>${esc(r.consignee||'')}</span><small>${esc(r.consigneeAddress||'')}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section></div></main></div>`;
@@ -16704,7 +16721,10 @@ table.inv-items tr.blank td{height:var(--items-h,31px);}
 
 /* ===== عقد البيع الدولي لبحر سواكن ===== */
 .bahar-contract-sheet{position:relative;width:210mm;height:297mm;min-height:297mm;margin:0 auto;padding:10mm var(--contract-page-side,10mm);overflow:hidden;page-break-after:auto;break-after:auto;background:#fff;color:#17202b;font-family:var(--contract-font);}
-.bahar-contract-sheet *{box-sizing:border-box;}.bahar-contract-sheet.has-bg{padding:55mm var(--contract-page-side,12.7mm) 36mm;}.bahar-contract-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0;}.bahar-contract-watermark{position:absolute;z-index:1;width:55%;max-height:52%;object-fit:contain;left:22.5%;top:25%;opacity:.055;pointer-events:none;}.bahar-contract-content{position:relative;z-index:2;width:100%;max-width:100%;min-width:0;line-height:var(--contract-line-height,1);}.bahar-contract-title{display:grid;gap:0;width:100%;max-width:100%;margin:0;padding:.45mm .8mm;border:.2mm solid #000;border-top:.55mm solid #000;background:transparent;text-align:center;line-height:var(--contract-line-height,1);}.bahar-contract-title b{color:var(--bahar-red);font-size:var(--contract-title-fs,6.2px);line-height:var(--contract-line-height,1);letter-spacing:.25px;direction:ltr;}.bahar-contract-title span{font-size:calc(var(--contract-title-fs,6.2px) - .3px);font-weight:700;line-height:var(--contract-line-height,1);direction:rtl;}.bahar-contract-title small{font-size:calc(var(--contract-title-fs,6.2px) - .8px);color:#5c6470;font-weight:600;line-height:var(--contract-line-height,1);}.bahar-contract-details{width:100%;max-width:100%;min-width:0;border:0;background:transparent;}.bahar-contract-row{display:grid;grid-template-columns:21% minmax(0,58%) 21%;width:100%;max-width:100%;min-width:0;min-height:var(--contract-row-min,3.2mm);border-inline:.2mm solid #000;border-bottom:.2mm solid #000;align-items:stretch;line-height:var(--contract-line-height,1);}.bahar-contract-sheet.qr-top-right .bahar-contract-title,.bahar-contract-sheet.qr-top-right .bahar-contract-row:nth-child(-n+4){width:86%;max-width:86%;margin-right:14%;}.bahar-contract-sheet.qr-top-left .bahar-contract-title,.bahar-contract-sheet.qr-top-left .bahar-contract-row:nth-child(-n+4){width:86%;max-width:86%;margin-left:14%;}.bahar-contract-row>*{display:flex;min-width:0;align-items:center;padding:var(--contract-cell-pad,.4mm) .65mm;line-height:var(--contract-line-height,1);background:transparent;}.bahar-contract-row b{color:var(--bahar-red);font-size:var(--contract-detail-label-fs,5.6px);font-weight:700;}.bahar-contract-row b.ar{justify-content:flex-end;text-align:right;border-inline-end:.2mm solid #000;}.bahar-contract-row b.en{justify-content:flex-start;text-align:left;border-inline-start:.2mm solid #000;}.bahar-contract-row span{justify-content:center;text-align:center;font-size:var(--contract-detail-value-fs,5.8px);font-weight:600;line-height:var(--contract-line-height,1);overflow-wrap:anywhere;white-space:normal;}.bahar-contract-clauses{width:100%;max-width:100%;min-width:0;margin:0;border:.2mm solid #000;border-top:0;border-bottom:0;background:transparent;}.bahar-contract-clause{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;max-width:100%;min-width:0;border-bottom:.2mm solid #000;background:transparent;}.bahar-contract-clause p{min-width:0;margin:0;padding:var(--contract-cell-pad,.4mm) .7mm;font-size:var(--contract-clause-fs,5.4px);line-height:var(--contract-line-height,1);text-align:justify;overflow-wrap:anywhere;background:transparent;}.bahar-contract-clause p:first-child{border-inline-end:.2mm solid #000;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;}.bahar-contract-signatures{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;max-width:100%;min-width:0;gap:0;margin:0;border:.2mm solid #000;border-top:0;background:transparent;}.bahar-contract-signatures section{position:relative;min-width:0;min-height:17mm;padding:.65mm .9mm;border-inline-end:.2mm solid #000;background:transparent;}.bahar-contract-signatures section:last-child{border-inline-end:0;}.bahar-contract-signatures b,.bahar-contract-signatures span,.bahar-contract-signatures small,.bahar-contract-signatures i{display:block;font-size:var(--contract-signature-fs,5.5px);line-height:var(--contract-line-height,1);}.bahar-contract-signatures b{color:var(--bahar-red);}.bahar-contract-signatures span{margin-top:.45mm;font-weight:700;}.bahar-contract-signatures small{margin-top:.3mm;color:#586575;overflow-wrap:anywhere;}.bahar-contract-signatures i{position:absolute;inset-inline:.9mm;bottom:.7mm;padding-top:.45mm;border-top:.2mm solid #000;color:#56616e;font-style:normal;text-align:center;}.bahar-contract-qr{z-index:5;}.bahar-contract-stamp,.bahar-contract-signature{position:absolute;z-index:4;object-fit:contain;transform-origin:center;}
+.bahar-contract-sheet *{box-sizing:border-box;}.bahar-contract-sheet.has-bg{padding:55mm var(--contract-page-side,12.7mm) 36mm;}.bahar-contract-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0;}.bahar-contract-watermark{position:absolute;z-index:1;width:55%;max-height:52%;object-fit:contain;left:22.5%;top:25%;opacity:.055;pointer-events:none;}.bahar-contract-content{position:relative;z-index:2;width:100%;max-width:100%;min-width:0;line-height:var(--contract-line-height,1);transform:translateY(var(--contract-table-y,0mm));}.bahar-contract-title{display:grid;gap:0;width:100%;max-width:100%;margin:0;padding:.45mm .8mm;border:.2mm solid #000;border-top:.55mm solid #000;background:transparent;text-align:center;line-height:var(--contract-line-height,1);}.bahar-contract-title b{color:var(--bahar-red);font-size:var(--contract-title-fs,12px);line-height:var(--contract-line-height,1);letter-spacing:.25px;direction:ltr;}.bahar-contract-title span{font-size:calc(var(--contract-title-fs,12px) - .3px);font-weight:700;line-height:var(--contract-line-height,1);direction:rtl;}.bahar-contract-title small{font-size:calc(var(--contract-title-fs,12px) - .8px);color:#5c6470;font-weight:600;line-height:var(--contract-line-height,1);}.bahar-contract-details{width:100%;max-width:100%;min-width:0;border:0;background:transparent;}.bahar-contract-row{display:grid;grid-template-columns:21% minmax(0,58%) 21%;grid-template-areas:'en value ar';direction:ltr;width:100%;max-width:100%;min-width:0;min-height:var(--contract-row-min,3.2mm);border-inline:.2mm solid #000;border-bottom:.2mm solid #000;align-items:stretch;line-height:var(--contract-line-height,1);}.bahar-contract-sheet.qr-top-right .bahar-contract-title,.bahar-contract-sheet.qr-top-right .bahar-contract-row:nth-child(-n+4){width:86%;max-width:86%;margin-right:14%;}.bahar-contract-sheet.qr-top-left .bahar-contract-title,.bahar-contract-sheet.qr-top-left .bahar-contract-row:nth-child(-n+4){width:86%;max-width:86%;margin-left:14%;}.bahar-contract-row>*{display:flex;min-width:0;align-items:center;padding:var(--contract-cell-pad,.4mm) .65mm;line-height:var(--contract-line-height,1);background:transparent;}.bahar-contract-row b{color:var(--bahar-red);font-size:var(--contract-detail-label-fs,10px);font-weight:700;}.bahar-contract-row b.ar{grid-area:ar;justify-content:flex-start;text-align:right;direction:rtl;}.bahar-contract-row b.en{grid-area:en;justify-content:flex-start;text-align:left;direction:ltr;}.bahar-contract-row span{grid-area:value;justify-content:center;text-align:center;font-size:var(--contract-detail-value-fs,10px);font-weight:600;line-height:var(--contract-line-height,1);overflow-wrap:anywhere;white-space:normal;}.bahar-contract-clauses{width:100%;max-width:100%;min-width:0;margin:0;border:.2mm solid #000;border-top:0;border-bottom:0;background:transparent;}.bahar-contract-clause{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:'en ar';direction:ltr;width:100%;max-width:100%;min-width:0;border-bottom:.2mm solid #000;background:transparent;}.bahar-contract-clause p{min-width:0;margin:0;padding:var(--contract-cell-pad,.4mm) .7mm;font-size:var(--contract-clause-fs,9px);line-height:var(--contract-line-height,1);text-align:justify;overflow-wrap:anywhere;background:transparent;}.bahar-contract-clause p:first-child{grid-area:ar;border-inline-start:.2mm solid #000;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;}.bahar-contract-clause p:last-child{grid-area:en;}.bahar-contract-signatures{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);direction:rtl;width:100%;max-width:100%;min-width:0;gap:0;margin:0;border:.2mm solid #000;border-top:0;background:transparent;}.bahar-contract-signatures section{position:relative;min-width:0;min-height:20mm;padding:.65mm .9mm;border-inline-end:.2mm solid #000;background:transparent;text-align:right;}.bahar-contract-signatures section:last-child{border-inline-end:0;}.bahar-contract-signatures b,.bahar-contract-signatures span{display:block;font-size:var(--contract-signature-fs,12px);line-height:var(--contract-line-height,1);}.bahar-contract-signatures small,.bahar-contract-signatures i{display:block;font-size:calc(var(--contract-signature-fs,12px) * .68);line-height:1.05;}.bahar-contract-signatures b{color:var(--bahar-red);}.bahar-contract-signatures span{margin-top:.45mm;font-weight:700;direction:ltr;text-align:right;}.bahar-contract-signatures small{margin-top:.3mm;color:#586575;overflow-wrap:anywhere;direction:ltr;text-align:right;}.bahar-contract-signatures i{position:absolute;inset-inline:.9mm;bottom:.7mm;padding-top:.45mm;border-top:.2mm solid #000;color:#56616e;font-style:normal;text-align:center;}.bahar-contract-qr{z-index:5;}.bahar-contract-stamp,.bahar-contract-signature{position:absolute;z-index:4;object-fit:contain;transform-origin:center;}
+
+.bahar-contract-row b.ar,.bahar-contract-row b.en{border-inline:0!important;}
+.bahar-contract-clause p:first-child{border-inline-start:0;border-inline-end:.2mm solid #000;}
 
 /* Keep the default invoice transparent; white panels are only needed on branded backgrounds. */
 .bahar-inv-sheet:not(.has-bg) .bahar-inv-meta,.bahar-inv-sheet:not(.has-bg) .bahar-inv-totals>div:not(:last-child),.bahar-inv-sheet:not(.has-bg) .bahar-inv-terms{background:transparent;}
@@ -18618,7 +18638,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-editable-qr-caption"></script>
+<script src="company-wizard.js?v=20260907-contract-studio"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>
