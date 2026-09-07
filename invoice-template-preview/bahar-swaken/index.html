@@ -4,26 +4,197 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Bahar Swaken Invoice Preview</title>
+  <title>Bahar Swaken | Experimental Invoice Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    body{margin:0;background:#edf2f7;font-family:"IBM Plex Sans",Arial,sans-serif;color:#102d4a}.bar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:#fff;border-bottom:1px solid #dbe5ee}.bar button{border:1px solid #bfd1e2;border-radius:8px;background:#fff;padding:8px 12px;font-weight:700;color:#17416a;cursor:pointer}.stage{padding:28px;display:flex;justify-content:center}.sheet{position:relative;width:210mm;height:297mm;overflow:hidden;background:#fff;box-shadow:0 14px 36px #18365233;padding:48mm 12mm 34mm}.background,.watermark,.float{position:absolute;pointer-events:none}.background{inset:0;width:100%;height:100%;object-fit:fill;z-index:0}.watermark{left:50%;top:52%;width:42%;transform:translate(-50%,-50%);opacity:.08;z-index:1}.invoice{position:relative;z-index:2}.title{border:1px solid #000;padding:7px;text-align:center;font-size:14px;font-weight:700;color:#86191f}.meta,.terms{display:grid;grid-template-columns:1fr 1fr;border:1px solid #000;border-top:0}.cell{min-height:47px;padding:7px;border-right:1px solid #000;border-bottom:1px solid #000}.cell:nth-child(2n){border-right:0}.wide{grid-column:1/-1;border-bottom:0}.label,th{font-weight:700;color:#86191f;font-size:13px}.value{font-size:12px;margin-top:5px}.items{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}.items th,.items td{border:1px solid #000;padding:5px;text-align:center}.items th{background:transparent}.items td:first-child{text-align:left}.totals{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.total{border:1px solid #000;padding:7px;display:flex;justify-content:space-between;font-size:12px}.words{border:1px solid #000;margin-top:6px;padding:7px;text-align:center;color:#86191f;font-weight:700;font-size:12px}.terms{margin-top:8px;grid-template-columns:repeat(4,1fr)}.terms .cell{min-height:52px;border-bottom:0}.sign{position:absolute;z-index:3;object-fit:contain}.sign-line{margin-top:17px;width:220px;border-bottom:1px solid #50657a;padding-bottom:4px;font-size:7px}.qr{position:absolute;z-index:3;width:12%;aspect-ratio:1;right:4%;top:19%;background:repeating-conic-gradient(#102d4a 0 25%,#fff 0 50%) 0/12px 12px}.caption{position:absolute;z-index:3;right:3%;top:31%;font:700 6px Arial;text-align:center;color:#102d4a}.transparent .title,.transparent .meta,.transparent .cell,.transparent .items th,.transparent .items td,.transparent .total,.transparent .words,.transparent .terms{background:transparent!important}@media print{@page{size:A4;margin:0}.bar{display:none}.stage{padding:0}.sheet{box-shadow:none}}
+    :root{--red:#86191f;--red-deep:#86191f;--black:#86191f;--ink:#18212d;--line:#e5d9db;--paper:#fff;--canvas:#eff2f5;}
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:flex}body{margin:0;background:var(--canvas);color:var(--ink);font-family:Arial,"Segoe UI",sans-serif;}
+    .preview-bar{position:sticky;top:0;z-index:5;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,4vw,54px);background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8ee;box-shadow:0 5px 19px rgba(20,30,43,.08);backdrop-filter:blur(12px);}
+    .preview-brand{display:flex;align-items:center;gap:11px;font-weight:800}.preview-brand span{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--red),#ef5350);color:#fff;font-size:15px;box-shadow:0 6px 12px rgba(183,33,39,.25)}
+    .preview-copy small{display:block;color:#77818d;font-weight:600;margin-top:2px}.preview-actions{display:flex;flex-wrap:wrap;gap:8px}.preview-actions button{border:1px solid #d8dee6;background:#fff;color:#253444;border-radius:10px;padding:10px 14px;font:700 13px inherit;cursor:pointer;transition:.2s}.preview-actions button:hover{border-color:var(--red);color:var(--red);transform:translateY(-1px)}.preview-actions .primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 7px 15px rgba(183,33,39,.22)}
+    .work-area{padding:34px 18px 58px}.sheet-wrap{display:flex;justify-content:center}.a4-sheet{position:relative;width:210mm;min-height:297mm;padding:12mm;background:var(--paper);box-shadow:0 18px 46px rgba(20,30,43,.18);overflow:hidden}.template-background{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:fill;pointer-events:none}.a4-sheet:after{content:"EXPERIMENTAL PREVIEW";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-32deg);z-index:0;color:rgba(183,33,39,.035);font-size:38px;font-weight:900;white-space:nowrap;pointer-events:none}
+    .invoice{position:relative;z-index:1;max-width:186mm;margin:0 auto;font-family:"IBM Plex Sans",Arial,sans-serif}.title-band{margin-top:0;padding:10px 14px;background:var(--red-deep);color:var(--bs-title-color, var(--bs-label-color, #fff));text-align:center;font-size:var(--bs-title-font-size,14px);font-weight:var(--bs-label-font-weight,700);line-height:1.3;letter-spacing:1.2px;border:1px solid var(--bs-section-border-color, #000);border-bottom:0}
+    .meta-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:0;border:1px solid var(--bs-section-border-color, #000);border-top:0;background:var(--bs-section-bg, transparent)}.meta-cell{min-height:48px;padding:8px 11px;border-bottom:1px solid var(--bs-section-border-color, #000)}.meta-cell:nth-child(odd){border-right:1px solid var(--bs-section-border-color, #000)}.meta-label{display:block;color:var(--bs-label-color, var(--red-deep));font-size:var(--bs-label-font-size,14px);font-weight:var(--bs-label-font-weight,700);line-height:1.3;letter-spacing:.5px;margin-bottom:6px}.meta-value{font-size:var(--bs-value-font-size,13px);font-weight:var(--bs-value-font-weight,400);line-height:1.35;color:var(--bs-value-color, var(--ink))}.meta-address-value{font-weight:300;color:color-mix(in srgb, var(--bs-value-color, var(--ink)) 75%, white);font-size:var(--bs-address-font-size,13px)}.meta-wide{grid-column:1/-1;border-bottom:0}
+    .items{width:100%;margin-top:13px;border-collapse:collapse;font-family:"IBM Plex Sans",Arial,sans-serif;box-shadow:0 1px 0 rgba(134,25,31,.08)}.items th{padding:10px 7px;background:var(--bs-product-header-bg, var(--red-deep));color:var(--bs-product-header-color, var(--bs-label-color, #fff));border:1px solid var(--bs-table-border-color, rgba(255,255,255,.16));font-size:var(--bs-product-header-font-size,14px);font-weight:var(--bs-label-font-weight,700);line-height:1.25;letter-spacing:.35px;white-space:normal}.items th span{display:block;font-size:6px;color:rgba(255,255,255,.72);margin-top:2px}.items td{height:31px;padding:7px;border:1px solid var(--bs-table-border-color, var(--line));vertical-align:middle;font-size:var(--bs-product-value-font-size,13px);font-weight:var(--bs-value-font-weight,400);color:var(--bs-product-value-color, var(--bs-value-color, var(--ink)));background:var(--bs-product-value-bg, transparent)}.items tbody tr:nth-child(even){background:#fcf8f8}.items tbody tr:first-child{background:#fff}.items td:first-child{text-align:left}.items td:not(:first-child){text-align:center}.watermark{position:absolute;left:50%;top:52%;width:154px;height:154px;transform:translate(-50%,-50%) rotate(-18deg);border:8px solid rgba(134,25,31,.055);border-radius:50%;display:grid;place-items:center;color:rgba(134,25,31,.07);font-size:18px;font-weight:900;letter-spacing:1px}.watermark:before{content:"BS";font-size:54px}.watermark:after{content:"BAHAR SWAKEN";position:absolute;font-size:8px;letter-spacing:2px}
+    .totals{display:grid;grid-template-columns:1fr 225px;gap:13px;align-items:stretch;margin-top:12px}.cartons{border:1px solid var(--bs-section-border-color, #000);padding:12px 14px;display:flex;align-items:center;justify-content:space-between}.cartons span{font-size:var(--bs-bottom-label-font-size,14px);font-weight:var(--bs-label-font-weight,700);color:var(--bs-bottom-label-color, var(--bs-label-color, var(--red-deep)))}.cartons b{font-size:var(--bs-total-cartons-font-size,13px);font-weight:var(--bs-value-font-weight,400);color:var(--bs-total-cartons-color, var(--bs-label-color, var(--red-deep)))}.amount{padding:12px 15px;background:var(--red-deep);color:#fff;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--bs-section-border-color, #000)}.amount span{font-size:var(--bs-bottom-label-font-size,14px);font-weight:var(--bs-label-font-weight,700);color:var(--bs-bottom-label-color, var(--bs-label-color, #fff))}.amount b{font-size:var(--bs-total-amount-font-size,13px);font-weight:var(--bs-label-font-weight,700);color:var(--bs-total-amount-color, var(--bs-label-color, #fff))}.amount-note{margin-top:8px;padding:10px 14px;text-align:center;background:var(--red-deep);color:var(--bs-words-color, var(--bs-label-color, #fff));font-size:var(--bs-words-font-size,13px);font-weight:var(--bs-label-font-weight,700);letter-spacing:.35px;border:1px solid var(--bs-section-border-color, #000)}.terms{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--bs-section-border-color, #000);margin-top:13px;background:var(--bs-section-bg, transparent)}.term{min-height:65px;padding:9px;border-right:1px solid var(--line)}.term:last-child{border-right:0}.term label{display:block;color:var(--bs-bottom-label-color, var(--bs-label-color, var(--red-deep)));font-size:var(--bs-bottom-label-font-size,14px);font-weight:var(--bs-label-font-weight,700);letter-spacing:.5px;margin-bottom:9px}.term div{font-size:var(--bs-bottom-value-font-size,13px);font-weight:var(--bs-bottom-value-font-size,13px);font-weight:var(--bs-value-font-weight,400);line-height:1.35;color:var(--bs-bottom-value-color, var(--bs-value-color, var(--ink)))}.signatures{display:grid;grid-template-columns:1.25fr 1fr;gap:25px;margin-top:24px;min-height:70px}.sign-line{border-bottom:1px solid #747b83;align-self:end;padding-bottom:7px;font-size:9px;color:#59616a;font-weight:700}.qr{justify-self:end;width:60px;height:60px;background:repeating-linear-gradient(45deg,var(--red-deep) 0 3px,#fff 3px 6px);outline:4px solid #fff;box-shadow:0 0 0 1px var(--red-deep)}.editor-float{display:none;position:absolute;z-index:3;object-fit:contain;transform-origin:center;user-select:none}.editor-float.selected{outline:1px dashed #1677ff;outline-offset:3px}.editor-float.selected:after{content:attr(data-label)}body.editor .editor-float{pointer-events:auto;cursor:move}body.editor .editor-float.selected{box-shadow:0 0 0 3px rgba(22,119,255,.13)}
+    /* Reserve the illustrated header and footer so the invoice stays centered in the clear page area.
+       Only spacing/padding tightens here — never font-size, so Preview/Print/PDF sizes never diverge. */
+    .a4-sheet.has-template-background{padding:56mm 12mm 36mm}.a4-sheet.has-template-background .title-band{padding:7px 12px}.a4-sheet.has-template-background .meta-cell{min-height:35px;padding:6px 10px}.a4-sheet.has-template-background .meta-label{margin-bottom:3px}.a4-sheet.has-template-background .items{margin-top:9px}.a4-sheet.has-template-background .items th{padding:7px 5px}.a4-sheet.has-template-background .items td{height:22px;padding:4px 5px}.a4-sheet.has-template-background .totals{grid-template-columns:1fr 180px;gap:8px;margin-top:6px}.a4-sheet.has-template-background .cartons,.a4-sheet.has-template-background .amount{padding:6px 10px}.a4-sheet.has-template-background .amount-note{margin-top:5px;padding:6px 10px}.a4-sheet.has-template-background .terms{margin-top:8px}.a4-sheet.has-template-background .term{min-height:51px;padding:7px}.a4-sheet.has-template-background .term label{margin-bottom:5px}.a4-sheet.has-template-background .signatures{margin-top:15px;min-height:52px}.a4-sheet.has-template-background .qr{width:48px;height:48px}.a4-sheet .title-band{border-bottom:1px solid var(--bs-section-border-color,#000)!important}
+    /* Optional paperless table treatment: letterhead and watermark show through,
+       while every edge remains clearly printable in black. */
+    .a4-sheet.transparent-cells .title-band,.a4-sheet.transparent-cells .meta-grid,.a4-sheet.transparent-cells .items th,.a4-sheet.transparent-cells .items td,.a4-sheet.transparent-cells .items tbody tr,.a4-sheet.transparent-cells .cartons,.a4-sheet.transparent-cells .amount,.a4-sheet.transparent-cells .amount-note,.a4-sheet.transparent-cells .terms,.a4-sheet.transparent-cells .term{background:transparent!important;border-color:#000!important}.a4-sheet.transparent-cells .items th,.a4-sheet.transparent-cells .amount,.a4-sheet.transparent-cells .amount span,.a4-sheet.transparent-cells .amount b,.a4-sheet.transparent-cells .amount-note{color:var(--bs-value-color,var(--ink))!important}.a4-sheet.transparent-cells .items th span{color:var(--bs-value-color,var(--ink))!important}.a4-sheet.transparent-cells .term{border-right-color:#000!important}
+    @media(max-width:760px){.preview-bar{align-items:flex-start;flex-direction:column}.work-area{padding:18px 0 36px;overflow:auto}.sheet-wrap{justify-content:flex-start;padding:0 8px}.a4-sheet{transform-origin:top left}.preview-actions{width:100%}.preview-actions button{flex:1}.a4-sheet{box-shadow:none}.work-area{background:#dfe4e9}}
+    body.embed{background:#fff;overflow:hidden}body.embed .preview-bar{display:none}body.embed .work-area{padding:0}body.embed .a4-sheet{box-shadow:none}
+    @media print{@page{size:A4;margin:0}html,body{width:210mm;height:297mm;overflow:hidden}.no-print{display:none!important}body{background:#fff}.work-area,.sheet-wrap{display:block;width:210mm;height:297mm;padding:0;margin:0;overflow:hidden}.a4-sheet{box-shadow:none;width:210mm;height:297mm;min-height:0;margin:0;overflow:hidden;break-inside:avoid;page-break-inside:avoid;break-after:avoid-page;page-break-after:avoid}.template-background{display:block!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet-wrap{display:block}}
   </style>
 </head>
 <body>
-  <header class="bar"><b>Bahar Swaken · Invoice Preview</b><button onclick="window.print()">Print</button></header>
-  <main class="stage"><article class="sheet">
-    <img class="background" alt=""><img class="watermark" alt="">
-    <div class="invoice"><div class="title">COMMERCIAL - INVOICE</div><section class="meta"><div class="cell"><div class="label">CONSIGNEE</div><div class="value">NADIM TRADING ENTERPRISES</div></div><div class="cell"><div class="label">INVOICE NO &amp; DATE</div><div class="value">BSGTX-2026-0001 · 20 August 2026</div></div><div class="cell wide"><div class="label">ADDRESS</div><div class="value">PORT SUDAN, SUDAN</div></div></section><table class="items"><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PKGS TYPE</th><th>HS CODE</th><th>AED U. PRICE</th><th>AED AMOUNT</th></tr></thead><tbody><tr><td>HARDWARE</td><td>154</td><td>CARTONS</td><td>400700</td><td>AED 34.06</td><td>AED 5,242.85</td></tr><tr><td>SOCKS</td><td>153</td><td>CARTONS</td><td>611596</td><td>AED 34.28</td><td>AED 5,242.85</td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table><section class="totals"><div class="total"><b>TOTAL PACKAGES</b><span>1,072 CARTONS</span></div><div class="total"><b>TOTAL AMOUNT</b><span>AED 36,700.00</span></div></section><div class="words">AED THIRTY-SIX THOUSAND SEVEN HUNDRED ONLY</div><section class="terms"><div class="cell"><div class="label">INCOTERM</div><div class="value">CFR</div></div><div class="cell"><div class="label">PORT OF DELIVERY</div><div class="value">GADARIF DRY PORT</div></div><div class="cell"><div class="label">COUNTRY OF ORIGIN</div><div class="value">CHINA</div></div><div class="cell"><div class="label">TERM OF PAYMENTS</div><div class="value">D/A 90 DAYS</div></div></section><div class="sign-line">Authorized Signature &amp; Company Stamp</div></div>
-    <img class="stamp sign" alt=""><img class="signature sign" alt=""><div class="qr"></div><div class="caption">للتحقق من صحة الفاتورة<br>Scan to verify invoice</div>
-  </article></main>
+  <header class="preview-bar no-print">
+    <div class="preview-brand"><span>BS</span><div class="preview-copy">Bahar Swaken<div><small>Experimental Invoice Design · Preview only</small></div></div></div>
+    <div class="preview-actions">
+      <button type="button" onclick="history.length > 1 ? history.back() : location.assign('/')">Back</button>
+      <button type="button" onclick="window.print()">Print Preview</button>
+      <button class="primary" type="button" onclick="window.print()">Export PDF</button>
+    </div>
+  </header>
+  <main class="work-area"><div class="sheet-wrap"><article class="a4-sheet" aria-label="Commercial invoice preview"><div class="invoice">
+    <div class="title-band">COMMERCIAL - INVOICE</div>
+    <section class="meta-grid">
+      <div class="meta-cell"><span class="meta-label">Consignee</span><div class="meta-value">ABUKLEEWA TRADING TRANSPORT &amp; SERVICES CO.LTD</div></div>
+      <div class="meta-cell"><span class="meta-label">Invoice No & Date</span><div class="meta-value">NT2026-2596-4 · 28 June 2026</div></div>
+      <div class="meta-cell meta-wide"><span class="meta-label">Address</span><div class="meta-value meta-address-value">PORT SUDAN - SUDAN</div></div>
+    </section>
+    <div style="position:relative">
+      <div class="watermark" aria-hidden="true"></div>
+      <table class="items"><colgroup><col style="width:23%"><col style="width:10%"><col style="width:14%"><col style="width:12%"><col style="width:11%"><col style="width:15%"><col style="width:15%"></colgroup><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PKGS TYPE</th><th>HS CODE</th><th>WEIGHT</th><th>AED U. PRICE</th><th>AED AMOUNT</th></tr></thead>
+      <tbody><tr><td>TOOTHBRUSH</td><td>200</td><td>PACKAGE</td><td>960321</td><td>—</td><td>15.51</td><td>44,040.00</td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+    </div>
+    <section class="totals"><div class="cartons"><span>TOTAL PACKAGES</span><b>200 PACKAGE</b></div><div class="amount"><span>TOTAL AMOUNT</span><b>AED 44,040.00</b></div></section>
+    <div class="amount-note">ONLY. FORTY-FOUR THOUSAND FORTY AED</div>
+    <section class="terms"><div class="term"><label>INCOTERM</label><div>CFR</div></div><div class="term"><label>PORT OF DELIVERY</label><div>PORT SUDAN</div></div><div class="term"><label>COUNTRY OF ORIGIN</label><div>CHINA</div></div><div class="term"><label>TERM OF PAYMENTS</label><div>D/A 90 DAYS FROM BILL OF EXCHANGE DATE</div></div></section>
+    <section class="signatures"><div class="sign-line">Authorized Signature &amp; Company Stamp</div></section>
+  </div><img class="editor-float signature-image" data-label="التوقيع" alt="Signature"><img class="editor-float stamp-image" data-label="الختم" alt="Company stamp"><div class="editor-float qr qr-image" data-label="QR العملية" aria-label="QR code preview"></div></article></div></main>
   <script>
-    (() => {
-      const sheet=document.querySelector('.sheet'), bg=document.querySelector('.background'), mark=document.querySelector('.watermark'), stamp=document.querySelector('.stamp'), signature=document.querySelector('.signature'), qr=document.querySelector('.qr'), caption=document.querySelector('.caption');
-      const place=(el,pos,src,visible)=>{ if(!visible||!src){el.style.display='none';return;} el.style.display='block';el.src=src;el.style.left=(pos?.xPercent??78)+'%';el.style.top=(pos?.yPercent??78)+'%';el.style.width=(pos?.widthPercent??13)+'%';el.style.transform=`rotate(${pos?.rotate??0}deg)`; };
-      const apply=s=>{ if(!s)return; document.documentElement.style.setProperty('--accent',s.accent||'#86191f'); document.querySelectorAll('.label,th,.title,.words').forEach(x=>x.style.color=s.accent||'#86191f'); bg.src=s.background||'';bg.style.display=s.background?'block':'none';mark.src=s.watermark||'';mark.style.display=s.showWatermark&&s.watermark?'block':'none';mark.style.opacity=Math.max(0,Math.min(1,Number(s.watermarkOpacity||7)/100));sheet.classList.toggle('transparent',!!s.transparentTableCells);place(stamp,s.stampPosition,s.stamp,s.showStamp!==false);place(signature,s.signaturePosition,s.signature,s.showSigLine!==false);const p=s.qrPosition||{};qr.style.display=s.showQr===false?'none':'block';caption.style.display=s.showQr===false?'none':'block';qr.style.left=(p.xPercent??85)+'%';qr.style.top=(p.yPercent??20)+'%';qr.style.width=(p.widthPercent??12)+'%';qr.style.transform=`rotate(${p.rotate??0}deg)`;caption.style.right=(100-(p.xPercent??85)-(p.widthPercent??12))+'%'; };
-      try{apply(JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings')||'{}'));}catch(e){}
-      window.addEventListener('message',e=>{if(e.origin===location.origin&&e.data?.type==='bahar-live-settings')apply(e.data.settings);});
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const isEditor = params.get('embed') === 'editor';
+      const isPdfPreview = params.get('embed') === 'pdf';
+      if (params.has('embed')) document.body.classList.add('embed');
+      // The company settings window lives in the main app, so it can ask its
+      // parent for the same native PDF used by the final package. This removes
+      // the old HTML/PDF visual mismatch without changing the standalone page.
+      if (isPdfPreview) {
+        document.body.innerHTML = '<main style="width:210mm;height:297mm;background:#fff"><div style="padding:24mm;text-align:center;font:600 14px Arial;color:#526070">جارٍ تجهيز معاينة الطباعة...</div></main>';
+        const renderPdf = async () => {
+          try {
+            const parentApp = window.parent;
+            if (parentApp === window || typeof parentApp.bsgtPdfPreviewBlob !== 'function' || typeof parentApp.ceSampleRecord !== 'function') throw new Error('معاينة PDF متاحة من داخل إعدادات الشركة فقط.');
+            const blob = await parentApp.bsgtPdfPreviewBlob(parentApp.ceSampleRecord(), 'invoice');
+            const url = URL.createObjectURL(blob);
+            document.body.innerHTML = '<embed type="application/pdf" src="' + url + '#view=FitH&toolbar=0&navpanes=0" style="display:block;width:210mm;height:297mm;border:0;background:#fff">';
+            window.addEventListener('beforeunload', () => URL.revokeObjectURL(url), {once:true});
+          } catch (error) {
+            document.body.innerHTML = '<main style="width:210mm;height:297mm;padding:24mm;background:#fff;color:#8a1f25;font:600 14px Arial">تعذّر تجهيز معاينة الطباعة. افتحها من داخل إعدادات شركة بحر سواكن.</main>';
+            console.error('BSGT PDF preview', error);
+          }
+        };
+        renderPdf();
+        return;
+      }
+      if (isEditor) document.body.classList.add('editor');
+      const defaults = {
+        accent:'#b72127', tableHeader:'#86191f', tableFont:'IBM Plex Sans', background:'', watermark:'', watermarkOpacity:7, showWatermark:false, signature:'', stamp:'', showStamp:true, showSigLine:true,
+        stampPosition:{xPercent:78,yPercent:78,widthPercent:13,rotate:0}, signaturePosition:{xPercent:10,yPercent:81,widthPercent:23,rotate:0}, qrPosition:{xPercent:85,yPercent:20,widthPercent:12,rotate:0}, showQr:true,
+        labelFontSize:14, labelFontWeight:700, valueFontSize:13, valueFontWeight:400,
+        titleFontSize:'', productHeaderFontSize:'', productValueFontSize:'', bottomLabelFontSize:'', bottomValueFontSize:'', addressFontSize:'',
+        amountWordsFontSize:'', totalAmountFontSize:'', totalCartonsFontSize:'',
+        labelColor:'', valueColor:'', titleColor:'', productHeaderColor:'', bottomLabelColor:'', bottomValueColor:'',
+        productValueColor:'', amountWordsColor:'', totalAmountColor:'', totalCartonsColor:'',
+        productHeaderBgColor:'', productValueBgColor:'', tableBorderColor:'',
+        sectionBgColor:'', sectionBorderColor:'', transparentTableCells:false
+      };
+      // Same source of truth as company-wizard.js's baharSheet(): granular sizes fall back
+      // to the base label/value pair when unset, so Preview/Print/PDF never disagree.
+      const px = (value, fallback) => { const n = Number(value); return Number.isFinite(n) && n > 0 ? n : fallback; };
+      const applyTypography = settings => {
+        const labelFs = px(settings.labelFontSize, 14), labelFw = px(settings.labelFontWeight, 700);
+        const valueFs = px(settings.valueFontSize, 13), valueFw = px(settings.valueFontWeight, 400);
+        const root = document.documentElement.style;
+        root.setProperty('--bs-label-font-size', labelFs + 'px');
+        root.setProperty('--bs-label-font-weight', labelFw);
+        root.setProperty('--bs-value-font-size', valueFs + 'px');
+        root.setProperty('--bs-value-font-weight', valueFw);
+        root.setProperty('--bs-title-font-size', px(settings.titleFontSize, labelFs) + 'px');
+        root.setProperty('--bs-product-header-font-size', px(settings.productHeaderFontSize, labelFs) + 'px');
+        root.setProperty('--bs-product-value-font-size', px(settings.productValueFontSize, valueFs) + 'px');
+        root.setProperty('--bs-address-font-size', px(settings.addressFontSize, valueFs) + 'px');
+        root.setProperty('--bs-bottom-label-font-size', px(settings.bottomLabelFontSize, labelFs) + 'px');
+        const bottomValueFs = px(settings.bottomValueFontSize, valueFs);
+        root.setProperty('--bs-bottom-value-font-size', bottomValueFs + 'px');
+        root.setProperty('--bs-words-font-size', px(settings.amountWordsFontSize, bottomValueFs) + 'px');
+        root.setProperty('--bs-total-amount-font-size', px(settings.totalAmountFontSize, bottomValueFs) + 'px');
+        root.setProperty('--bs-total-cartons-font-size', px(settings.totalCartonsFontSize, bottomValueFs) + 'px');
+        // Colors: only set the var when a color was actually picked, so the CSS var(--x, fallback)
+        // chain in <style> keeps cascading to each element's own default otherwise.
+        const setColor = (name, value) => { if (value) root.setProperty('--bs-' + name, value); else root.removeProperty('--bs-' + name); };
+        [['label-color','labelColor'],['value-color','valueColor'],['title-color','titleColor'],['product-header-color','productHeaderColor'],
+         ['bottom-label-color','bottomLabelColor'],['bottom-value-color','bottomValueColor'],['product-value-color','productValueColor'],
+         ['words-color','amountWordsColor'],['total-amount-color','totalAmountColor'],['total-cartons-color','totalCartonsColor'],
+         ['product-header-bg','productHeaderBgColor'],['product-value-bg','productValueBgColor'],['table-border-color','tableBorderColor'],
+         ['section-bg','sectionBgColor'],['section-border-color','sectionBorderColor']
+        ].forEach(([name, key]) => setColor(name, settings[key]));
+      };
+      const read = key => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) { return {}; } };
+      let settings = defaults;
+      const sheet = document.querySelector('.a4-sheet');
+      const table = document.querySelector('.items');
+      const mark = document.querySelector('.watermark');
+      const signature = document.querySelector('.signature-image');
+      const stamp = document.querySelector('.stamp-image');
+      const signLine = document.querySelector('.sign-line');
+      const qr = document.querySelector('.qr-image');
+      const normalize = next => {
+        const value = Object.assign({}, defaults, next || {});
+        value.stampPosition = Object.assign({}, defaults.stampPosition, next?.stampPosition || {});
+        value.signaturePosition = Object.assign({}, defaults.signaturePosition, next?.signaturePosition || {});
+        value.qrPosition = Object.assign({}, defaults.qrPosition, next?.qrPosition || {});
+        return value;
+      };
+      const setFloat = (element, position, source, visible) => {
+        if (!visible || !source) { element.style.display = 'none'; return; }
+        element.src = source; element.style.display = 'block';
+        element.style.left = position.xPercent + '%'; element.style.top = position.yPercent + '%';
+        element.style.width = position.widthPercent + '%'; element.style.transform = `rotate(${position.rotate}deg)`;
+      };
+      const setQr = (position, visible = true) => {
+        if (!qr) return;
+        qr.style.display = visible ? 'block' : 'none';
+        qr.style.left = position.xPercent + '%'; qr.style.top = position.yPercent + '%';
+        qr.style.width = position.widthPercent + '%'; qr.style.height = 'auto'; qr.style.aspectRatio = '1'; qr.style.transform = `rotate(${position.rotate}deg)`;
+      };
+      const applySettings = next => {
+        settings = normalize(next);
+        applyTypography(settings);
+        document.documentElement.style.setProperty('--red', settings.tableHeader);
+        document.documentElement.style.setProperty('--red-deep', settings.tableHeader);
+        document.documentElement.style.setProperty('--black', settings.tableHeader);
+        if (table) table.style.fontFamily = '"' + settings.tableFont + '", Arial, sans-serif';
+        sheet.classList.toggle('transparent-cells', !!settings.transparentTableCells);
+        let template = sheet.querySelector('.template-background');
+        if (settings.background) { if (!template) { template = document.createElement('img'); template.className = 'template-background'; template.alt = ''; sheet.prepend(template); } template.src = settings.background; sheet.classList.add('has-template-background'); }
+        else { template?.remove(); sheet.classList.remove('has-template-background'); }
+        if (settings.showWatermark && settings.watermark) { mark.style.backgroundImage = 'url("' + settings.watermark + '")'; mark.style.backgroundSize = 'contain'; mark.style.backgroundRepeat = 'no-repeat'; mark.style.border = '0'; mark.style.opacity = Math.max(0, Math.min(1, Number(settings.watermarkOpacity) / 100)); mark.style.color = 'transparent'; }
+        else { mark.style.backgroundImage = ''; mark.style.opacity = ''; mark.style.border = ''; mark.style.color = ''; }
+        if (signLine) signLine.style.display = settings.showSigLine ? '' : 'none';
+        setFloat(signature, settings.signaturePosition, settings.signature, settings.showSigLine);
+        setFloat(stamp, settings.stampPosition, settings.stamp, settings.showStamp);
+        setQr(settings.qrPosition, settings.showQr !== false);
+      };
+      applySettings(Object.assign({}, read('baharSwakenInvoicePreviewSettings'), isEditor ? read('baharSwakenInvoicePreviewDraft') : {}));
+      window.addEventListener('message', event => { if (event.origin === location.origin && event.data?.type === 'bahar-live-settings') applySettings(event.data.settings); });
+      if (!isEditor) return;
+      let selected = null;
+      const bindDrag = (element, key) => element.addEventListener('pointerdown', event => {
+        if (element.style.display === 'none') return;
+        event.preventDefault(); selected?.classList.remove('selected'); selected = element; selected.classList.add('selected');
+        element.setPointerCapture(event.pointerId);
+        const start = {x:event.clientX, y:event.clientY, position:Object.assign({}, settings[key + 'Position'])};
+        const move = moveEvent => {
+          const rect = sheet.getBoundingClientRect();
+          const position = settings[key + 'Position'];
+          const width = position.widthPercent;
+          position.xPercent = Math.max(0, Math.min(100 - width, start.position.xPercent + (moveEvent.clientX - start.x) / rect.width * 100));
+          position.yPercent = Math.max(0, Math.min(100 - width, start.position.yPercent + (moveEvent.clientY - start.y) / rect.height * 100));
+          if (key === 'qr') setQr(position);
+          else setFloat(element, position, key === 'stamp' ? settings.stamp : settings.signature, key === 'stamp' ? settings.showStamp : settings.showSigLine);
+          window.parent.postMessage({type:'bahar-live-position', key, position}, location.origin);
+        };
+        element.addEventListener('pointermove', move);
+        element.addEventListener('pointerup', () => element.removeEventListener('pointermove', move), {once:true});
+      });
+      bindDrag(stamp, 'stamp'); bindDrag(signature, 'signature'); bindDrag(qr, 'qr');
     })();
   </script>
 </body>
