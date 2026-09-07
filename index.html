@@ -5067,6 +5067,7 @@ SWIFT: NBEGEGCX"></textarea>
       <div class="section-title">مركز العملية</div>
       <div class="grid">
         <div class="field span2"><label>رقم العملية الموحد</label><input type="text" id="bsgt_operationNo" dir="ltr" readonly></div>
+        <div class="field span2"><label>نوع الشحنة</label><select class="lookup-sel" id="bsgt_shipType"><option value="sea" selected>بحرية</option><option value="land">برية</option><option value="air">جوية</option></select></div>
       </div>
       <div class="section-title">الصنف والسعر</div>
       <div class="grid bsgt-item-grid">
@@ -7732,6 +7733,7 @@ function bsgtShipmentCard(r, index, isDraft, missingHtml){
     <p class="bsgt-card-consignee">${escapeHtml(r.consignee || r.exporter || 'لم يُحدد العميل')}</p>
     <div class="bsgt-card-meta">
       ${r.operationNo ? `<span title="مركز العملية">${icon('folder',13)} ${escapeHtml(r.operationNo)}</span>` : ''}
+      <span>${icon(r.shipType==='air' ? 'plane' : (isSea(r) ? 'anchor' : 'truck'),13)} ${r.shipType==='air' ? 'جوية' : (isSea(r) ? 'بحرية' : 'برية')}</span>
       <span>${icon('calendarIcon',13)} ${escapeHtml(String(fmtDate(r.invoiceDate||'') || 'بدون تاريخ'))}</span>
       ${shownQuantity ? `<span>${icon('box',13)} ${escapeHtml(shownQuantity)}</span>` : ''}
       <span>${icon('invoice',13)} ${escapeHtml(invoice)}</span>
@@ -8166,7 +8168,10 @@ function switchView(v){
   if(v==='operationCenter') renderOperationCenter();
   if(v==='records'){
     render(); renderSea(); renderIssued(); renderDrafts(); renderReview();
-    if(currentCompanyScope==='bsgt') switchShipTab('issued');
+    if(currentCompanyScope==='bsgt'){
+      switchShipTab('issued');
+      normalizeLegacyBsgtShipTypes();
+    }
   }
   if(v==='tasks') renderTasks();
   if(v==='review') renderReview();
@@ -13076,6 +13081,29 @@ let pendingShipType = 'land';
 function baharCompanyEntry(){
   return companies.find(c => isBaharSwakenCompany(companyDataFor({companyId:c.id})));
 }
+
+let bsgtLegacyTypeMigrationRunning = false;
+async function normalizeLegacyBsgtShipTypes(){
+  if(bsgtLegacyTypeMigrationRunning || !canEdit()) return;
+  const legacy = records.filter(r=>isBaharSwakenCompany(companyDataFor(r)) && r.shipType==='land' && !r.bsgtTransportTypeExplicit);
+  if(!legacy.length) return;
+  bsgtLegacyTypeMigrationRunning = true;
+  try{
+    for(const r of legacy){
+      r.shipType = 'sea';
+      r.bsgtTransportTypeExplicit = true;
+      const saved = await dbSaveRecord(r);
+      if(!saved) throw new Error('تعذر حفظ نوع الشحنة');
+    }
+    renderSea(); renderIssued(); renderDashboard();
+    toast(`تم تصحيح ${legacy.length} شحنة BSGT قديمة إلى بحري ✓`);
+  }catch(e){
+    console.error('BSGT legacy ship type migration', e);
+    toast('تعذر تصحيح بعض أنواع شحنات BSGT القديمة', 'err');
+  }finally{
+    bsgtLegacyTypeMigrationRunning = false;
+  }
+}
 function fillBsgtProformaDate(){
   const invStr = document.getElementById('bsgt_invoiceDate').value;
   if(!invStr) return;
@@ -13290,6 +13318,7 @@ function openBsgtShipForm(id){
   fillLookupSelects();
   renderBsgtBankOptions(r ? r.bankId : '');
   document.getElementById('bsgt_operationNo').value = r?.operationNo || nextBsgtOperationNo();
+  document.getElementById('bsgt_shipType').value = r?.shipType || 'sea';
   document.getElementById('bsgt_itemDesc').value = r?.itemDesc || '';
   document.getElementById('bsgt_qty').value = r?.qty || '';
   setLookupValue(document.getElementById('bsgt_qtyUnit'), r?.qtyUnit || '');
@@ -13354,7 +13383,7 @@ async function saveBsgtShipment(){
   }, 0);
   const shipmentTotal = amountTotal > 0 ? withCurrency(amountTotal.toFixed(2)) : withCurrency(document.getElementById('bsgt_totalAmount').value);
   const rec = Object.assign({}, prev, {
-    id, shipType: prev.shipType || 'land', companyId: entry.id,
+    id, shipType: document.getElementById('bsgt_shipType').value || 'sea', bsgtTransportTypeExplicit:true, companyId: entry.id,
     operationNo: prev.operationNo || document.getElementById('bsgt_operationNo').value || nextBsgtOperationNo(),
     itemDesc: document.getElementById('bsgt_itemDesc').value,
     qty: document.getElementById('bsgt_qty').value,
@@ -13880,9 +13909,9 @@ function bsgtDetailSourceName(r){
 function renderBsgtDetail(r){
   const status = recStatus(r)==='sent' ? 'صادرة' : recStatus(r)==='draft' ? 'مسودة' : 'قيد المراجعة';
   const quantity = r.totalQty || r.qty || r.numberOfPackages || '—';
-  const shippingType = isSea(r) ? 'بحري' : 'بري';
+  const shippingType = shipmentTypeLabel(r);
   const dataCards = [
-    [isSea(r) ? 'anchor' : 'truck', 'نوع الشحنة', shippingType],
+    [shipmentTypeIcon(r), 'نوع الشحنة', shippingType],
     ['box', 'عدد الطرود', r.numberOfPackages || r.totalQty || r.qty || '—'],
     ['tag', 'الوزن الإجمالي', r.weight || r.totalWeight || r.netWeight || r.grossWeight || '—'],
     ['ship', 'الحاويات', r.containers || r.containerNo || r.container || '—']
@@ -17418,6 +17447,8 @@ function tplGetImg(doc){
   return BOL_FALLBACK_IMG;
 }
 function isSea(r){ return (r && r.shipType) === 'sea'; }
+function shipmentTypeLabel(r){ return r?.shipType==='air' ? 'جوية' : (isSea(r) ? 'بحرية' : 'برية'); }
+function shipmentTypeIcon(r){ return r?.shipType==='air' ? 'plane' : (isSea(r) ? 'anchor' : 'truck'); }
 
 let tplEditCompanyId = null;
 let tplZoom = 1;
