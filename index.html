@@ -16542,7 +16542,10 @@ function openPrintWindow(bodyHtml){
 
 const DOC_NAMES = { proforma:'فاتورة مبدئية', invoice:'فاتورة نهائية', cert:'شهادة منشأ', bol:'بوليصة شحن', packing:'كشف التعبئة' };
 
-function printSingle(r, kind, lang){
+async function printSingle(r, kind, lang){
+  // A printed BSGT document needs a real persisted token, not the editor's
+  // placeholder QR. This also makes the QR available before package merging.
+  if(isBaharSwakenCompany(companyDataFor(r))) await ensureQrToken(r);
   addLog('print', `طباعة ${DOC_NAMES[kind]||'مستند'}` + (r.invoiceNo? ` — فاتورة ${r.invoiceNo}` : '') + (lang==='en'?' (إنجليزي)':''));
   openPrintWindow(buildSheet(r, kind, lang));
 }

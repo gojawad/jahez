@@ -846,7 +846,7 @@
     const stampPos = Object.assign({ xPercent: 78, yPercent: 78, widthPercent: 13, rotate: 0 }, settings.stampPosition || {});
     const signPos = Object.assign({ xPercent: 10, yPercent: 81, widthPercent: 23, rotate: 0 }, settings.signaturePosition || {});
     const qrPos = Object.assign({ xPercent: 85, yPercent: 20, widthPercent: 12, rotate: 0 }, settings.qrPosition || {});
-    const qr = isPack || settings.showQr === false ? '' : operationQr(record, qrPos);
+    const qr = settings.showQr === false ? '' : operationQr(record, qrPos);
     const date = typeof fmtDateByLang === 'function' ? fmtDateByLang(proforma ? record.proformaDate : record.invoiceDate, 'en') : (proforma ? record.proformaDate : record.invoiceDate);
     // WEIGHT column always shows in the packing list (its whole purpose), but in the
     // proforma/invoice it's opt-in per shipment via the entry form's "إظهار في الفاتورة" toggle.
