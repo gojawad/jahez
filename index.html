@@ -2431,7 +2431,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="company-wizard.css">
   <link rel="stylesheet" href="profile-panel.css">
   <link rel="stylesheet" href="modal-layout.css">
-  <link rel="stylesheet" href="shipment-detail.css">
+  <link rel="stylesheet" href="shipment-detail.css?v=20260907-file-drop">
 </head>
 <body>
 
@@ -8366,9 +8366,9 @@ const BAHAR_DOC_LABELS = {
   bol:'بوليصة الشحن (بحر سواكن)'
 };
 const BAHAR_EXTERNAL_DOC_META = {
-  importPermit:{label:'إذن الاستيراد', icon:'folder'},
-  cert:{label:'شهادة المنشأ', icon:'award'},
-  bol:{label:'بوليصة الشحن', icon:'truck'}
+  importPermit:{label:'إذن الاستيراد', icon:'folder', btnId:'btnBaharImportPermit'},
+  cert:{label:'شهادة المنشأ', icon:'award', btnId:'btnBaharCert'},
+  bol:{label:'بوليصة الشحن', icon:'truck', btnId:'btnBaharBol'}
 };
 function baharUploadedDoc(r, key){
   const label = BAHAR_DOC_LABELS[key];
@@ -8380,11 +8380,47 @@ function triggerBaharDocUpload(r, key){
   input.type = 'file'; input.accept = 'application/pdf,image/*'; input.style.display = 'none';
   input.addEventListener('change', async function(){
     const files = Array.from(this.files||[]);
-    if(files.length){ await uploadShipmentFiles(r.id, files, BAHAR_DOC_LABELS[key]); refreshDocActionsGrid(r); }
+    if(files.length) await uploadBaharDocument(r, key, files[0]);
     input.remove();
   });
   document.body.append(input);
   input.click();
+}
+async function uploadBaharDocument(r, key, file){
+  if(!file) return;
+  if(!(file.type==='application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))){
+    alert('ارفع ملف PDF أو صورة فقط.');
+    return;
+  }
+  const card = document.getElementById(BAHAR_EXTERNAL_DOC_META[key].btnId+'Wrap');
+  const previous = (shipmentFilesCache[r.id] || []).filter(item=>item.label===BAHAR_DOC_LABELS[key]);
+  card?.classList.add('is-uploading');
+  const status = card?.querySelector('.s');
+  if(status) status.textContent = `جارٍ رفع ${file.name}...`;
+  await uploadShipmentFiles(r.id, [file], BAHAR_DOC_LABELS[key]);
+  const latest = baharUploadedDoc(r, key);
+  if(latest && !previous.some(item=>item.id===latest.id) && previous.length){
+    try{
+      await sb.storage.from('shipment-files').remove(previous.map(item=>item.path));
+      const {error} = await sb.from('shipment_files').delete().in('id', previous.map(item=>item.id));
+      if(error) throw error;
+      shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>!previous.some(old=>old.id===item.id));
+    }catch(error){ console.warn('تعذر تنظيف النسخة السابقة من المستند', error); }
+  }
+  refreshDocActionsGrid(r);
+}
+function bindFileDropZone(element, onFiles){
+  if(!element) return;
+  const stop = event => { event.preventDefault(); event.stopPropagation(); };
+  element.addEventListener('dragenter', event=>{ stop(event); element.classList.add('is-dragover'); });
+  element.addEventListener('dragover', event=>{ stop(event); if(event.dataTransfer) event.dataTransfer.dropEffect='copy'; element.classList.add('is-dragover'); });
+  element.addEventListener('dragleave', event=>{ stop(event); if(!element.contains(event.relatedTarget)) element.classList.remove('is-dragover'); });
+  element.addEventListener('drop', event=>{
+    stop(event);
+    element.classList.remove('is-dragover');
+    const files = Array.from(event.dataTransfer?.files || []);
+    if(files.length) onFiles(files);
+  });
 }
 function refreshDocActionsGrid(r){
   const el = document.getElementById('docActionsGrid');
@@ -13854,9 +13890,10 @@ function renderDocActionsGrid(r){
     const m = baharOverride && BAHAR_EXTERNAL_DOC_META[k] ? BAHAR_EXTERNAL_DOC_META[k] : DOC_META[k];
     if(baharOverride && BAHAR_EXTERNAL_DOC_META[k]){
       const uploaded = baharUploadedDoc(r, k);
-      return `<div class="doc-action-btn" id="${m.btnId}Wrap">
+      return `<div class="doc-action-btn doc-upload-dropzone" id="${m.btnId}Wrap" data-doc-key="${k}">
           <span class="t">${icon(m.icon)} ${m.label}</span>
           <span class="s">${uploaded ? ('مرفوع: '+escapeHtml(uploaded.name)) : 'لم يُرفع بعد — يُضاف يدوياً'}</span>
+          <span class="doc-drop-hint">اسحب ملف PDF أو صورة وأسقطها هنا</span>
           <div style="display:flex;gap:6px;margin-top:6px">
             ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
             <button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>
@@ -13878,6 +13915,7 @@ function wireDocActionButtons(r){
       const uploaded = baharUploadedDoc(r, k);
       document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
+      bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
     });
   } else {
     document.getElementById('btnCert').addEventListener('click', ()=>{
@@ -14064,6 +14102,7 @@ function openDetail(id){
       <div id="sfList" class="sf-list"><div class="sf-loading">جاري التحميل…</div></div>
       <label class="btn btn-ghost btn-small sf-upload-btn" for="sf_files">${icon('upload',14)} رفع مستند</label>
       <input type="file" id="sf_files" multiple style="display:none;">
+      <div class="sf-file-dropzone" id="sfFileDropZone">${icon('upload',16)} اسحب الملفات وأسقطها هنا للرفع مباشرة</div>
     </div>
 
     ${recStatus(r)==='sent' ? `
@@ -14120,6 +14159,7 @@ function openDetail(id){
     uploadShipmentFiles(id, Array.from(this.files||[]));
     this.value = '';
   });
+  bindFileDropZone(document.getElementById('sfFileDropZone'), files=>uploadShipmentFiles(id, files));
   if(document.getElementById('pkgAttSection')){
     loadPackageAttachments(id);
     const pkgFileInput = document.getElementById('pkgAttFile');
