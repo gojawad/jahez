@@ -113,6 +113,22 @@ async function main() {
       assert.ok(policySql.includes('create policy shipmentfiles_select'));
       assert.ok(policySql.includes('create policy shippkgatt_select'));
     });
+    await check('BSGT bill numbers are duplicate-safe and operation history is visible', async () => {
+      assert.ok(appHtml.includes('function normalizeBsgtBillNumber(value)'));
+      assert.ok(appHtml.includes('function findDuplicateBsgtBill(value, excludeId = bsgtShipEditId)'));
+      assert.ok(appHtml.includes('async function findDuplicateBsgtBillOnServer(companyId, value, excludeId = bsgtShipEditId)'));
+      assert.ok(appHtml.includes(".eq('company_id', companyId)"));
+      assert.ok(appHtml.includes('رقم البوليصة مستخدم مسبقاً في'));
+      assert.ok(appHtml.includes('تعذّر التحقق من عدم تكرار رقم البوليصة. لم يتم الحفظ'));
+      assert.ok(appHtml.includes('فتح العملية'));
+      assert.ok(appHtml.includes('function shipmentAuditUserName(userId)'));
+      assert.ok(appHtml.includes('أنشأ العملية'));
+      assert.ok(appHtml.includes('تاريخ الإنشاء'));
+      assert.ok(appHtml.includes('آخر تحديث'));
+      assert.ok(appHtml.includes('ما حدث في العملية'));
+      assert.ok(appHtml.includes("if(!isBsgtAudit) query = query.in('kind', ['submit','approve','return'])"));
+      assert.ok(appHtml.includes("const note = isBsgtAudit ? [`بواسطة: ${actor}`, c.body]"));
+    });
     await check('static assets served with correct MIME', async () => {
       for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
