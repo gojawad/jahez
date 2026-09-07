@@ -636,6 +636,9 @@
     contractPageSideMm:12.7,
     contractTableTopMm:0,
     sellerAddress:CONTRACT_ADDRESS,
+    header:'',
+    showHeader:true,
+    headerPosition:{xPercent:12.5,yPercent:2.5,widthPercent:75,rotate:0},
     showStamp:true,
     stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
     showQr:true,
@@ -649,12 +652,13 @@
     const base = defaults();
     const saved = companyEntry?.settings?.contractBranding || {};
     return Object.assign(base, saved, {
+      headerPosition:Object.assign({}, base.headerPosition, saved.headerPosition || {}),
       stampPosition:Object.assign({}, base.stampPosition, saved.stampPosition || {}),
       qrPosition:Object.assign({}, base.qrPosition, saved.qrPosition || {})
     });
   };
   const numberField = (key, label, value, min, max, step, unit) => `<label class="bce-field"><span>${label}</span><div><input class="bce-number" data-key="${key}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><small>${unit}</small></div></label>`;
-  const transformFields = (key, title, position) => `<section class="bce-transform" data-transform="${key}"><h4>${title}</h4><div class="bce-grid"><label>أفقي <b data-value="xPercent">${position.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="96" step=".5" value="${position.xPercent}"></label><label>عمودي <b data-value="yPercent">${position.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="94" step=".5" value="${position.yPercent}"></label><label>الحجم <b data-value="widthPercent">${position.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="35" step=".5" value="${position.widthPercent}"></label><label>التدوير <b data-value="rotate">${position.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${position.rotate}"></label></div></section>`;
+  const transformFields = (key, title, position, maxWidth = 35) => `<section class="bce-transform" data-transform="${key}"><h4>${title}</h4><div class="bce-grid"><label>أفقي <b data-value="xPercent">${position.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="96" step=".5" value="${position.xPercent}"></label><label>عمودي <b data-value="yPercent">${position.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="94" step=".5" value="${position.yPercent}"></label><label>الحجم <b data-value="widthPercent">${position.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="${maxWidth}" step=".5" value="${position.widthPercent}"></label><label>التدوير <b data-value="rotate">${position.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${position.rotate}"></label></div></section>`;
   let overlay;
   let companyId = '';
   let draft = defaults();
@@ -682,10 +686,12 @@
     overlay.querySelectorAll('.bce-number').forEach(input => { next[input.dataset.key] = Number(input.value); });
     next.contractMarginPreset = overlay.querySelector('.bce-margin').value;
     next.sellerAddress = overlay.querySelector('.bce-address').value.trim() || CONTRACT_ADDRESS;
+    next.header = overlay.querySelector('.bce-header-file').dataset.value || '';
+    next.showHeader = overlay.querySelector('.bce-show-header').checked;
     next.showStamp = overlay.querySelector('.bce-show-stamp').checked;
     next.showQr = overlay.querySelector('.bce-show-qr').checked;
     next.showQrCaption = overlay.querySelector('.bce-show-qr-caption').checked;
-    ['stamp','qr'].forEach(key => {
+    ['header','stamp','qr'].forEach(key => {
       next[`${key}Position`] = Object.fromEntries([...overlay.querySelectorAll(`[data-transform="${key}"] input`)].map(input => [input.dataset.prop, Number(input.value)]));
     });
     return next;
@@ -709,35 +715,40 @@
       || null;
   }
 
-  function attachStampDrag(frame){
+  function attachMovable(frame, selector, key, title){
     const doc = frame.contentDocument;
-    const stamp = doc?.querySelector('.bahar-contract-stamp');
+    const element = doc?.querySelector(selector);
     const sheet = doc?.querySelector('.bahar-contract-sheet');
-    if(!stamp || !sheet) return;
-    stamp.style.pointerEvents = 'auto';
-    stamp.style.cursor = 'move';
-    stamp.title = 'اسحب الختم لتغيير موضعه في العقد فقط';
-    stamp.addEventListener('pointerdown', event => {
+    if(!element || !sheet) return;
+    element.style.pointerEvents = 'auto';
+    element.style.cursor = 'move';
+    element.title = title;
+    element.addEventListener('pointerdown', event => {
       event.preventDefault();
-      stamp.setPointerCapture(event.pointerId);
-      const current = collect().stampPosition;
+      element.setPointerCapture(event.pointerId);
+      const current = collect()[`${key}Position`];
       const start = {x:event.clientX,y:event.clientY,left:current.xPercent,top:current.yPercent};
       const move = moveEvent => {
         const left = Math.max(0, Math.min(96, start.left + (moveEvent.clientX-start.x) / sheet.clientWidth * 100));
         const top = Math.max(0, Math.min(94, start.top + (moveEvent.clientY-start.y) / sheet.clientHeight * 100));
-        const position = Object.assign({}, collect().stampPosition, {xPercent:Math.round(left*2)/2,yPercent:Math.round(top*2)/2});
-        syncTransform('stamp', position);
-        stamp.style.left = position.xPercent + '%';
-        stamp.style.top = position.yPercent + '%';
+        const position = Object.assign({}, collect()[`${key}Position`], {xPercent:Math.round(left*2)/2,yPercent:Math.round(top*2)/2});
+        syncTransform(key, position);
+        element.style.left = position.xPercent + '%';
+        element.style.top = position.yPercent + '%';
       };
       const up = () => {
-        stamp.removeEventListener('pointermove', move);
+        element.removeEventListener('pointermove', move);
         renderPreview();
       };
-      stamp.addEventListener('pointermove', move);
-      stamp.addEventListener('pointerup', up, {once:true});
-      stamp.addEventListener('pointercancel', up, {once:true});
+      element.addEventListener('pointermove', move);
+      element.addEventListener('pointerup', up, {once:true});
+      element.addEventListener('pointercancel', up, {once:true});
     });
+  }
+
+  function attachPreviewDrag(frame){
+    attachMovable(frame, '.bahar-contract-header', 'header', 'اسحب الترويسة لتغيير موضعها في العقد فقط');
+    attachMovable(frame, '.bahar-contract-stamp', 'stamp', 'اسحب الختم لتغيير موضعه في العقد فقط');
   }
 
   function renderPreview(){
@@ -758,7 +769,7 @@
     } finally {
       companyEntry.settings = originalSettings;
     }
-    frame.onload = () => attachStampDrag(frame);
+    frame.onload = () => attachPreviewDrag(frame);
     frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><style>${PRINT_STYLES}html,body{overflow:hidden}</style></head><body>${sheet}</body></html>`;
   }
 
@@ -790,9 +801,31 @@
     const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
     draft = mergedSettings(companyEntry);
     root.innerHTML = `<style>
-      .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
-    </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>كل القيم هنا محفوظة على الموقع ومخصصة للعقد فقط.</p><div class="bce-grid"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section><div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
+      .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-section-note{margin:-6px 0 10px;color:#728195;font-size:12px;line-height:1.6}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-file-box{padding:12px;border:1px dashed #cbd9e7;border-radius:12px;background:#f8fbfe}.bce-file-thumb{height:92px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;color:#8796a7;font-size:12px}.bce-file-thumb img{max-width:100%;max-height:100%;object-fit:contain}.bce-file-actions{display:flex;gap:8px;margin-top:10px}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
+    </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الترويسة أو الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>العقد بخلفية بيضاء، وكل العناصر هنا مستقلة عن الفاتورة ومحفوظة على الموقع.</p><section class="bce-section"><h4>ترويسة العقد المستقلة</h4><p class="bce-section-note">ارفع صورة الترويسة وحدها بصيغة PNG أو JPG. يمكنك استبدالها لاحقًا دون تعديل بنية العقد.</p><div class="bce-file-box bce-header-file"><div class="bce-file-thumb">${draft.header?`<img src="${safe(draft.header)}" alt="ترويسة العقد">`:'<span>لا توجد ترويسة — خلفية العقد بيضاء</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-header-pick">رفع / استبدال الترويسة</button><button type="button" class="btn btn-ghost btn-small bce-header-remove">إزالة</button><input type="file" class="bce-header-input" accept="image/png,image/jpeg,image/webp" hidden></div></div><div class="bce-toggles" style="margin-top:12px"><label class="bce-toggle"><input type="checkbox" class="bce-show-header" ${draft.showHeader?'checked':''}> إظهار الترويسة</label></div>${transformFields('header','موضع ترويسة العقد فقط',draft.headerPosition,95)}</section><div class="bce-grid" style="margin-top:18px"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section><div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
     root.querySelector('.bce-margin').value = draft.contractMarginPreset;
+    const headerCard = root.querySelector('.bce-header-file');
+    const headerInput = root.querySelector('.bce-header-input');
+    headerCard.dataset.value = draft.header || '';
+    root.querySelector('.bce-header-pick').addEventListener('click', () => headerInput.click());
+    headerInput.addEventListener('change', () => {
+      const file = headerInput.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        headerCard.dataset.value = String(reader.result || '');
+        headerCard.querySelector('.bce-file-thumb').innerHTML = `<img src="${reader.result}" alt="ترويسة العقد">`;
+        root.querySelector('.bce-show-header').checked = true;
+        schedulePreview();
+      };
+      reader.readAsDataURL(file);
+    });
+    root.querySelector('.bce-header-remove').addEventListener('click', () => {
+      headerCard.dataset.value = '';
+      headerInput.value = '';
+      headerCard.querySelector('.bce-file-thumb').innerHTML = '<span>لا توجد ترويسة — خلفية العقد بيضاء</span>';
+      schedulePreview();
+    });
     root.querySelectorAll('input,select,textarea').forEach(input => input.addEventListener('input', schedulePreview));
     root.querySelectorAll('.bce-transform input').forEach(input => input.addEventListener('input', () => {
       const group = input.closest('.bce-transform');
