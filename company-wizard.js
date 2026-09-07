@@ -708,7 +708,10 @@
     if (!record?.id || typeof qrcode !== 'function') return '';
     try {
       // The printed QR must always open the saved, full PDF package - never a data page.
-      const target = typeof qrPackageUrl === 'function' ? qrPackageUrl(record) : '';
+      // Build the public package URL here instead of depending on a function
+      // declared in another script scope. The server-side PDF renderer receives
+      // this finished HTML, so the QR must already be present in the markup.
+      const target = record.qrToken ? `${location.origin}/s/${record.qrToken}` : '';
       if (!target) return '';
       const code = qrcode(0, 'H');
       code.addData(target);
