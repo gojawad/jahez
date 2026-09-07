@@ -56,6 +56,9 @@ async function main() {
       assert.ok(appHtml.includes('${decorations(true,true)}${brand()}'));
       assert.ok(appHtml.includes('--contract-line-height:${contractLayout.lineHeight}'));
       assert.ok(appHtml.includes('contractCellPaddingMm'));
+      assert.ok(appHtml.includes("marginPreset === 'normal' ? 25.4"));
+      assert.ok(appHtml.includes('border:.2mm solid #000'));
+      assert.ok(appHtml.includes('background:transparent'));
       assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));
     });
     await check('BSGT shipment attachments have role-aware read-only UI', async () => {

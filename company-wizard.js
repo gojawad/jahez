@@ -184,7 +184,7 @@
       // International sale contract: compact enough to keep all fields, clauses and signatures on one A4 page.
       contractTitleFontSize:6.2, contractDetailLabelFontSize:5.6, contractDetailValueFontSize:5.8,
       contractClauseFontSize:5.4, contractSignatureFontSize:5.5, contractLineHeight:1,
-      contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractPageSideMm:10,
+      contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractMarginPreset:'narrow', contractPageSideMm:12.7,
       // Text colors — same fallback-chain idea as the font sizes above: empty means "inherit"
       // (labels fall back to the accent color, values to the default dark ink), so nothing
       // changes visually until a color is explicitly picked.
@@ -339,6 +339,7 @@
           <summary style="cursor:pointer;font-weight:800;color:#12385e">عقد البيع الدولي — صفحة A4 واحدة</summary>
           <p style="margin:8px 0 14px">تحكم في ضغط عقد بحر سواكن فقط. التباعد 1.0 يعني سطرًا مفردًا، وتُحفظ القيم على الموقع لكل المتصفحات.</p>
           <div class="bs-grid">
+            <div class="field"><label>هوامش الجدول</label><select class="lookup-sel bs-contract-margin-preset"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></div>
             ${contractNumberField('contractTitleFontSize', 'حجم عنوان العقد', settings.contractTitleFontSize, 5, 12, .1, 'px')}
             ${contractNumberField('contractDetailLabelFontSize', 'حجم مسميات البيانات', settings.contractDetailLabelFontSize, 4.5, 10, .1, 'px')}
             ${contractNumberField('contractDetailValueFontSize', 'حجم قيم البيانات', settings.contractDetailValueFontSize, 4.5, 10, .1, 'px')}
@@ -347,7 +348,7 @@
             ${contractNumberField('contractLineHeight', 'تباعد السطور', settings.contractLineHeight, .9, 1.4, .05, '1.0 = مفرد')}
             ${contractNumberField('contractCellPaddingMm', 'هوامش الخلايا', settings.contractCellPaddingMm, .1, 2, .05, 'mm')}
             ${contractNumberField('contractRowMinHeightMm', 'أقل ارتفاع للصف', settings.contractRowMinHeightMm, 2.5, 7, .1, 'mm')}
-            ${contractNumberField('contractPageSideMm', 'هامش جانبي للصفحة', settings.contractPageSideMm, 6, 18, .5, 'mm')}
+            ${contractNumberField('contractPageSideMm', 'الهامش الجانبي المخصص', settings.contractPageSideMm, 6, 30, .1, 'mm')}
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button type="button" class="btn btn-ghost btn-small bs-contract-reset">استرجاع الضغط الافتراضي</button><button type="button" class="btn btn-primary btn-small bs-contract-preview">حفظ ومعاينة عقد فعلي</button></div>
         </details>
@@ -371,6 +372,7 @@
     one('.bs-header').value = settings.tableHeader;
     one('.bs-opacity').value = settings.watermarkOpacity;
     one('.bs-opacity-value').textContent = settings.watermarkOpacity;
+    one('.bs-contract-margin-preset').value = settings.contractMarginPreset || 'narrow';
     simple.querySelectorAll('.bs-fs-step').forEach(btn => btn.addEventListener('click', () => {
       const input = simple.querySelector(`.bs-fs[data-key="${btn.dataset.key}"]`);
       const next = Math.max(8, Math.min(30, (Number(input.value) || 14) + Number(btn.dataset.dir)));
@@ -429,7 +431,8 @@
       background:simple.querySelector('[data-key="background"]').dataset.value || settings.background || '', watermark:simple.querySelector('[data-key="watermark"]').dataset.value || settings.watermark || '',
       signature:simple.querySelector('[data-key="signature"]').dataset.value || settings.signature || '', watermarkOpacity:Number(one('.bs-opacity').value), stamp:simple.querySelector('[data-key="stamp"]').dataset.value || settings.stamp || company.stamp || '', showStamp:one('.bs-show-stamp').checked, showSigLine:one('.bs-show-signature').checked, showQr:one('.bs-show-qr').checked, showQrCaption:one('.bs-show-qr-caption').checked, qrCaptionAr:one('.bs-qr-caption-ar').value.trim(), qrCaptionEn:one('.bs-qr-caption-en').value.trim(), showWatermark:one('.bs-show-watermark').checked, transparentTableCells:one('.bs-transparent-cells').checked, stampPosition:transformValue('stamp'), qrPosition:transformValue('qr'), signaturePosition:transformValue('signature'),
       ...typographyValues(),
-      ...contractValues()
+      ...contractValues(),
+      contractMarginPreset:one('.bs-contract-margin-preset').value
     });
     const liveFrame = one('.bs-live-frame');
     let liveTimer;
@@ -519,6 +522,7 @@
     one('.bs-contract-reset').addEventListener('click', () => {
       const defaults = invoicePreviewDefaults();
       simple.querySelectorAll('.bs-contract-setting').forEach(el => { el.value = defaults[el.dataset.key]; });
+      one('.bs-contract-margin-preset').value = defaults.contractMarginPreset;
       one('.bs-contract-setting').dispatchEvent(new Event('input', { bubbles:true }));
     });
     one('.bs-contract-preview').addEventListener('click', async event => {
