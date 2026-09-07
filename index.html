@@ -15397,14 +15397,13 @@ function baharSwakenContractSheet(r){
     contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractMarginPreset:'narrow',
     contractPageSideMm:12.7, contractTableTopMm:0,
     sellerAddress:'Office 307 Al Faheem Building, Al Wuha (1), Al Khaleej Street (Internal Access), Al Murar, Deira, Dubai, United Arab Emirates',
-    header:'', showHeader:true, headerPosition:{xPercent:12.5,yPercent:2.5,widthPercent:75,rotate:0},
+    header:'',
     showStamp:true, stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
     showQr:true, qrPosition:{xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}
   }, baharContractRuntimeSettings(r));
   // Contract stationery is intentionally independent from the invoice artwork.
-  // The user can upload a replaceable header without baking it into a background.
-  const header = settings.header || '';
-  const headerPosition = Object.assign({xPercent:12.5,yPercent:2.5,widthPercent:75,rotate:0}, settings.headerPosition || {});
+  // The user can upload a replaceable full-page stationery image.
+  const stationery = settings.header || '';
   const stamp = settings.stamp || invoiceSettings.stamp || c.stamp || '';
   const stampPosition = Object.assign({xPercent:44.5,yPercent:76,widthPercent:14,rotate:0}, settings.stampPosition || {});
   const signature = settings.signature || invoiceSettings.signature || '';
@@ -15476,7 +15475,7 @@ function baharSwakenContractSheet(r){
     ['8. الاتفاق والمستندات — تشكل هذه الاتفاقية مع الفاتورة المبدئية والفاتورة التجارية والمستندات المتفق عليها كامل الاتفاق بشأن العملية. وتكون الشروط الخاصة بالعملية مقدمة عند تعارضها مع الشروط العامة لهذه الاتفاقية، ما لم يمنع القانون ذلك.', '8. Agreement & Documents — This Agreement together with the Sales Order, Commercial Invoice and agreed transaction documents constitutes the entire agreement for the transaction. Transaction-specific terms shall prevail over these general terms in case of conflict, unless prohibited by applicable law.']
   ];
   const decorations = (showQr, showStamp) => `
-    ${settings.showHeader !== false && header ? `<img class="bahar-contract-header" src="${header}" alt="" style="left:${headerPosition.xPercent}%;top:${headerPosition.yPercent}%;width:${headerPosition.widthPercent}%;transform:rotate(${headerPosition.rotate}deg)">` : ''}
+    ${stationery ? `<img class="bahar-contract-stationery" src="${stationery}" alt="">` : ''}
     ${showQr && settings.showQr !== false ? shipmentOperationQr(r, 'bahar-inv-qr bahar-contract-qr', qrPosition, Object.assign({}, invoiceSettings, settings)) : ''}
     ${showStamp && settings.showStamp !== false && stamp ? `<img class="bahar-contract-stamp" src="${stamp}" alt="" style="left:${stampPosition.xPercent}%;top:${stampPosition.yPercent}%;width:${stampPosition.widthPercent}%;transform:rotate(${stampPosition.rotate}deg)">` : ''}
     ${showStamp && signature ? `<img class="bahar-contract-signature" src="${signature}" alt="" style="left:${signaturePosition.xPercent}%;top:${signaturePosition.yPercent}%;width:${signaturePosition.widthPercent}%;transform:rotate(${signaturePosition.rotate}deg)">` : ''}`;
@@ -15487,7 +15486,7 @@ function baharSwakenContractSheet(r){
   const style = `--bahar-red:${esc(accent)};--contract-font:${esc(font)},'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;--contract-title-fs:${contractLayout.titleFontSize}px;--contract-detail-label-fs:${contractLayout.detailLabelFontSize}px;--contract-detail-value-fs:${contractLayout.detailValueFontSize}px;--contract-clause-fs:${contractLayout.clauseFontSize}px;--contract-signature-fs:${contractLayout.signatureFontSize}px;--contract-line-height:${contractLayout.lineHeight};--contract-cell-pad:${contractLayout.cellPaddingMm}mm;--contract-row-min:${contractLayout.rowMinHeightMm}mm;--contract-page-side:${contractLayout.pageSideMm}mm;--contract-table-y:${contractLayout.tableTopMm}mm;`;
   const detailsRows = details.map(([ar,value,en])=>`<div class="bahar-contract-row"><b class="ar" dir="rtl">${esc(ar)}</b><span dir="ltr">${esc(value)}</span><b class="en" dir="ltr">${esc(en)}</b></div>`).join('');
   const clauseRows = clauses.map(([ar,en])=>`<div class="bahar-contract-clause"><p dir="rtl">${esc(ar)}</p><p dir="ltr">${esc(en)}</p></div>`).join('');
-  return `<div class="doc-sheet bahar-contract-sheet${header && settings.showHeader !== false?' has-contract-header':''}${qrTopClass}" style="${style}">${decorations(true,true)}<main class="bahar-contract-content">${title('')}<div class="bahar-contract-details">${detailsRows}</div><div class="bahar-contract-clauses">${clauseRows}</div><div class="bahar-contract-signatures"><section><b>البائع / Seller</b><span>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</span><small>${esc(sellerAddress)}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section><section><b>المشتري / Buyer</b><span>${esc(r.consignee||'')}</span><small>${esc(r.consigneeAddress||'')}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section></div></main></div>`;
+  return `<div class="doc-sheet bahar-contract-sheet${stationery?' has-contract-stationery':''}${qrTopClass}" style="${style}">${decorations(true,true)}<main class="bahar-contract-content">${title('')}<div class="bahar-contract-details">${detailsRows}</div><div class="bahar-contract-clauses">${clauseRows}</div><div class="bahar-contract-signatures"><section><b>البائع / Seller</b><span>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</span><small>${esc(sellerAddress)}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section><section><b>المشتري / Buyer</b><span>${esc(r.consignee||'')}</span><small>${esc(r.consigneeAddress||'')}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section></div></main></div>`;
 }
 
 function invoiceSheet(r, kind, lang){
@@ -16740,8 +16739,8 @@ table.inv-items tr.blank td{height:var(--items-h,31px);}
 
 .bahar-contract-row b.ar,.bahar-contract-row b.en{border-inline:0!important;}
 .bahar-contract-clause p:first-child{border-inline-start:0;border-inline-end:.2mm solid #000;}
-.bahar-contract-sheet.has-contract-header{padding-top:55mm;}
-.bahar-contract-header{position:absolute;z-index:3;object-fit:contain;transform-origin:center;pointer-events:none;}
+.bahar-contract-sheet.has-contract-stationery{padding:55mm var(--contract-page-side,12.7mm) 36mm;}
+.bahar-contract-stationery{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0;pointer-events:none;}
 
 /* Keep the default invoice transparent; white panels are only needed on branded backgrounds. */
 .bahar-inv-sheet:not(.has-bg) .bahar-inv-meta,.bahar-inv-sheet:not(.has-bg) .bahar-inv-totals>div:not(:last-child),.bahar-inv-sheet:not(.has-bg) .bahar-inv-terms{background:transparent;}
@@ -18655,7 +18654,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-contract-header"></script>
+<script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>
