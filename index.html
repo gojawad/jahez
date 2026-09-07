@@ -5145,7 +5145,7 @@ SWIFT: NBEGEGCX"></textarea>
       <div class="section-title">عقد البيع الدولي</div>
       <div class="grid bsgt-invoice-grid">
         <div class="field"><label>رقم العقد</label><input type="text" id="bsgt_contractNo" dir="ltr"></div>
-        <div class="field"><label>تاريخ العقد <small>تلقائي: قبل الفاتورة المبدئية بيوم</small></label><input type="date" id="bsgt_contractDate" readonly></div>
+        <div class="field"><label>تاريخ العقد <small>تلقائي: بعد الفاتورة المبدئية بثلاثة أيام</small></label><input type="date" id="bsgt_contractDate" readonly></div>
         <div class="field"><label>فترة الشحن</label><input type="text" id="bsgt_shipmentPeriod" dir="ltr"></div>
         <div class="field"><label>طريقة السداد</label><input type="text" id="bsgt_paymentMethod" dir="ltr"></div>
         <div class="field"><label>الشحن الجزئي</label><select class="lookup-sel" id="bsgt_partialShipment"><option value="Allowed">Allowed — مسموح</option><option value="Not Allowed">Not Allowed — غير مسموح</option></select></div>
@@ -13005,16 +13005,16 @@ function fmtDateEn(d){
   return d;
 }
 function fmtDateByLang(d, lang){ return lang==='en' ? fmtDateEn(d) : fmtDate(d); }
-function previousIsoDate(value){
+function shiftIsoDate(value, dayOffset){
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim());
   if(!match) return value || '';
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   if(date.getUTCFullYear() !== Number(match[1]) || date.getUTCMonth() !== Number(match[2]) - 1 || date.getUTCDate() !== Number(match[3])) return value;
-  date.setUTCDate(date.getUTCDate() - 1);
+  date.setUTCDate(date.getUTCDate() + Number(dayOffset || 0));
   return date.toISOString().slice(0, 10);
 }
 function bsgtContractDate(r){
-  if(r?.proformaDate) return previousIsoDate(r.proformaDate);
+  if(r?.proformaDate) return shiftIsoDate(r.proformaDate, 3);
   return r?.contractDate || r?.invoiceDate || toISODate(new Date());
 }
 function escapeHtml(s){
@@ -13499,7 +13499,7 @@ function openBsgtShipForm(id){
 }
 document.getElementById('bsgtNewBtn').addEventListener('click', ()=> openBsgtShipForm(null));
 document.getElementById('bsgt_proformaDate').addEventListener('input', event => {
-  if(event.currentTarget.value) document.getElementById('bsgt_contractDate').value = previousIsoDate(event.currentTarget.value);
+  if(event.currentTarget.value) document.getElementById('bsgt_contractDate').value = shiftIsoDate(event.currentTarget.value, 3);
 });
 document.getElementById('bsgtCollectionLabBtn').addEventListener('click', ()=>{
   window.open('/experiments/bs-collection/', '_blank', 'noopener');
@@ -15401,7 +15401,9 @@ function baharSwakenContractSheet(r){
     showQr:true, qrPosition:{xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}
   }, baharContractRuntimeSettings(r));
   const background = settings.background || invoiceSettings.background || '';
-  const watermark = settings.watermark || invoiceSettings.watermark || c.watermark || c.logo || '';
+  // The branded background already contains Bahar's watermark. A second layer
+  // made both the watermark and header artwork look doubled in the contract.
+  const watermark = background ? '' : (settings.watermark || invoiceSettings.watermark || c.watermark || c.logo || '');
   const stamp = settings.stamp || invoiceSettings.stamp || c.stamp || '';
   const stampPosition = Object.assign({xPercent:44.5,yPercent:76,widthPercent:14,rotate:0}, settings.stampPosition || {});
   const signature = settings.signature || invoiceSettings.signature || '';
