@@ -2933,7 +2933,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
         <datalist id="dl_taskRef"></datalist>
       </div>
       <div class="field span2">
-        <label>ملف العملية</label>
+        <label>مركز العملية</label>
         <input type="text" id="f_operationNo" dir="ltr" readonly placeholder="يتولد تلقائياً عند إنشاء الشحنة">
       </div>
       <div class="field span2">
@@ -5037,7 +5037,7 @@ SWIFT: NBEGEGCX"></textarea>
       <button class="close-x" id="bsgtShipCloseX" data-ic="close"></button>
     </div>
     <div class="bsgt-ship-body" style="padding:0 26px;">
-      <div class="section-title">ملف العملية</div>
+      <div class="section-title">مركز العملية</div>
       <div class="grid">
         <div class="field span2"><label>رقم العملية الموحد</label><input type="text" id="bsgt_operationNo" dir="ltr" readonly></div>
       </div>
@@ -7704,7 +7704,7 @@ function bsgtShipmentCard(r, index, isDraft, missingHtml){
     <h3 title="${escapeHtml(r.itemDesc||'(بدون وصف)')}">${escapeHtml(r.itemDesc||'(بدون وصف)')}</h3>
     <p class="bsgt-card-consignee">${escapeHtml(r.consignee || r.exporter || 'لم يُحدد العميل')}</p>
     <div class="bsgt-card-meta">
-      ${r.operationNo ? `<span title="ملف العملية">${icon('folder',13)} ${escapeHtml(r.operationNo)}</span>` : ''}
+      ${r.operationNo ? `<span title="مركز العملية">${icon('folder',13)} ${escapeHtml(r.operationNo)}</span>` : ''}
       <span>${icon('calendarIcon',13)} ${escapeHtml(String(fmtDate(r.invoiceDate||'') || 'بدون تاريخ'))}</span>
       ${shownQuantity ? `<span>${icon('box',13)} ${escapeHtml(shownQuantity)}</span>` : ''}
       <span>${icon('invoice',13)} ${escapeHtml(invoice)}</span>
@@ -11901,7 +11901,7 @@ document.getElementById('repExportBtn').addEventListener('click', ()=>{
   const rows = records.filter(r=>monthKey(r.invoiceDate) === pick);
   if(!rows.length){ toast('مفيش بيانات للتصدير','err'); return; }
   const cols = [
-    ['ملف العملية','operationNo'],['رقم المهمة','taskRef'],['نوع الشحن',r=>isSea(r)?'بحري':'بري'],['الحالة',r=>STATUS_AR[recStatus(r)]],
+    ['مركز العملية','operationNo'],['رقم المهمة','taskRef'],['نوع الشحن',r=>isSea(r)?'بحري':'بري'],['الحالة',r=>STATUS_AR[recStatus(r)]],
     ['الصنف','itemDesc'],['الكمية','qty'],['نوع التعبئة','qtyUnit'],['المبلغ','totalAmount'],
     ['المصدّر','exporter'],['المرسل إليه','consignee'],
     ['ميناء الشحن','portLoading'],['ميناء التفريغ','portDischarge'],['بلد المنشأ','countryOrigin'],
@@ -12387,7 +12387,7 @@ function submitForReview(id){
     : `<div class="presend-ok">${icon('check',15)} كل البيانات الأساسية مكتملة</div>`;
 
   const rows = [
-    ['ملف العملية', r.operationNo], ['رقم المهمة', r.taskRef], ['نوع الشحن', isSea(r)?'بحري':'بري'],
+    ['مركز العملية', r.operationNo], ['رقم المهمة', r.taskRef], ['نوع الشحن', isSea(r)?'بحري':'بري'],
     ['الصنف', r.itemDesc], ['الكمية', [r.qty, r.qtyUnit].filter(Boolean).join(' ')],
     ['سعر الوحدة', r.unitPrice], ['المبلغ الإجمالي', r.totalAmount],
     ['المصدّر', r.exporter], ['المرسل إليه', r.consignee],
@@ -12590,7 +12590,7 @@ function renderTargetDashboard(){
         </div>
       </section>
       <section class="db-three-grid">
-        <div class="db-panel"><div class="db-panel-title"><div><h3>آخر العمليات</h3><p>نظرة سريعة على آخر الحركات التشغيلية</p></div><button class="db-link" id="dbShowAll">عرض الكل</button></div><table class="db-operations"><thead><tr><th>الشركة</th><th>ملف العملية</th><th>النوع</th><th>التاريخ</th></tr></thead><tbody>${recent.length?recent.map((r,i)=>{const seaType=isSea(r);return `<tr><td>${escapeHtml(r.exporter||r.consignee||'—')}</td><td>${escapeHtml(r.operationNo||r.taskRef||r.invoiceNo||String(total-i).padStart(4,'0'))}</td><td><span class="db-type ${seaType?'sea':'land'}">${icon(seaType?'ship':'truck',11)}${seaType?'بحرية':'برية'}</span></td><td>${r.invoiceDate?new Date(r.invoiceDate).toLocaleDateString('ar-EG'): '—'}</td></tr>`;}).join(''):'<tr><td colspan="4" style="padding:28px;text-align:center;color:#9aa8b9">لا توجد عمليات مسجلة بعد</td></tr>'}</tbody></table></div>
+        <div class="db-panel"><div class="db-panel-title"><div><h3>آخر العمليات</h3><p>نظرة سريعة على آخر الحركات التشغيلية</p></div><button class="db-link" id="dbShowAll">عرض الكل</button></div><table class="db-operations"><thead><tr><th>الشركة</th><th>مركز العملية</th><th>النوع</th><th>التاريخ</th></tr></thead><tbody>${recent.length?recent.map((r,i)=>{const seaType=isSea(r);return `<tr><td>${escapeHtml(r.exporter||r.consignee||'—')}</td><td>${escapeHtml(r.operationNo||r.taskRef||r.invoiceNo||String(total-i).padStart(4,'0'))}</td><td><span class="db-type ${seaType?'sea':'land'}">${icon(seaType?'ship':'truck',11)}${seaType?'بحرية':'برية'}</span></td><td>${r.invoiceDate?new Date(r.invoiceDate).toLocaleDateString('ar-EG'): '—'}</td></tr>`;}).join(''):'<tr><td colspan="4" style="padding:28px;text-align:center;color:#9aa8b9">لا توجد عمليات مسجلة بعد</td></tr>'}</tbody></table></div>
         <div class="db-panel"><div class="db-panel-title"><div><h3>العمليات آخر 6 أشهر</h3><p>اتجاهات النمو والتغير التشغيلي</p></div><span class="db-link">آخر 6 أشهر</span></div><div class="db-chart"><svg viewBox="0 0 570 180" preserveAspectRatio="none"><defs><linearGradient id="dbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b76ed" stop-opacity=".25"/><stop offset="1" stop-color="#1b76ed" stop-opacity=".01"/></linearGradient></defs>${[45,82,119,156].map(y=>`<line x1="20" x2="550" y1="${y}" y2="${y}" stroke="#e8eef7" stroke-dasharray="3 7"/>`).join('')}<path d="${area}" fill="url(#dbArea)"/><path d="${line}" fill="none" stroke="#1c76ef" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>${pts.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#fff" stroke="#1c76ef" stroke-width="2"/><text x="${p.x}" y="${p.y-10}" text-anchor="middle" fill="#36475e" font-size="10" font-weight="700">${months[i].count||''}</text>`).join('')}</svg><div class="db-chart-labels">${months.map(m=>`<span>${m.label}</span>`).join('')}</div></div></div>
         <div class="db-panel"><div class="db-panel-title"><div><h3>تقييم الشركات (أعلى 3)</h3><p>أفضل الشركات حسب الأداء</p></div><span>${icon('award',17)}</span></div>${companies.length?companies.map(([name,count],i)=>`<div class="db-company"><div class="db-company-top"><span>${escapeHtml(name)}</span><span class="db-rank">${i+1}</span></div><div class="db-company-meta"><span>${fmt(count)} عملية</span><span class="db-stars">★★★★★ ${Math.max(4.1,4.9-i*.3).toFixed(1)}</span></div></div>`).join(''):'<div class="dash-empty">ستظهر التقييمات بعد إضافة عمليات</div>'}<button class="db-all">عرض جميع الشركات</button></div>
       </section>
@@ -13841,7 +13841,7 @@ function renderBsgtDetail(r){
 
         <section class="bsgt-detail-section" id="bsgtOverview">
           <div class="bsgt-summary-grid">
-            <div class="bsgt-summary-card"><div class="sum-top">${icon('folder',14)} ملف العملية</div><span class="sum-value">${escapeHtml(r.operationNo||'—')}</span></div>
+            <div class="bsgt-summary-card"><div class="sum-top">${icon('folder',14)} مركز العملية</div><span class="sum-value">${escapeHtml(r.operationNo||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('user',14)} المرسل إليه</div><span class="sum-value">${escapeHtml(r.consignee||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('building',14)} المصدر</div><span class="sum-value">${escapeHtml(bsgtDetailSourceName(r))}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('box',14)} الكمية</div><span class="sum-value">${escapeHtml(String(quantity))}</span></div>
@@ -13851,8 +13851,8 @@ function renderBsgtDetail(r){
         </section>
 
         <section class="bsgt-detail-section" id="bsgtDocuments">
-          <h3>ملف العملية</h3>
-          <p class="qr-package-status">كل مستندات الشحنة والتحصيل تُحفظ هنا تحت رقم العملية. إذن الاستيراد يظهر أولا دائما.</p>
+          <h3>مركز العملية</h3>
+          <p class="qr-package-status">المرجع الكامل للشحنة ومستنداتها وتحصلاتها. كل الملفات تُحفظ هنا تحت رقم العملية، وإذن الاستيراد يظهر أولا دائما.</p>
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
           <div class="bsgt-doc-order"><div class="sf-head">${icon('list',14)} ترتيب مستندات الحزمة</div><div id="docOrderList" class="sf-list"></div></div>
         </section>
@@ -14915,7 +14915,7 @@ function shipmentOperationQr(r, className, position){
     const width = position ? (Number(position.widthPercent)||12) : 12;
     const style = position ? ` style="left:${Number(position.xPercent)||0}%;top:${Number(position.yPercent)||0}%;width:${width}%;transform:rotate(${Number(position.rotate)||0}deg)"` : '';
     const caption = baharInvoiceRuntimeSettings(r)?.showQrCaption === false ? '' : '<span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span>';
-    return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'ملف العملية')}">${caption}</a>`;
+    return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح مركز العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'مركز العملية')}">${caption}</a>`;
   }catch(error){
     console.warn('operation QR', error);
     return '';
