@@ -10725,11 +10725,15 @@ async function migrateLocalBsgtBranding(){
   if(!isAdmin()) return;
   const target = activeCompany();
   if(!target || !isBaharSwakenCompany(companyDataFor())) return;
+  const current = target.settings || {};
+  const persisted = mergeBsgtBranding(current.collectionBranding, current.invoiceBranding);
+  // The company record is authoritative. A stale browser cache must never
+  // overwrite settings that are already shared with the team.
+  if(Object.keys(persisted).length) return;
   let local;
   try { local = JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
   catch (_) { return; }
   if(!local || !Object.keys(local).length) return;
-  const current = target.settings || {};
   const merged = mergeBsgtBranding(current.collectionBranding, current.invoiceBranding, local);
   if(JSON.stringify(current.collectionBranding || {}) === JSON.stringify(merged) && JSON.stringify(current.invoiceBranding || {}) === JSON.stringify(merged)) return;
   const settings = Object.assign({}, current, {collectionBranding:merged, invoiceBranding:merged});
@@ -15040,9 +15044,7 @@ function isBaharSwakenCompany(c){
 }
 function baharInvoiceRuntimeSettings(r){
   const companySettings = companyDataFor(r) || company || {};
-  const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
-  try { return mergeBsgtBranding(shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
-  catch(e) { return shared; }
+  return companySettings.invoiceBranding || companySettings.collectionBranding || {};
 }
 // بحر سواكن لها جدول مستقل. لا نمررها عبر قالب الفاتورة القديم حتى لا تتحول
 // صور الترويسة والتذييل إلى عناصر داخل الصفحة وتدفع البيانات إلى صفحة ثانية.
@@ -16844,9 +16846,7 @@ async function waitForDocumentImages(root){
 // value searchable, printable, and correctly spaced.
 function bsgtPdfSettings(record){
   const companySettings = companyDataFor(record) || company || {};
-  const shared = companySettings.invoiceBranding || companySettings.collectionBranding || {};
-  try { return mergeBsgtBranding(shared, JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}')); }
-  catch (_) { return shared; }
+  return companySettings.invoiceBranding || companySettings.collectionBranding || {};
 }
 function bsgtPdfColor(hex, fallback){
   const value = String(hex || fallback || '#86191f').replace('#', '').trim();
@@ -18226,7 +18226,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260906-branding"></script>
+<script src="company-wizard.js?v=20260907-shared-settings"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>
