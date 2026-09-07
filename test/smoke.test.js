@@ -26,6 +26,7 @@ async function main() {
   try {
     await waitForServer(proc);
     const results = [];
+    let appHtml = '';
     const check = async (name, fn) => { await fn(); results.push(name); console.log('✔', name); };
 
     await check('healthz reports build sha', async () => {
@@ -38,8 +39,16 @@ async function main() {
       assert.match(r.headers.get('content-type'), /text\/html/);
       assert.match(r.headers.get('cache-control'), /no-cache/);
       assert.strictEqual(r.headers.get('x-frame-options'), 'SAMEORIGIN');
-      const html = await r.text();
-      assert.ok(html.includes('supabase'), 'index.html should be the app');
+      appHtml = await r.text();
+      assert.ok(appHtml.includes('supabase'), 'index.html should be the app');
+    });
+    await check('shipment company isolation guards are present', async () => {
+      assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
+      assert.ok(appHtml.includes('function isBsgtRecord(r)'));
+      assert.ok(appHtml.includes("companyId: selectedCompanyId"));
+      assert.ok(appHtml.includes("nextCompanyNumber('invoice', requestedCompanyId)"));
+      assert.ok(!appHtml.includes('companyId: (prev && prev.companyId) || document.getElementById(\'f_company\').value'));
+      assert.ok(!appHtml.includes('isBaharSwakenCompany(companyDataFor(r))'));
     });
     await check('static assets served with correct MIME', async () => {
       for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {

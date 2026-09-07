@@ -7582,7 +7582,7 @@ let draftsPage = 1;
 // 'general' = كل الشحنات ما عدا بحر سواكن، 'bsgt' = شحنات بحر سواكن فقط (بوابة شحنات BSGT)
 let currentCompanyScope = 'general';
 function inCompanyScope(r){
-  const isBahar = isBaharSwakenCompany(companyDataFor(r));
+  const isBahar = isBsgtRecord(r);
   return currentCompanyScope==='bsgt' ? isBahar : !isBahar;
 }
 
@@ -10768,15 +10768,32 @@ async function loadCompanies(force){
 function companyById(id){ return companies.find(c=>c.id===id) || null; }
 function activeCompany(){ return companyById(activeCompanyId); }
 
+// Resolve documents from the company saved on the shipment, not from the
+// company currently selected in this browser.
+function companyEntryForRecord(r){
+  if(!r || typeof r !== 'object') return null;
+  if(r.companyId) return companyById(r.companyId);
+  if(/^BSGTX-/i.test(String(r.operationNo||''))) return baharCompanyEntry();
+  const exporter = String(r.exporter||'').trim().toLowerCase();
+  if(!exporter) return null;
+  return companies.find(c => [c.name_ar, c.name_en].some(name => String(name||'').trim().toLowerCase() === exporter)) || null;
+}
+
 // بيانات الشركة المستخدمة في بناء المستندات
 function companyDataFor(r){
-  const c = (r && r.companyId) ? companyById(r.companyId) : activeCompany();
-  if(!c) return company;
+  const isRecord = !!(r && typeof r === 'object');
+  const c = isRecord ? companyEntryForRecord(r) : activeCompany();
+  if(!c) return isRecord ? Object.assign({}, DEFAULT_COMPANY) : company;
   const s = Object.assign({}, DEFAULT_COMPANY, c.settings || {});
   s.nameAr = c.name_ar || s.nameAr;
   s.nameEn = c.name_en || s.nameEn;
   s.tagline = c.tagline || s.tagline;
   return s;
+}
+function isBsgtRecord(r){
+  const c = companyEntryForRecord(r);
+  if(c) return isBaharSwakenCompany({nameAr:c.name_ar, nameEn:c.name_en});
+  return !r?.companyId && /^BSGTX-/i.test(String(r?.operationNo||''));
 }
 // Keep shared artwork when a browser has an older draft with empty image fields.
 function mergeBsgtBranding(...sources){
@@ -10793,7 +10810,7 @@ function mergeBsgtBranding(...sources){
 async function migrateLocalBsgtBranding(){
   if(!isAdmin()) return;
   const target = activeCompany();
-  if(!target || !isBaharSwakenCompany(companyDataFor())) return;
+  if(!target || !isBaharSwakenCompany({nameAr:target.name_ar, nameEn:target.name_en})) return;
   const current = target.settings || {};
   const persisted = mergeBsgtBranding(current.collectionBranding, current.invoiceBranding);
   // The company record is authoritative. A stale browser cache must never
@@ -11188,7 +11205,7 @@ document.getElementById('ceSaveBtn').addEventListener('click', async ()=>{
   try{
     const baharEditor = document.getElementById('baharSimpleSettings');
     if(compEditId && baharEditor && baharEditor.style.display !== 'none' && typeof window.saveBaharSwakenInvoiceSettings === 'function'){
-      await window.saveBaharSwakenInvoiceSettings();
+      await window.saveBaharSwakenInvoiceSettings(compEditId);
       nameAr = readCeForm();
     }
     const row = {
@@ -11221,10 +11238,11 @@ document.getElementById('ceSaveBtn').addEventListener('click', async ()=>{
 });
 
 // ترقيم مستقل لكل شركة
-async function nextCompanyNumber(kind){
-  if(!activeCompanyId) return null;
+async function nextCompanyNumber(kind, companyId){
+  companyId = companyId || activeCompanyId;
+  if(!companyId) return null;
   try{
-    const {data, error} = await sb.rpc('next_number', {p_company: activeCompanyId, p_kind: kind});
+    const {data, error} = await sb.rpc('next_number', {p_company: companyId, p_kind: kind});
     if(error) throw error;
     return data;
   }catch(e){ console.warn('next_number', e); return null; }
@@ -12936,8 +12954,17 @@ const CERT_IMG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAICAgI
 let records = [];
 
 function nextBsgtOperationNo(){
+  return nextOperationNumberForCompany(baharCompanyEntry()?.id);
+}
+function operationPrefixForCompany(companyId){
+  const entry = companyById(companyId);
+  if(entry && isBaharSwakenCompany({nameAr:entry.name_ar, nameEn:entry.name_en})) return 'BSGTX';
+  const code = String(entry?.code||'OP').toUpperCase().replace(/[^A-Z0-9]/g,'') || 'OP';
+  return code.endsWith('TX') ? code : code+'TX';
+}
+function nextOperationNumberForCompany(companyId){
   const year=new Date().getFullYear();
-  const prefix=`BSGTX-${year}-`;
+  const prefix=`${operationPrefixForCompany(companyId)}-${year}-`;
   const highest=records.reduce((max,record)=>{
     const match=String(record.operationNo||'').match(new RegExp(`^${prefix}(\\d+)$`));
     return match?Math.max(max,Number(match[1])):max;
@@ -13158,13 +13185,13 @@ let pendingShipType = 'land';
 
 // ===== قائمة إدخال مختصرة لشحنات بحر سواكن (بوابة "شحنات BSGT") =====
 function baharCompanyEntry(){
-  return companies.find(c => isBaharSwakenCompany(companyDataFor({companyId:c.id})));
+  return companies.find(c => isBaharSwakenCompany({nameAr:c.name_ar, nameEn:c.name_en}));
 }
 
 let bsgtLegacyTypeMigrationRunning = false;
 async function normalizeLegacyBsgtShipTypes(){
   if(bsgtLegacyTypeMigrationRunning || !canEdit()) return;
-  const legacy = records.filter(r=>isBaharSwakenCompany(companyDataFor(r)) && r.shipType==='land' && !r.bsgtTransportTypeExplicit);
+  const legacy = records.filter(r=>isBsgtRecord(r) && r.shipType==='land' && !r.bsgtTransportTypeExplicit);
   if(!legacy.length) return;
   bsgtLegacyTypeMigrationRunning = true;
   try{
@@ -13632,16 +13659,21 @@ document.getElementById('newBtn').addEventListener('click', ()=>{
   for(let n=2;n<=MAX_ITEMS;n++){ const el=document.getElementById('f_item'+n+'Amount'); if(el) el.dataset.manual=''; }
   resetItemBlocks();
 
-  // أرقام مؤقتة من البيانات المحلية، ثم نطلب الأرقام الرسمية من عدّاد الشركة
+  fillFormCompanies();
+  const selectedCompanyId = document.getElementById('f_company').value || activeCompanyId;
+  const numberingRequest = ++generalCompanyNumberRequest;
+  // أرقام مؤقتة من البيانات المحلية، ثم نطلب الأرقام الرسمية من عدّاد الشركة المحددة
   const sharedNo = nextSequentialNumber(['invoiceNo','proformaNo']);
   document.getElementById('f_invoiceNo').value = sharedNo;
   document.getElementById('f_proformaNo').value = sharedNo;
   document.getElementById('f_billNo').value = nextBillNumber();
   document.getElementById('f_certNo').value = nextCertNumber();
-  document.getElementById('f_operationNo').value = nextBsgtOperationNo();
-  if(activeCompanyId){
-    Promise.all([nextCompanyNumber('invoice'), nextCompanyNumber('bill'), nextCompanyNumber('cert')])
+  document.getElementById('f_operationNo').value = nextOperationNumberForCompany(selectedCompanyId);
+  if(selectedCompanyId){
+    const requestedCompanyId = selectedCompanyId;
+    Promise.all([nextCompanyNumber('invoice', requestedCompanyId), nextCompanyNumber('bill', requestedCompanyId), nextCompanyNumber('cert', requestedCompanyId)])
       .then(([inv, bill, cert])=>{
+        if(numberingRequest !== generalCompanyNumberRequest || document.getElementById('editId').value || document.getElementById('f_company').value !== requestedCompanyId) return;
         if(inv){ document.getElementById('f_invoiceNo').value = inv;
                  document.getElementById('f_proformaNo').value = inv; }
         if(bill) document.getElementById('f_billNo').value = bill;
@@ -13655,7 +13687,6 @@ document.getElementById('newBtn').addEventListener('click', ()=>{
   document.getElementById('f_invoiceDate').value = toISODate(new Date());
   recalcDependentDates();
   setAdvOpen(false, false);
-  fillFormCompanies();
   document.getElementById('f_shipType').value = pendingShipType;
   document.getElementById('f_taskRef').value = pendingTaskRef || '';
   document.getElementById('formTitle').textContent = pendingTaskRef
@@ -13665,6 +13696,28 @@ document.getElementById('newBtn').addEventListener('click', ()=>{
   pendingTaskRef = ''; pendingTaskTitle = '';
 
   formPanel.classList.add('open');
+});
+let generalCompanyNumberRequest = 0;
+document.getElementById('f_company')?.addEventListener('change', async function(){
+  const companyId = this.value;
+  if(!companyId) return;
+  const request = ++generalCompanyNumberRequest;
+  document.getElementById('f_operationNo').value = nextOperationNumberForCompany(companyId);
+  const [inv, bill, cert] = await Promise.all([
+    nextCompanyNumber('invoice', companyId),
+    nextCompanyNumber('bill', companyId),
+    nextCompanyNumber('cert', companyId)
+  ]);
+  if(request !== generalCompanyNumberRequest || this.value !== companyId) return;
+  if(inv){
+    document.getElementById('f_invoiceNo').value = inv;
+    document.getElementById('f_proformaNo').value = inv;
+  }
+  if(bill) document.getElementById('f_billNo').value = bill;
+  if(cert){
+    const yy = String(new Date().getFullYear()).slice(-2);
+    document.getElementById('f_certNo').value = '3000' + yy + String(cert).padStart(3,'0');
+  }
 });
 document.getElementById('cancelBtn').addEventListener('click', ()=>{
   formPanel.classList.remove('open');
@@ -13741,13 +13794,14 @@ async function saveShipment(status, opts){
   const prev = records.find(r=>r.id===id);
   const bolPick = document.getElementById('f_bolTemplate').value;
   const certPick = document.getElementById('f_certTemplate').value;
+  const selectedCompanyId = document.getElementById('f_company').value || (prev && prev.companyId) || activeCompanyId;
   const rec = {
     id,
     status: status || (prev && prev.status) || 'sent',
     createdAt: (prev && prev.createdAt) || Date.now(),
     updatedAt: Date.now(),
     shipType: document.getElementById('f_shipType').value || 'land',
-    companyId: (prev && prev.companyId) || document.getElementById('f_company').value || activeCompanyId,
+    companyId: selectedCompanyId,
     bolTemplateId: (bolPick === 'coded' || bolPick === 'coded-sea') ? null : (bolPick || null),
     bolCoded: bolPick === 'coded',
     bolSeaCoded: bolPick === 'coded-sea',
@@ -13756,7 +13810,7 @@ async function saveShipment(status, opts){
     certWordCoded: certPick === 'coded-word',
     certDubaiPdf: certPick === 'dubai-pdf',
     taskRef: document.getElementById('f_taskRef').value.trim(),
-    operationNo: (prev && prev.operationNo) || document.getElementById('f_operationNo').value.trim() || nextBsgtOperationNo(),
+    operationNo: document.getElementById('f_operationNo').value.trim() || (prev && prev.operationNo) || nextOperationNumberForCompany(selectedCompanyId),
     itemDesc: document.getElementById('f_itemDesc').value,
     qty: document.getElementById('f_qty').value,
     qtyUnit: document.getElementById('f_qtyUnit').value,
@@ -13996,11 +14050,12 @@ const DOC_META = {
   packing:  {label:'كشف التعبئة', icon:'box', btnId:'btnPacking', ready:r=>!!r.invoiceNo, readyTxt:'بيان وكميات فقط — برقم وتاريخ الفاتورة النهائية', notReadyTxt:'أدخل رقم الفاتورة النهائية أولاً'}
 };
 function docOrderOf(r){
-  const defaults = isBaharSwakenCompany(companyDataFor(r)) ? ['contract', ...DOC_ORDER_DEFAULT] : DOC_ORDER_DEFAULT;
-  const o = Array.isArray(r.docOrder) ? r.docOrder.filter(k=>DOC_META[k]) : [];
+  const isBsgt = isBsgtRecord(r);
+  const defaults = isBsgt ? ['contract', ...DOC_ORDER_DEFAULT] : DOC_ORDER_DEFAULT;
+  const o = Array.isArray(r.docOrder) ? r.docOrder.filter(k=>DOC_META[k] && (isBsgt || k!=='contract')) : [];
   const missing = defaults.filter(k=>!o.includes(k));
   const order = [...o, ...missing];
-  if(isBaharSwakenCompany(companyDataFor(r))) return ['contract', ...order.filter(k=>k!=='contract')];
+  if(isBsgt) return ['contract', ...order.filter(k=>k!=='contract')];
   return order;
 }
 function renderDocOrderList(r){
@@ -14019,7 +14074,7 @@ function renderDocOrderList(r){
   });
 }
 function renderDocActionsGrid(r){
-  const baharOverride = isBaharSwakenCompany(companyDataFor(r));
+  const baharOverride = isBsgtRecord(r);
   const recordOrder = docOrderOf(r);
   const order = baharOverride ? ['contract','importPermit', ...recordOrder.filter(k=>k!=='contract')] : recordOrder;
   return order.map(k=>{
@@ -14044,7 +14099,7 @@ function renderDocActionsGrid(r){
   }).join('');
 }
 function wireDocActionButtons(r){
-  const baharOverride = isBaharSwakenCompany(companyDataFor(r));
+  const baharOverride = isBsgtRecord(r);
   if(baharOverride){
     ['importPermit','cert','bol'].forEach(k=>{
       const m = BAHAR_EXTERNAL_DOC_META[k];
@@ -14185,7 +14240,7 @@ function openDetail(id){
   if(!r) return;
   updateHash('records', id);
   const card = document.getElementById('detailCard');
-  const isBsgtDetail = isBaharSwakenCompany(companyDataFor(r));
+  const isBsgtDetail = isBsgtRecord(r);
   // Mount above body so shell padding, zoom, and future navigation layout changes
   // can never constrain the full-screen BSGT workspace.
   if(isBsgtDetail && overlay.parentElement !== document.documentElement) document.documentElement.appendChild(overlay);
@@ -14276,7 +14331,7 @@ function openDetail(id){
   renderDocOrderList(r);
   wireDocActionButtons(r);
   document.getElementById('packageBtn').addEventListener('click', ()=> chooseDocLang(r, async lang=>{
-    if(isBaharSwakenCompany(companyDataFor(r))){
+    if(isBsgtRecord(r)){
       await mergeFullPackage(r, lang, document.getElementById('packageBtn'));
       return;
     }
@@ -14288,11 +14343,11 @@ function openDetail(id){
   document.getElementById('mergeAllBtn').addEventListener('click', ()=> chooseDocLang(r, lang=> mergeFullPackage(r, lang)));
   document.getElementById('editBtn').addEventListener('click', ()=>{
     overlay.classList.remove('open');
-    if(isBaharSwakenCompany(companyDataFor(r))) openBsgtShipForm(r.id);
+    if(isBsgtRecord(r)) openBsgtShipForm(r.id);
     else fillFormForEdit(r);
   });
   loadShipmentTimeline(r);
-  loadShipmentFiles(id).then(()=>{ if(isBaharSwakenCompany(companyDataFor(r))) refreshDocActionsGrid(r); });
+  loadShipmentFiles(id).then(()=>{ if(isBsgtRecord(r)) refreshDocActionsGrid(r); });
   const sfInput = document.getElementById('sf_files');
   if(sfInput) sfInput.addEventListener('change', function(){
     uploadShipmentFiles(id, Array.from(this.files||[]));
@@ -14378,7 +14433,7 @@ function fillFormForEdit(r){
   setTimeout(autoOpenAdv, 0);
   document.getElementById('f_shipType').value = r.shipType || 'land';
   document.getElementById('f_taskRef').value = r.taskRef || '';
-  document.getElementById('f_operationNo').value = r.operationNo || nextBsgtOperationNo();
+  document.getElementById('f_operationNo').value = r.operationNo || nextOperationNumberForCompany(r.companyId);
   setLookupValue(document.getElementById('f_itemDesc'), r.itemDesc||'');
   document.getElementById('f_qty').value = r.qty||'';
   setLookupValue(document.getElementById('f_qtyUnit'), r.qtyUnit||'');
@@ -16964,7 +17019,7 @@ const DOC_NAMES = { contract:'عقد بيع دولي', proforma:'فاتورة م
 async function printSingle(r, kind, lang){
   // A printed BSGT document needs a real persisted token, not the editor's
   // placeholder QR. This also makes the QR available before package merging.
-  if(isBaharSwakenCompany(companyDataFor(r))) await ensureQrToken(r);
+  if(isBsgtRecord(r)) await ensureQrToken(r);
   addLog('print', `طباعة ${DOC_NAMES[kind]||'مستند'}` + (r.invoiceNo? ` — فاتورة ${r.invoiceNo}` : '') + (lang==='en'?' (إنجليزي)':''));
   openPrintWindow(buildSheet(r, kind, lang));
 }
@@ -16973,7 +17028,7 @@ function packageBodyHtml(r, lang){
   let html = '';
   // BSGT uploads the certificate and bill of lading as original files. They
   // are appended by mergeFullPackage below, not rebuilt through legacy forms.
-  const generatedDocs = isBaharSwakenCompany(companyDataFor(r))
+  const generatedDocs = isBsgtRecord(r)
     ? ['contract','proforma','invoice','packing']
     : docOrderOf(r);
   generatedDocs.forEach(k=>{
@@ -17088,7 +17143,7 @@ async function prepareBsgtAttachment(fileData, attachment){
 }
 
 async function bsgtMergeAttachments(r){
-  if(!isBaharSwakenCompany(companyDataFor(r))) return [];
+  if(!isBsgtRecord(r)) return [];
   if(!shipmentFilesCache[r.id]) await loadShipmentFiles(r.id);
   // These originals follow the three generated BSGT documents in the final PDF.
   return ['importPermit','cert','bol'].map(key=>baharUploadedDoc(r, key)).filter(Boolean);
@@ -17379,7 +17434,7 @@ async function mergeBsgtPackageLocally(r, lang){
 }
 
 window.refreshAllPublishedBsgtQrPackages = async function refreshAllPublishedBsgtQrPackages(onProgress){
-  const targets = records.filter(r => isBaharSwakenCompany(companyDataFor(r)) && r.qrPackagePath);
+  const targets = records.filter(r => isBsgtRecord(r) && r.qrPackagePath);
   const failed = [];
   let updated = 0;
   if(typeof onProgress === 'function') onProgress(0, targets.length);
@@ -17411,7 +17466,7 @@ async function mergeFullPackage(r, lang, triggerBtn){
     // رمز QR داخل الفاتورة يجب أن يكون معروفاً قبل بناء صفحاتها.
     step = 'تجهيز رمز QR للعملية';
     await ensureQrToken(r);
-    if(isBaharSwakenCompany(companyDataFor(r))){
+    if(isBsgtRecord(r)){
       step = 'تجهيز صفحات BSGT داخل المتصفح';
       const blob = await mergeBsgtPackageLocally(r, lang);
       step = 'نشر الحزمة لرمز QR';

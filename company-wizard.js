@@ -437,13 +437,14 @@
       scheduleLivePreview();
     };
     window.addEventListener('message', overlay._baharLiveMessageHandler);
-    const store = async () => {
+    const store = async targetCompanyId => {
       const next = collect(); localStorage.setItem(invoicePreviewSettingsKey, JSON.stringify(next)); localStorage.removeItem(invoicePreviewDraftKey);
       const stampToggle = document.getElementById('ce_showStamp'), signatureToggle = document.getElementById('ce_showSigLine');
       if (stampToggle) { stampToggle.checked = next.showStamp; stampToggle.dispatchEvent(new Event('change', { bubbles:true })); }
       if (signatureToggle) { signatureToggle.checked = next.showSigLine; signatureToggle.dispatchEvent(new Event('change', { bubbles:true })); }
-      const edited = invoiceSettingsCompany();
+      const edited = targetCompanyId && typeof companyById === 'function' ? companyById(targetCompanyId) : invoiceSettingsCompany();
       if (!edited?.id || typeof saveCompanyById !== 'function') throw new Error('تعذر تحديد شركة بحر سواكن المفتوحة للحفظ.');
+      if (!isBaharSwakenCompany({ nameAr:edited.name_ar, nameEn:edited.name_en })) throw new Error('إعدادات فاتورة بحر سواكن لا يمكن حفظها على شركة أخرى.');
       const settings = Object.assign({}, edited.settings || {}, company || {}, {invoiceBranding:next, collectionBranding:next});
       company.invoiceBranding = next;
       company.collectionBranding = next;
@@ -627,7 +628,9 @@
   const originalPackageBodyHtml = window.packageBodyHtml;
   const originalMergeFullPackage = window.mergeFullPackage;
   const originalOpenDetail = window.openDetail;
-  const isBsgt = record => /بحر\s*سواكن|bahar\s*swaken/i.test(`${companyDataFor(record)?.nameAr || ''} ${companyDataFor(record)?.nameEn || ''}`);
+  const isBsgt = record => typeof window.isBsgtRecord === 'function'
+    ? window.isBsgtRecord(record)
+    : /بحر\s*سواكن|bahar\s*swaken/i.test(`${companyDataFor(record)?.nameAr || ''} ${companyDataFor(record)?.nameEn || ''}`);
 
   async function bsgtOriginalDocuments(record) {
     if (!Object.prototype.hasOwnProperty.call(shipmentFilesCache, record.id)) await loadShipmentFiles(record.id);
