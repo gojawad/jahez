@@ -8276,7 +8276,16 @@ async function uploadShipmentFiles(id, files, label){
 
 // ===== شهادة المنشأ/البوليصة المرفوعة يدوياً (بحر سواكن فقط) — تُخزَّن في نفس أرشيف
 // المستندات (shipment_files) بتصنيف ثابت، بدل توليدهما بالكود لهذه الشركة تحديداً.
-const BAHAR_DOC_LABELS = {cert:'شهادة المنشأ (بحر سواكن)', bol:'بوليصة الشحن (بحر سواكن)'};
+const BAHAR_DOC_LABELS = {
+  importPermit:'إذن الاستيراد',
+  cert:'شهادة المنشأ (بحر سواكن)',
+  bol:'بوليصة الشحن (بحر سواكن)'
+};
+const BAHAR_EXTERNAL_DOC_META = {
+  importPermit:{label:'إذن الاستيراد', icon:'folder'},
+  cert:{label:'شهادة المنشأ', icon:'award'},
+  bol:{label:'بوليصة الشحن', icon:'truck'}
+};
 function baharUploadedDoc(r, key){
   const label = BAHAR_DOC_LABELS[key];
   const list = shipmentFilesCache[r.id] || [];
@@ -13710,11 +13719,11 @@ function renderDocOrderList(r){
   });
 }
 function renderDocActionsGrid(r){
-  const order = docOrderOf(r);
   const baharOverride = isBaharSwakenCompany(companyDataFor(r));
+  const order = baharOverride ? ['importPermit', ...docOrderOf(r)] : docOrderOf(r);
   return order.map(k=>{
-    const m = DOC_META[k];
-    if(baharOverride && (k==='cert' || k==='bol')){
+    const m = baharOverride && BAHAR_EXTERNAL_DOC_META[k] ? BAHAR_EXTERNAL_DOC_META[k] : DOC_META[k];
+    if(baharOverride && BAHAR_EXTERNAL_DOC_META[k]){
       const uploaded = baharUploadedDoc(r, k);
       return `<div class="doc-action-btn" id="${m.btnId}Wrap">
           <span class="t">${icon(m.icon)} ${m.label}</span>
@@ -13735,8 +13744,8 @@ function renderDocActionsGrid(r){
 function wireDocActionButtons(r){
   const baharOverride = isBaharSwakenCompany(companyDataFor(r));
   if(baharOverride){
-    ['cert','bol'].forEach(k=>{
-      const m = DOC_META[k];
+    ['importPermit','cert','bol'].forEach(k=>{
+      const m = BAHAR_EXTERNAL_DOC_META[k];
       const uploaded = baharUploadedDoc(r, k);
       document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
@@ -13818,9 +13827,11 @@ function renderBsgtDetail(r){
         </section>
 
         <section class="bsgt-detail-section" id="bsgtDocuments">
-          <h3>المستندات الأساسية</h3>
+          <h3>ملف العملية</h3>
+          <p class="qr-package-status">كل مستندات الشحنة والتحصيل تُحفظ هنا تحت رقم العملية. إذن الاستيراد يظهر أولا دائما.</p>
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
           <div class="bsgt-doc-order"><div class="sf-head">${icon('list',14)} ترتيب مستندات الحزمة</div><div id="docOrderList" class="sf-list"></div></div>
+          ${recStatus(r)==='sent' ? `<div class="sf-section" id="pkgAttSection"><div class="sf-head">${icon('folder',14)} مستندات التحصيل والمرفقات الإضافية</div><div id="pkgAttList" class="sf-list"><div class="sf-loading">جاري التحميل…</div></div><div id="pkgAttForm" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input type="text" id="pkgAttName" placeholder="مثل: خطاب التحصيل أو إشعار البنك" style="flex:1;min-width:180px;"><label class="btn btn-ghost btn-small sf-upload-btn" for="pkgAttFile">${icon('upload',14)} إضافة مستند</label><input type="file" id="pkgAttFile" accept="application/pdf,image/*" style="display:none;"></div><div id="pkgAttLimitNote" class="sf-empty" style="display:none;">وصلت للحد الأقصى (5 مرفقات).</div></div>` : ''}
         </section>
 
         <section class="bsgt-detail-section" id="bsgtShipmentData">
@@ -13837,7 +13848,6 @@ function renderBsgtDetail(r){
           <div class="cmt-section"><div id="cmtList"></div><textarea id="cmtInput"></textarea><button id="cmtSendBtn"></button></div>
           <div class="comments-box"><div id="cmList"></div><textarea id="cmInput"></textarea><button id="cmSendBtn"></button></div>
           <div class="sf-section"><div id="sfList" class="sf-list"></div><input type="file" id="sf_files" multiple></div>
-          ${recStatus(r)==='sent' ? `<div class="sf-section" id="pkgAttSection"><div id="pkgAttList" class="sf-list"></div><input type="text" id="pkgAttName"><input type="file" id="pkgAttFile" accept="application/pdf"><div id="pkgAttLimitNote"></div></div>` : ''}
         </div>
 
         <footer class="detail-actions">
@@ -16672,7 +16682,7 @@ async function bsgtMergeAttachments(r){
   if(!isBaharSwakenCompany(companyDataFor(r))) return [];
   if(!shipmentFilesCache[r.id]) await loadShipmentFiles(r.id);
   // These originals follow the three generated BSGT documents in the final PDF.
-  return ['cert','bol'].map(key=>baharUploadedDoc(r, key)).filter(Boolean);
+  return ['importPermit','cert','bol'].map(key=>baharUploadedDoc(r, key)).filter(Boolean);
 }
 
 async function packageAttachmentsForMerge(r){
