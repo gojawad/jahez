@@ -59,6 +59,9 @@ async function main() {
       assert.ok(appHtml.includes("marginPreset === 'normal' ? 25.4"));
       assert.ok(appHtml.includes('border:.2mm solid #000'));
       assert.ok(appHtml.includes('background:transparent'));
+      assert.ok(appHtml.includes("Number(qrPosition.yPercent) <= 36"));
+      assert.ok(appHtml.includes('.bahar-contract-sheet.qr-top-right'));
+      assert.ok(appHtml.includes('.bahar-contract-title{display:grid;gap:0;width:100%'));
       assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));
     });
     await check('BSGT shipment attachments have role-aware read-only UI', async () => {
