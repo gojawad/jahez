@@ -8453,6 +8453,34 @@ async function uploadBaharDocument(r, key, file){
   }
   refreshDocActionsGrid(r);
 }
+async function deleteBaharDocument(r, key){
+  if(!canManageShipmentFiles(r)) return;
+  const label = BAHAR_DOC_LABELS[key];
+  const files = (shipmentFilesCache[r.id] || []).filter(item=>item.label===label);
+  if(!files.length) return;
+  if(!confirm(`حذف ملف ${label}؟ ستبقى الخانة فارغة ويمكنك رفع ملف جديد لاحقاً.`)) return;
+  const card = document.getElementById(BAHAR_EXTERNAL_DOC_META[key].btnId+'Wrap');
+  const status = card?.querySelector('.s');
+  card?.classList.add('is-uploading');
+  if(status) status.textContent = `جارٍ حذف ${label}...`;
+  netStart();
+  try{
+    const {error: storageError} = await sb.storage.from('shipment-files').remove(files.map(item=>item.path));
+    if(storageError) throw storageError;
+    const {error} = await sb.from('shipment_files').delete().in('id', files.map(item=>item.id));
+    if(error) throw error;
+    shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.label!==label);
+    refreshDocActionsGrid(r);
+    if(typeof toast === 'function') toast(`تم حذف ${label}`);
+  }catch(error){
+    dbError(error, `تعذّر حذف ${label}`);
+    await loadShipmentFiles(r.id);
+    refreshDocActionsGrid(r);
+  }finally{
+    card?.classList.remove('is-uploading');
+    netEnd();
+  }
+}
 function bindFileDropZone(element, onFiles){
   if(!element) return;
   const stop = event => { event.preventDefault(); event.stopPropagation(); };
@@ -14120,6 +14148,7 @@ function renderDocActionsGrid(r){
           <div style="display:flex;gap:6px;margin-top:6px">
             ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
             ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>` : ''}
+            ${k==='importPermit' && uploaded && canManageFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف إذن الاستيراد">${icon('trash',13)} حذف الملف</button>` : ''}
           </div>
         </div>`;
     }
@@ -14138,6 +14167,7 @@ function wireDocActionButtons(r){
       const uploaded = baharUploadedDoc(r, k);
       if(canManageShipmentFiles(r)) document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
+      if(k==='importPermit' && uploaded && canManageShipmentFiles(r)) document.getElementById(m.btnId+'Delete')?.addEventListener('click', ()=> deleteBaharDocument(r, k));
       if(canManageShipmentFiles(r)) bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
     });
   } else {

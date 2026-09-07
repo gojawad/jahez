@@ -96,6 +96,11 @@ async function main() {
     });
     await check('BSGT shipment attachments have role-aware read-only UI', async () => {
       assert.ok(appHtml.includes('function canManageShipmentFiles(r)'));
+      assert.ok(appHtml.includes('async function deleteBaharDocument(r, key)'));
+      assert.ok(appHtml.includes("k==='importPermit' && uploaded && canManageFiles"));
+      assert.ok(appHtml.includes('حذف الملف'));
+      assert.ok(appHtml.includes('ستبقى الخانة فارغة ويمكنك رفع ملف جديد لاحقاً'));
+      assert.ok(appHtml.includes("shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.label!==label)"));
       assert.ok(appHtml.includes('shipmentFilesErrors[id]'));
       assert.ok(appHtml.includes('تعذر تحميل الملف — تحقق من الصلاحية أو الاتصال'));
       const policySql = fs.readFileSync(path.join(__dirname, '..', 'supabase', '25_قراءة_مرفقات_BSGT.sql'), 'utf8');
