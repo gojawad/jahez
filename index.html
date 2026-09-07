@@ -16637,10 +16637,18 @@ function buildStandaloneDocHtml(bodyHtml, title){
     + '<body><div class="doc-page">' + bodyHtml + '</div></body></html>';
 }
 function openPrintWindow(bodyHtml){
+  // A stale package preview can otherwise remain above the newly generated invoice.
+  const stalePreview = document.getElementById('pdfPreviewOverlay');
+  if(stalePreview?.classList.contains('open')){
+    stalePreview.classList.remove('open');
+    const staleFrame = document.getElementById('pdfPreviewFrame');
+    if(staleFrame) staleFrame.removeAttribute('src');
+  }
   const full = buildStandaloneDocHtml(bodyHtml);
   const blob = new Blob([full], {type:'text/html;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const w = window.open('', '_blank');
+  // Reuse one named tab so an obsolete Blob document is never mistaken for the latest invoice.
+  const w = window.open('', 'jahezPrintDocument');
   if(!w){
     // لا نترك المستخدم بلا نتيجة عند حظر النوافذ المنبثقة؛ نعرض المستند داخل الموقع.
     openPdfPreview(url, 'معاينة حزمة المستندات');
