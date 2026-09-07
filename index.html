@@ -5141,6 +5141,18 @@ SWIFT: NBEGEGCX"></textarea>
         <div class="field"><label>تاريخ الفاتورة النهائية</label><input type="date" id="bsgt_invoiceDate"></div>
         <div class="field"><label>رقم البوليصة</label><input type="text" id="bsgt_billNo" dir="ltr" placeholder="B/L No."></div>
       </div>
+      <div class="section-title">عقد البيع الدولي</div>
+      <div class="grid bsgt-invoice-grid">
+        <div class="field"><label>رقم العقد</label><input type="text" id="bsgt_contractNo" dir="ltr"></div>
+        <div class="field"><label>تاريخ العقد</label><input type="date" id="bsgt_contractDate"></div>
+        <div class="field"><label>فترة الشحن</label><input type="text" id="bsgt_shipmentPeriod" dir="ltr"></div>
+        <div class="field"><label>طريقة السداد</label><input type="text" id="bsgt_paymentMethod" dir="ltr"></div>
+        <div class="field"><label>الشحن الجزئي</label><select class="lookup-sel" id="bsgt_partialShipment"><option value="Allowed">Allowed — مسموح</option><option value="Not Allowed">Not Allowed — غير مسموح</option></select></div>
+        <div class="field"><label>إعادة الشحن</label><select class="lookup-sel" id="bsgt_transshipment"><option value="Allowed">Allowed — مسموح</option><option value="Not Allowed">Not Allowed — غير مسموح</option></select></div>
+        <div class="field span2"><label>المستندات المطلوبة</label><input type="text" id="bsgt_requiredDocuments" dir="ltr"></div>
+        <div class="field span2"><label>القانون الواجب التطبيق</label><input type="text" id="bsgt_governingLaw" dir="ltr"></div>
+        <div class="field span2"><label>تسوية المنازعات</label><input type="text" id="bsgt_disputeResolution" dir="ltr"></div>
+      </div>
       <div class="section-title">شروط الشحن والدفع</div>
       <div class="grid bsgt-terms-grid">
         <div class="field"><label>نوع التأمين (Incoterm)</label><select class="lookup-sel" id="bsgt_incoterm"></select></div>
@@ -13378,6 +13390,14 @@ bsgtExtraItemsEl.addEventListener('input', event => {
   if(match){ recalcBsgtExtraUnitPrice(Number(match[1])); syncBsgtItemTotals(); }
 });
 
+function bsgtContractPaymentMethod(paymentTerm){
+  const value = String(paymentTerm||'').trim();
+  if(/\b(l\/?c|letter of credit|documentary credit)\b/i.test(value)) return 'Documentary Credit (UCP 600)';
+  if(/\b(d\/?a|d\/?p|documentary collection|urc)\b/i.test(value)) return 'Documentary Collection (URC 522)';
+  if(/bank transfer|wire transfer|t\/?t/i.test(value)) return 'Bank Transfer';
+  return value || 'As per agreed payment terms';
+}
+
 function openBsgtShipForm(id){
   bsgtShipEditId = id || null;
   const r = id ? records.find(x=>x.id===id) : null;
@@ -13407,6 +13427,15 @@ function openBsgtShipForm(id){
   document.getElementById('bsgt_invoiceNo').value = r?.invoiceNo || '';
   document.getElementById('bsgt_invoiceDate').value = r?.invoiceDate || '';
   document.getElementById('bsgt_billNo').value = r?.billNo || '';
+  document.getElementById('bsgt_contractNo').value = r?.contractNo || r?.operationNo || document.getElementById('bsgt_operationNo').value;
+  document.getElementById('bsgt_contractDate').value = r?.contractDate || r?.proformaDate || r?.invoiceDate || toISODate(new Date());
+  document.getElementById('bsgt_shipmentPeriod').value = r?.shipmentPeriod || 'As per shipping documents';
+  document.getElementById('bsgt_paymentMethod').value = r?.paymentMethod || bsgtContractPaymentMethod(r?.paymentTerm);
+  document.getElementById('bsgt_partialShipment').value = r?.partialShipment || 'Allowed';
+  document.getElementById('bsgt_transshipment').value = r?.transshipment || 'Allowed';
+  document.getElementById('bsgt_requiredDocuments').value = r?.requiredDocuments || 'Import Permit, Commercial Invoice, Certificate of Origin, Bill of Lading and Packing List';
+  document.getElementById('bsgt_governingLaw').value = r?.governingLaw || 'Laws of the United Arab Emirates';
+  document.getElementById('bsgt_disputeResolution').value = r?.disputeResolution || 'Competent courts of Dubai, United Arab Emirates';
   setLookupValue(document.getElementById('bsgt_incoterm'), r?.incoterm || '');
   setLookupValue(document.getElementById('bsgt_countryOrigin'), r?.countryOrigin || '');
   setLookupValue(document.getElementById('bsgt_paymentTerm'), r?.paymentTerm || '');
@@ -13429,6 +13458,11 @@ const BSGT_REQUIRED_FIELDS = [
   ['bsgt_consigneeAddress','عنوان المرسل إليه'], ['bsgt_proformaNo','رقم الفاتورة المبدئية'],
   ['bsgt_proformaDate','تاريخ الفاتورة المبدئية'], ['bsgt_invoiceNo','رقم الفاتورة النهائية'],
   ['bsgt_invoiceDate','تاريخ الفاتورة النهائية'], ['bsgt_billNo','رقم البوليصة'],
+  ['bsgt_contractNo','رقم العقد'], ['bsgt_contractDate','تاريخ العقد'],
+  ['bsgt_shipmentPeriod','فترة الشحن'], ['bsgt_paymentMethod','طريقة السداد'],
+  ['bsgt_partialShipment','الشحن الجزئي'], ['bsgt_transshipment','إعادة الشحن'],
+  ['bsgt_requiredDocuments','المستندات المطلوبة'], ['bsgt_governingLaw','القانون الواجب التطبيق'],
+  ['bsgt_disputeResolution','تسوية المنازعات'],
   ['bsgt_incoterm','نوع التأمين'], ['bsgt_countryOrigin','بلد المنشأ'],
   ['bsgt_paymentTerm','شروط الدفع'], ['bsgt_destBank','البنك المرسل إليه'],
   ['bsgt_bankPick','العنوان البنكي']
@@ -13536,6 +13570,15 @@ async function saveBsgtShipment(){
     invoiceNo: document.getElementById('bsgt_invoiceNo').value,
     invoiceDate: document.getElementById('bsgt_invoiceDate').value,
     billNo: document.getElementById('bsgt_billNo').value.trim(),
+    contractNo: document.getElementById('bsgt_contractNo').value.trim(),
+    contractDate: document.getElementById('bsgt_contractDate').value,
+    shipmentPeriod: document.getElementById('bsgt_shipmentPeriod').value.trim(),
+    paymentMethod: document.getElementById('bsgt_paymentMethod').value.trim(),
+    partialShipment: document.getElementById('bsgt_partialShipment').value,
+    transshipment: document.getElementById('bsgt_transshipment').value,
+    requiredDocuments: document.getElementById('bsgt_requiredDocuments').value.trim(),
+    governingLaw: document.getElementById('bsgt_governingLaw').value.trim(),
+    disputeResolution: document.getElementById('bsgt_disputeResolution').value.trim(),
     incoterm: document.getElementById('bsgt_incoterm').value,
     countryOrigin: document.getElementById('bsgt_countryOrigin').value,
     paymentTerm: document.getElementById('bsgt_paymentTerm').value,
@@ -13942,9 +13985,10 @@ async function loadShipmentTimeline(r){
   }).join('');
 }
 
-// ===== ترتيب المستندات الخمسة الأساسية عند تجميع الحزمة الكاملة =====
+// ===== ترتيب مستندات الحزمة الكاملة =====
 const DOC_ORDER_DEFAULT = ['proforma','invoice','cert','bol','packing'];
 const DOC_META = {
+  contract:  {label:'عقد البيع الدولي', icon:'doc', btnId:'btnContract', ready:r=>!!(r.operationNo && r.consignee && r.itemDesc), readyTxt:'يُنشأ تلقائياً من بيانات الشحنة', notReadyTxt:'أكمل رقم العملية والمشتري والبضاعة أولاً'},
   proforma: {label:'الفاتورة المبدئية', icon:'invoice', btnId:'btnProforma', ready:r=>!!r.proformaNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم البروفورما أولاً'},
   invoice:  {label:'الفاتورة النهائية', icon:'invoice', btnId:'btnInvoice', ready:r=>!!r.invoiceNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم الفاتورة أولاً'},
   cert:     {label:'شهادة المنشأ', icon:'award', btnId:'btnCert', ready:r=>!!r.certNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم شهادة المنشأ أولاً'},
@@ -13952,9 +13996,12 @@ const DOC_META = {
   packing:  {label:'كشف التعبئة', icon:'box', btnId:'btnPacking', ready:r=>!!r.invoiceNo, readyTxt:'بيان وكميات فقط — برقم وتاريخ الفاتورة النهائية', notReadyTxt:'أدخل رقم الفاتورة النهائية أولاً'}
 };
 function docOrderOf(r){
+  const defaults = isBaharSwakenCompany(companyDataFor(r)) ? ['contract', ...DOC_ORDER_DEFAULT] : DOC_ORDER_DEFAULT;
   const o = Array.isArray(r.docOrder) ? r.docOrder.filter(k=>DOC_META[k]) : [];
-  const missing = DOC_ORDER_DEFAULT.filter(k=>!o.includes(k));
-  return [...o, ...missing];
+  const missing = defaults.filter(k=>!o.includes(k));
+  const order = [...o, ...missing];
+  if(isBaharSwakenCompany(companyDataFor(r))) return ['contract', ...order.filter(k=>k!=='contract')];
+  return order;
 }
 function renderDocOrderList(r){
   const el = document.getElementById('docOrderList');
@@ -13963,8 +14010,8 @@ function renderDocOrderList(r){
   el.innerHTML = order.map((k,i)=>`<div class="tk-file">
       <span class="tf-n">${icon(DOC_META[k].icon,14)} ${DOC_META[k].label}</span>
       <div class="pkg-move-btns">
-        <button type="button" data-act="up" data-k="${k}" ${i===0?'disabled':''} title="أعلى">▲</button>
-        <button type="button" data-act="down" data-k="${k}" ${i===order.length-1?'disabled':''} title="أسفل">▼</button>
+        <button type="button" data-act="up" data-k="${k}" ${k==='contract'||i===0?'disabled':''} title="أعلى">▲</button>
+        <button type="button" data-act="down" data-k="${k}" ${k==='contract'||i===order.length-1?'disabled':''} title="أسفل">▼</button>
       </div>
     </div>`).join('');
   el.querySelectorAll('.pkg-move-btns button').forEach(b=>{
@@ -13973,7 +14020,8 @@ function renderDocOrderList(r){
 }
 function renderDocActionsGrid(r){
   const baharOverride = isBaharSwakenCompany(companyDataFor(r));
-  const order = baharOverride ? ['importPermit', ...docOrderOf(r)] : docOrderOf(r);
+  const recordOrder = docOrderOf(r);
+  const order = baharOverride ? ['contract','importPermit', ...recordOrder.filter(k=>k!=='contract')] : recordOrder;
   return order.map(k=>{
     const m = baharOverride && BAHAR_EXTERNAL_DOC_META[k] ? BAHAR_EXTERNAL_DOC_META[k] : DOC_META[k];
     if(baharOverride && BAHAR_EXTERNAL_DOC_META[k]){
@@ -14017,11 +14065,13 @@ function wireDocActionButtons(r){
       else printSingle(r,'bol');             // نموذج صورة قديم: عربي دائماً
     });
   }
+  document.getElementById('btnContract')?.addEventListener('click', ()=> printSingle(r,'contract','en'));
   document.getElementById('btnProforma').addEventListener('click', ()=> chooseDocLang(r, lang=> printSingle(r,'proforma',lang)));
   document.getElementById('btnInvoice').addEventListener('click', ()=> chooseDocLang(r, lang=> printSingle(r,'invoice',lang)));
   document.getElementById('btnPacking').addEventListener('click', ()=> chooseDocLang(r, lang=> printSingle(r,'packing',lang)));
 }
 async function moveDocOrder(r, key, dir){
+  if(key === 'contract') return;
   const order = docOrderOf(r);
   const idx = order.indexOf(key);
   const swapIdx = idx + dir;
@@ -15246,6 +15296,83 @@ function baharSwakenInvoiceSheet(r, kind, lang){
     ${signature ? `<img class="bahar-inv-signature" src="${signature}" alt="" style="left:${signaturePosition.xPercent}%;top:${signaturePosition.yPercent}%;width:${signaturePosition.widthPercent}%;transform:rotate(${signaturePosition.rotate}deg)">` : ''}
   </div>`;
 }
+
+function baharSwakenContractSheet(r){
+  const c = company;
+  const settings = baharInvoiceRuntimeSettings(r);
+  const background = settings.background || '';
+  const watermark = settings.watermark || c.watermark || c.logo || '';
+  const stamp = settings.stamp || c.stamp || '';
+  const stampPosition = Object.assign({xPercent:78,yPercent:78,widthPercent:13,rotate:0}, settings.stampPosition || {});
+  const signature = settings.signature || '';
+  const signaturePosition = Object.assign({xPercent:10,yPercent:81,widthPercent:23,rotate:0}, settings.signaturePosition || {});
+  const qrPosition = Object.assign({xPercent:85,yPercent:20,widthPercent:12,rotate:0}, settings.qrPosition || {});
+  const accent = settings.tableHeader || settings.accent || c.accent || '#86191f';
+  const font = 'IBM Plex Sans Arabic';
+  const hasBackground = !!background;
+  const items = Array.from({length:15}, (_, index) => {
+    const suffix = index ? String(index + 1) : '';
+    return {
+      description: r[`item${suffix}Desc`] || (index === 0 ? r.itemDesc || '' : ''),
+      quantity: r[`item${suffix}Qty`] || (index === 0 ? r.qty || '' : ''),
+      packaging: r[`item${suffix}Unit`] || (index === 0 ? r.qtyUnit || '' : ''),
+      price: r[`item${suffix}Price`] || (index === 0 ? r.item1Price || r.unitPrice || '' : ''),
+      hsCode: r[`item${suffix}HsCode`] || (index === 0 ? r.hsCode || '' : '')
+    };
+  }).filter(item=>item.description || item.quantity || item.packaging || item.price || item.hsCode);
+  const unique = values => Array.from(new Set(values.map(value=>String(value||'').trim()).filter(Boolean))).join(' / ');
+  const quantity = items.map(item=>[item.quantity,item.packaging].filter(Boolean).join(' ')).filter(Boolean).join(' / ') || [r.totalQty||r.qty,r.qtyUnit].filter(Boolean).join(' ');
+  const sellerAddress = String(c.footerLinesEn || c.footerLines || '').split(/\r?\n/).filter(Boolean)[0] || '';
+  const paymentMethod = r.paymentMethod || bsgtContractPaymentMethod(r.paymentTerm);
+  const details = [
+    ['رقم العقد', r.contractNo || r.operationNo || r.proformaNo, 'Contract No.'],
+    ['التاريخ', fmtDateByLang(r.contractDate || r.proformaDate || r.invoiceDate, 'en'), 'Date'],
+    ['البائع', c.nameEn || 'BAHAR SWAKEN GENERAL TRADING L.L.C', 'Seller'],
+    ['المشتري', r.consignee || '', 'Buyer'],
+    ['البضاعة', unique(items.map(item=>item.description)) || r.itemDesc || '', 'Goods'],
+    ['الكمية', quantity, 'Quantity'],
+    ['رمز HS', unique(items.map(item=>item.hsCode)) || r.hsCode || '', 'HS Code'],
+    ['بلد المنشأ', r.countryOrigin || '', 'Country of Origin'],
+    ['سعر الوحدة', unique(items.map(item=>item.price)) || r.unitPrice || '', 'Unit Price'],
+    ['إجمالي القيمة', r.totalAmount || '', 'Total Contract Value'],
+    ['العملة', r.currency || currencyPrefix(r.totalAmount).trim(), 'Currency'],
+    ['شرط التسليم', [r.incoterm,'Incoterms® 2020'].filter(Boolean).join(' — '), 'Delivery Term'],
+    ['مكان التسليم / الوصول', r.portDischarge || r.destination || '', 'Place of Delivery / Destination'],
+    ['فترة الشحن', r.shipmentPeriod || 'As per shipping documents', 'Shipment Period'],
+    ['الشحن الجزئي', r.partialShipment || 'Allowed', 'Partial Shipment'],
+    ['إعادة الشحن', r.transshipment || 'Allowed', 'Transshipment'],
+    ['طريقة السداد', paymentMethod, 'Payment Method'],
+    ['أجل السداد', r.paymentTerm || '', 'Payment Term'],
+    ['الفاتورة المبدئية / أمر البيع', r.proformaNo || '', 'Proforma Invoice / Sales Order'],
+    ['المستندات المطلوبة', r.requiredDocuments || 'Import Permit, Commercial Invoice, Certificate of Origin, Bill of Lading and Packing List', 'Required Documents'],
+    ['القانون الواجب التطبيق', r.governingLaw || 'Laws of the United Arab Emirates', 'Governing Law'],
+    ['تسوية المنازعات', r.disputeResolution || 'Competent courts of Dubai, United Arab Emirates', 'Dispute Resolution']
+  ];
+  const clauses = [
+    ['1. البيع والتوريد — يلتزم البائع ببيع وتوريد البضاعة المبينة أعلاه إلى المشتري وفق هذه الاتفاقية، ويجوز له شراء البضاعة من موردين من الغير لتنفيذ العملية.', '1. Sale & Supply — The Seller agrees to sell and supply the above goods to the Buyer under this Agreement and may procure them from third-party suppliers to fulfil the transaction.'],
+    ['2. التسليم والمخاطر — يكون التسليم وتوزيع التكاليف وانتقال المخاطر وفق شرط Incoterms® 2020 المحدد أعلاه.', '2. Delivery & Risk — Delivery, allocation of costs and transfer of risk shall be governed by the agreed Incoterms® 2020 rule stated above.'],
+    ['3. الشحن والمستندات — يلتزم البائع بترتيب الشحن وتوفير المستندات المحددة أعلاه، ويلتزم المشتري بتوفير بيانات وتعليمات الاستيراد اللازمة.', '3. Shipment & Documents — The Seller shall arrange shipment and provide the documents specified above. The Buyer shall provide the information and import instructions reasonably required.'],
+    ['4. السداد — يلتزم المشتري بالسداد وفق الشروط المحددة أعلاه. ويطبق URC 522 للتحصيل المستندي أو UCP 600 للاعتماد المستندي متى تم النص عليهما صراحةً.', '4. Payment — The Buyer shall pay according to the terms stated above. URC 522 shall apply to Documentary Collections or UCP 600 to Documentary Credits only where expressly incorporated.'],
+    ['5. المطالبات والامتثال — يلتزم المشتري بفحص البضاعة والإخطار بأي نقص أو تلف أو عدم مطابقة خلال مدة معقولة. ويلتزم الطرفان بالقوانين الجمركية والتجارية وضوابط الاستيراد والتصدير والعقوبات ومكافحة غسل الأموال.', '5. Claims & Compliance — The Buyer shall inspect the goods and notify the Seller within a reasonable period of any shortage, damage or non-conformity. Both Parties shall comply with applicable customs, trade, import/export, sanctions and AML requirements.'],
+    ['6. الإخلال والقوة القاهرة — لا يكون أي طرف مسؤولًا عن التأخير الناتج عن قوة قاهرة خارجة عن سيطرته المعقولة. ويُعد عدم السداد عند الاستحقاق إخلالًا يخول الطرف المتضرر ممارسة حقوقه وفق العقد والقانون.', '6. Default & Force Majeure — Neither Party shall be liable for delay caused by Force Majeure beyond its reasonable control. Failure to pay when due constitutes default and entitles the affected Party to exercise its contractual and legal remedies.'],
+    ['7. القانون والمنازعات — يخضع العقد للقانون المحدد أعلاه، وتسوى المنازعات بالطريقة المحددة أعلاه.', '7. Law & Disputes — This Agreement shall be governed by the law stated above, and disputes shall be resolved by the method stated above.'],
+    ['8. الاتفاق والمستندات — تشكل هذه الاتفاقية مع الفاتورة المبدئية والفاتورة التجارية والمستندات المتفق عليها كامل الاتفاق بشأن العملية. وتكون الشروط الخاصة بالعملية مقدمة عند تعارضها مع الشروط العامة لهذه الاتفاقية، ما لم يمنع القانون ذلك.', '8. Agreement & Documents — This Agreement together with the Sales Order, Commercial Invoice and agreed transaction documents constitutes the entire agreement for the transaction. Transaction-specific terms shall prevail over these general terms in case of conflict, unless prohibited by applicable law.']
+  ];
+  const decorations = (showQr, showStamp) => `
+    ${background ? `<img class="bahar-contract-bg" src="${background}" alt="">` : ''}
+    ${watermark ? `<img class="bahar-contract-watermark" src="${watermark}" alt="">` : ''}
+    ${showQr && settings.showQr !== false ? shipmentOperationQr(r, 'bahar-inv-qr bahar-contract-qr', qrPosition) : ''}
+    ${showStamp && settings.showStamp !== false && stamp ? `<img class="bahar-contract-stamp" src="${stamp}" alt="" style="left:${stampPosition.xPercent}%;top:${stampPosition.yPercent}%;width:${stampPosition.widthPercent}%;transform:rotate(${stampPosition.rotate}deg)">` : ''}
+    ${showStamp && signature ? `<img class="bahar-contract-signature" src="${signature}" alt="" style="left:${signaturePosition.xPercent}%;top:${signaturePosition.yPercent}%;width:${signaturePosition.widthPercent}%;transform:rotate(${signaturePosition.rotate}deg)">` : ''}`;
+  const brand = () => !hasBackground ? `<header class="bahar-inv-brand"><div><b>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</b><small>${esc(c.nameAr||'')}</small></div>${c.logo ? `<img src="${c.logo}" alt="">` : ''}</header>` : '';
+  const title = subtitle => `<div class="bahar-contract-title"><b>INTERNATIONAL SALE CONTRACT</b><span>عقد بيع دولي</span>${subtitle ? `<small>${subtitle}</small>` : ''}</div>`;
+  const style = `--bahar-red:${esc(accent)};--contract-font:${esc(font)},'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;`;
+  const detailsRows = details.map(([ar,value,en])=>`<div class="bahar-contract-row"><b class="ar" dir="rtl">${esc(ar)}</b><span dir="ltr">${esc(value)}</span><b class="en" dir="ltr">${esc(en)}</b></div>`).join('');
+  const clauseRows = clauses.map(([ar,en])=>`<div class="bahar-contract-clause"><p dir="rtl">${esc(ar)}</p><p dir="ltr">${esc(en)}</p></div>`).join('');
+  return `<div class="doc-sheet bahar-contract-sheet${hasBackground?' has-bg':''}" style="${style}">${decorations(true,false)}${brand()}<main class="bahar-contract-content">${title('')}<div class="bahar-contract-details">${detailsRows}</div></main></div>
+  <div class="doc-sheet bahar-contract-sheet${hasBackground?' has-bg':''}" style="${style}">${decorations(false,true)}${brand()}<main class="bahar-contract-content">${title('TERMS AND CONDITIONS — الشروط والأحكام')}<div class="bahar-contract-clauses">${clauseRows}</div><div class="bahar-contract-signatures"><section><b>البائع / Seller</b><span>${esc(c.nameEn||'BAHAR SWAKEN GENERAL TRADING L.L.C')}</span><small>${esc(sellerAddress)}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section><section><b>المشتري / Buyer</b><span>${esc(r.consignee||'')}</span><small>${esc(r.consigneeAddress||'')}</small><i>Authorized Signature &amp; Stamp<br>التوقيع والختم</i></section></div></main></div>`;
+}
+
 function invoiceSheet(r, kind, lang){
   lang = (lang==='en') ? 'en' : 'ar';
   if(isBaharSwakenCompany(company) && (kind==='proforma' || kind==='invoice')) return baharSwakenInvoiceSheet(r, kind, lang);
@@ -16299,13 +16426,14 @@ function buildSheet(r, kind, lang){
 }
 // docKindIsCoded: هل هذا المستند مبني بالكود (يدعم اختيار اللغة) أم نموذج صورة قديم (عربي دائماً)؟
 function docKindIsCoded(r, kind){
-  if(kind==='proforma' || kind==='invoice' || kind==='packing') return true;
+  if(kind==='contract' || kind==='proforma' || kind==='invoice' || kind==='packing') return true;
   if(kind==='cert') return !isSea(r) && !!r.certCoded;
   if(kind==='bol') return !!(r.bolCoded || r.bolSeaCoded);
   return false;
 }
 function buildSheetInner(r, kind, lang){
   lang = (lang==='en') ? 'en' : 'ar';
+  if(kind==='contract' && isBaharSwakenCompany(company)) return baharSwakenContractSheet(r);
   if(kind==='proforma' || kind==='invoice' || kind==='packing') return invoiceSheet(r, kind, lang);
   if(kind==='cert'){
     if((isSea(r) && (r.certDubaiPdf || r.certDubaiWordOnline)) || (!isSea(r) && r.certWordCoded)) return certSheetWord(r, lang);
@@ -16324,7 +16452,7 @@ function buildSheetInner(r, kind, lang){
 
 const PRINT_STYLES = `
 @page{ margin:0; size:A4 portrait; }
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 html,body{margin:0;padding:0;background:#fff;font-family:'Tajawal',sans-serif;color:#14213D;}
 .doc-page{background:#fff;width:100%;margin:0 auto;}
@@ -16488,6 +16616,10 @@ table.inv-items tr.blank td{height:var(--items-h,31px);}
 .bahar-inv-sheet{position:relative;width:210mm;height:297mm;min-height:297mm;margin:0 auto;padding:18mm 14mm;overflow:hidden;page-break-after:always;break-after:page;background:#fff;color:#17202b;font-family:var(--bahar-font);}
 .bahar-inv-sheet:last-child{page-break-after:auto;break-after:auto;}
 .bahar-inv-sheet *{box-sizing:border-box;}.bahar-inv-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0;}.bahar-inv-sheet.has-bg{padding:56mm 14mm 37mm;}.bahar-inv-content{position:relative;z-index:2;}.bahar-inv-watermark{position:absolute;z-index:1;width:55%;max-height:52%;object-fit:contain;left:22.5%;top:25%;opacity:.06;pointer-events:none;}.bahar-inv-brand{position:relative;z-index:2;min-height:24mm;border-bottom:2px solid var(--bahar-red);display:flex;align-items:center;justify-content:space-between;margin-bottom:8mm;padding:0 3mm;}.bahar-inv-brand b{display:block;font-size:17px;letter-spacing:1.5px;}.bahar-inv-brand small{display:block;font-size:10px;margin-top:2px;}.bahar-inv-brand img{max-width:34mm;max-height:20mm;object-fit:contain;}.bahar-inv-title{position:relative;background:var(--bahar-red);color:#fff;text-align:center;padding:3.2mm 4mm;font-size:15px;font-weight:800;letter-spacing:1px;margin-bottom:0;}.bahar-inv-qr,.inv-operation-qr{display:block;background:#fff;padding:.7mm;border-radius:1mm;line-height:0;text-decoration:none;}.bahar-inv-qr{position:absolute;z-index:4;transform-origin:center;}.bahar-inv-qr img{display:block;width:100%;height:auto;aspect-ratio:1;}.operation-qr-caption{position:absolute;top:calc(100% + 1mm);left:50%;width:100%;transform:translateX(-50%);text-align:center;color:#17202b;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;font-size:6.2px;line-height:1.35;font-weight:700;white-space:normal;}.operation-qr-caption b,.operation-qr-caption small{display:block;width:100%;}.operation-qr-caption small{margin-top:.35mm;font-size:6.2px;font-weight:700;line-height:1.35;direction:ltr;letter-spacing:0;}.bahar-inv-meta{display:grid;grid-template-columns:1fr 1.2fr;border:1px solid var(--bahar-red);border-top:0;}.bahar-inv-meta>div{min-height:15mm;padding:3mm;border-inline-end:1px solid #dfc9ca;display:flex;flex-direction:column;gap:2mm;}.bahar-inv-meta>div:nth-child(2){border-inline-end:0;}.bahar-inv-meta .wide{grid-column:1/-1;border-top:1px solid #dfc9ca;border-inline-end:0;min-height:13mm;}.bahar-inv-meta b,.bahar-inv-terms b{font-size:7px;color:var(--bahar-red);letter-spacing:.5px;}.bahar-inv-meta span,.bahar-inv-terms span{font-size:9px;font-weight:700;line-height:1.35;}.bahar-inv-items{position:relative;z-index:2;width:100%;border-collapse:collapse;margin-top:4mm;font-family:var(--bahar-font);font-size:var(--bahar-items-fs,8.4px);}.bahar-inv-items th{background:var(--bahar-red);color:#fff;border:1px solid var(--bahar-red);padding:var(--bahar-items-th-pad,2.4mm 1.5mm);font-size:var(--bahar-items-th-fs,7.2px);text-align:center;white-space:nowrap;}.bahar-inv-items td{height:var(--bahar-items-td-h,8.2mm);border:1px solid #d8dce0;padding:var(--bahar-items-td-pad,1.5mm);text-align:center;vertical-align:middle;}.bahar-inv-items td.desc{text-align:left;font-weight:700;}.bahar-inv-totals{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-top:3mm;}.bahar-inv-totals>div{border:1px solid #d8dce0;padding:3mm 4mm;display:flex;justify-content:space-between;align-items:center;}.bahar-inv-totals>div:last-child{background:var(--bahar-red);border-color:var(--bahar-red);color:#fff;}.bahar-inv-totals b{font-size:8px;}.bahar-inv-totals strong{font-size:12px;color:var(--bahar-red);}.bahar-inv-totals>div:last-child strong{color:#fff;}.bahar-inv-words{background:var(--bahar-red);color:#fff;text-align:center;font-size:8px;font-weight:800;padding:2.8mm;margin-top:3mm;letter-spacing:.4px;}.bahar-inv-terms{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--bahar-red);margin-top:3mm;}.bahar-inv-terms>div{min-height:18mm;padding:3mm;border-inline-end:1px solid #dfc9ca;display:flex;flex-direction:column;gap:2mm;}.bahar-inv-terms>div:last-child{border-inline-end:0;}.bahar-inv-signline{position:absolute;z-index:2;left:14mm;bottom:37mm;width:80mm;border-bottom:1px solid #7c8490;padding-bottom:2mm;font-size:8px;color:#59616a;font-weight:700;}.bahar-inv-sheet:not(.has-bg) .bahar-inv-signline{bottom:18mm;}.bahar-inv-stamp,.bahar-inv-signature{position:absolute;z-index:3;object-fit:contain;transform-origin:center;}.bahar-inv-sheet.has-bg .bahar-inv-items td{background:rgba(255,255,255,.82);}.bahar-inv-meta,.bahar-inv-totals>div,.bahar-inv-terms{background:rgba(255,255,255,.9);}
+
+/* ===== عقد البيع الدولي لبحر سواكن ===== */
+.bahar-contract-sheet{position:relative;width:210mm;height:297mm;min-height:297mm;margin:0 auto;padding:18mm 14mm;overflow:hidden;page-break-after:always;break-after:page;background:#fff;color:#17202b;font-family:var(--contract-font);}
+.bahar-contract-sheet:last-child{page-break-after:auto;break-after:auto;}.bahar-contract-sheet *{box-sizing:border-box;}.bahar-contract-sheet.has-bg{padding:56mm 14mm 37mm;}.bahar-contract-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0;}.bahar-contract-watermark{position:absolute;z-index:1;width:55%;max-height:52%;object-fit:contain;left:22.5%;top:25%;opacity:.055;pointer-events:none;}.bahar-contract-content{position:relative;z-index:2;}.bahar-contract-title{display:grid;gap:.7mm;margin-bottom:3mm;padding:2.5mm 4mm;border:1px solid var(--bahar-red);border-top:3px solid var(--bahar-red);background:rgba(255,255,255,.92);text-align:center;}.bahar-contract-sheet:first-child .bahar-contract-title{margin-right:14%;}.bahar-contract-title b{color:var(--bahar-red);font-size:12px;letter-spacing:.8px;direction:ltr;}.bahar-contract-title span{font-size:10.5px;font-weight:700;direction:rtl;}.bahar-contract-title small{font-size:7.5px;color:#5c6470;font-weight:600;}.bahar-contract-details{border:1px solid #cfd5dc;border-bottom:0;background:rgba(255,255,255,.9);}.bahar-contract-row{display:grid;grid-template-columns:23% minmax(0,54%) 23%;min-height:7mm;border-bottom:1px solid #cfd5dc;align-items:stretch;}.bahar-contract-row:nth-child(-n+4){margin-right:14%;}.bahar-contract-row>*{display:flex;align-items:center;padding:1.35mm 2mm;line-height:1.25;}.bahar-contract-row b{color:var(--bahar-red);font-size:7.6px;font-weight:700;}.bahar-contract-row b.ar{justify-content:flex-end;text-align:right;border-inline-end:1px solid #e0e4e8;}.bahar-contract-row b.en{justify-content:flex-start;text-align:left;border-inline-start:1px solid #e0e4e8;}.bahar-contract-row span{justify-content:center;text-align:center;font-size:8.2px;font-weight:600;overflow-wrap:anywhere;white-space:normal;}.bahar-contract-clauses{border:1px solid #cfd5dc;border-bottom:0;background:rgba(255,255,255,.9);}.bahar-contract-clause{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #cfd5dc;}.bahar-contract-clause p{margin:0;padding:2.7mm 2.8mm;font-size:8px;line-height:1.5;text-align:justify;}.bahar-contract-clause p:first-child{border-inline-end:1px solid #cfd5dc;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',Arial,sans-serif;}.bahar-contract-signatures{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:4mm;}.bahar-contract-signatures section{position:relative;min-height:40mm;padding:3mm;border:1px solid #cfd5dc;background:rgba(255,255,255,.9);}.bahar-contract-signatures b,.bahar-contract-signatures span,.bahar-contract-signatures small,.bahar-contract-signatures i{display:block;}.bahar-contract-signatures b{color:var(--bahar-red);font-size:8.5px;}.bahar-contract-signatures span{margin-top:2mm;font-size:8px;font-weight:700;}.bahar-contract-signatures small{margin-top:1mm;color:#586575;font-size:7px;line-height:1.4;}.bahar-contract-signatures i{position:absolute;inset-inline:3mm;bottom:3mm;padding-top:2mm;border-top:1px solid #8893a0;color:#56616e;font-size:7px;font-style:normal;text-align:center;}.bahar-contract-qr{z-index:5;}.bahar-contract-stamp,.bahar-contract-signature{position:absolute;z-index:4;object-fit:contain;transform-origin:center;}
 
 /* Keep the default invoice transparent; white panels are only needed on branded backgrounds. */
 .bahar-inv-sheet:not(.has-bg) .bahar-inv-meta,.bahar-inv-sheet:not(.has-bg) .bahar-inv-totals>div:not(:last-child),.bahar-inv-sheet:not(.has-bg) .bahar-inv-terms{background:transparent;}
@@ -16827,7 +16959,7 @@ function openPrintWindow(bodyHtml){
   setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(e){} }, 60000);
 }
 
-const DOC_NAMES = { proforma:'فاتورة مبدئية', invoice:'فاتورة نهائية', cert:'شهادة منشأ', bol:'بوليصة شحن', packing:'كشف التعبئة' };
+const DOC_NAMES = { contract:'عقد بيع دولي', proforma:'فاتورة مبدئية', invoice:'فاتورة نهائية', cert:'شهادة منشأ', bol:'بوليصة شحن', packing:'كشف التعبئة' };
 
 async function printSingle(r, kind, lang){
   // A printed BSGT document needs a real persisted token, not the editor's
@@ -16842,7 +16974,7 @@ function packageBodyHtml(r, lang){
   // BSGT uploads the certificate and bill of lading as original files. They
   // are appended by mergeFullPackage below, not rebuilt through legacy forms.
   const generatedDocs = isBaharSwakenCompany(companyDataFor(r))
-    ? ['proforma','invoice','packing']
+    ? ['contract','proforma','invoice','packing']
     : docOrderOf(r);
   generatedDocs.forEach(k=>{
     if(DOC_META[k].ready(r)) html += buildSheet(r, k, lang);
@@ -17176,7 +17308,7 @@ async function appendBsgtHtmlPagePdf(output, record, kind, lang){
   }
 }
 async function buildBsgtGeneratedPackagePdf(r, lang){
-  const kinds = ['proforma','invoice','packing'].filter(k=>DOC_META[k].ready(r));
+  const kinds = ['contract','proforma','invoice','packing'].filter(k=>DOC_META[k].ready(r));
   if(!kinds.length) throw new Error('لا توجد مستندات BSGT جاهزة للطباعة.');
   const {PDFDocument} = PDFLib;
   const output = await PDFDocument.create();
@@ -17215,19 +17347,34 @@ window.bsgtPdfPreviewBlob = async function bsgtPdfPreviewBlob(record, kind='invo
 async function mergeBsgtPackageLocally(r, lang){
   const { PDFDocument } = PDFLib;
   const merged = await PDFDocument.create();
-  const generated = await buildBsgtGeneratedPackagePdf(r, lang);
-  const sourcePdfs = [generated];
-  const attachments = await packageAttachmentsForMerge(r);
-  for(const att of attachments){
-    const {data, error} = await sb.storage.from('shipment-files').download(att.path);
-    if(error) throw new Error('تعذّر تحميل المرفق "' + att.name + '": ' + error.message);
-    sourcePdfs.push(await prepareBsgtAttachment(data, att));
-  }
-  for(const source of sourcePdfs){
+  if(!shipmentFilesCache[r.id]) await loadShipmentFiles(r.id);
+  const ordered = docOrderOf(r);
+  const sequence = ['contract','importPermit', ...ordered.filter(kind=>kind!=='contract')];
+  const generatedKinds = new Set(['contract','proforma','invoice','packing']);
+  for(const kind of sequence){
+    if(generatedKinds.has(kind)){
+      if(DOC_META[kind]?.ready(r)) await appendBsgtBrowserlessPagePdf(merged, r, kind, lang);
+      continue;
+    }
+    const attachment = baharUploadedDoc(r, kind);
+    if(!attachment) continue;
+    const {data, error} = await sb.storage.from('shipment-files').download(attachment.path);
+    if(error) throw new Error('تعذّر تحميل المرفق "' + attachment.name + '": ' + error.message);
+    const source = await prepareBsgtAttachment(data, attachment);
     const input = await PDFDocument.load(await source.arrayBuffer());
     const pages = await merged.copyPages(input, input.getPageIndices());
     pages.forEach(page=>merged.addPage(page));
   }
+  const extras = (packageAttachmentsCache[r.id]||[]).slice().sort((a,b)=>a.sort_order-b.sort_order);
+  for(const attachment of extras){
+    const {data, error} = await sb.storage.from('shipment-files').download(attachment.path);
+    if(error) throw new Error('تعذّر تحميل المرفق "' + attachment.name + '": ' + error.message);
+    const source = await prepareBsgtAttachment(data, attachment);
+    const input = await PDFDocument.load(await source.arrayBuffer());
+    const pages = await merged.copyPages(input, input.getPageIndices());
+    pages.forEach(page=>merged.addPage(page));
+  }
+  if(!merged.getPageCount()) throw new Error('لا توجد مستندات BSGT جاهزة للطباعة.');
   return new Blob([await merged.save()], {type:'application/pdf'});
 }
 
