@@ -612,8 +612,7 @@ body{padding-right:230px;}
 .bsgt-detail-card .detail-actions #deleteBtn{margin-inline-start:auto;}
 /* BSGT shipment details are a workspace, not a centered modal. Existing IDs and
    handlers remain intact; these rules only expand and reorganize the presentation. */
-#overlay.bsgt-workspace-overlay{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;padding:0!important;background:#f6f8fc!important;align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important;z-index:9999!important;}
-body.bsgt-workspace-open{padding-right:0!important;overflow:hidden!important;zoom:1!important;}
+html > #overlay.bsgt-workspace-overlay{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;margin:0!important;padding:0!important;background:#f6f8fc!important;align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important;transform:none!important;zoom:1!important;z-index:9999!important;}
 #detailCard.bsgt-detail-card{width:100vw!important;max-width:none!important;height:100dvh;max-height:none!important;min-height:100dvh;margin:0;border-radius:0;box-shadow:none;background:#f6f8fc;}
 .bsgt-detail-shell{grid-template-columns:224px minmax(0,1fr);height:100dvh;min-height:0;max-height:none;}
 .bsgt-detail-side{padding:24px 14px;background:#10345e;box-shadow:inset -1px 0 rgba(255,255,255,.1);}
@@ -630,7 +629,7 @@ body.bsgt-workspace-open{padding-right:0!important;overflow:hidden!important;zoo
 .bsgt-data-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}.bsgt-timeline{background:#fbfcfe;}
 .bsgt-detail-card .detail-actions{position:sticky;bottom:0;margin:24px 0 0;padding:15px 18px;background:rgba(255,255,255,.98);border:1px solid #e4eaf2;border-radius:14px;box-shadow:0 -8px 22px rgba(19,48,80,.06);gap:10px;}
 .bsgt-detail-card .detail-actions .btn{min-height:40px;border-radius:12px;border-width:1px;font-weight:700;box-shadow:none;}.bsgt-detail-card .detail-actions #packageBtn{background:#14845b;border-color:#14845b;color:#fff;}.bsgt-detail-card .detail-actions #mergeAllBtn{background:#f2ebff;border-color:#ddd0ff;color:#6941c6;}.bsgt-detail-card .detail-actions #returnBtn{background:#fff0f6;border-color:#f7c8dc;color:#bd3f73;}.bsgt-detail-card .detail-actions #lgBtn{background:#e9f7fb;border-color:#c6eaf4;color:#147c99;}.bsgt-detail-card .detail-actions #shipCostBtn{background:#fff4e8;border-color:#f8d8ad;color:#b66311;}.bsgt-detail-card .detail-actions #dupBtn,.bsgt-detail-card .detail-actions #editBtn{background:#eef4ff;border-color:#cfddf5;color:#2466b2;}.bsgt-detail-card .detail-actions #deleteBtn{background:#fff1f1;border-color:#f3c9c9;color:#c33b3b;}
-@media (max-width:720px){#overlay.bsgt-workspace-overlay{padding:0}.bsgt-detail-shell{height:100dvh}.bsgt-detail-main{padding:16px 14px 20px}.bsgt-detail-head{margin:0 0 14px;padding:0}.bsgt-detail-section{padding:14px}.bsgt-detail-card .detail-actions{margin:18px 0 0;padding:12px}.bsgt-detail-side{padding:10px;}}
+@media (max-width:720px){html > #overlay.bsgt-workspace-overlay{padding:0}.bsgt-detail-shell{height:100dvh}.bsgt-detail-main{padding:16px 14px 20px}.bsgt-detail-head{margin:0 0 14px;padding:0}.bsgt-detail-section{padding:14px}.bsgt-detail-card .detail-actions{margin:18px 0 0;padding:12px}.bsgt-detail-side{padding:10px;}}
 @media (max-width:1100px){
   .bsgt-summary-grid,.bsgt-data-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
   .bsgt-detail-card .doc-actions-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
@@ -13660,7 +13659,6 @@ const overlay = document.getElementById('overlay');
 function closeAllOverlays(){
   document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));
   overlay.classList.remove('bsgt-workspace-overlay');
-  document.body.classList.remove('bsgt-workspace-open');
   const tpl = document.getElementById('tplEditorOverlay');
   if(tpl) tpl.classList.remove('open');
 }
@@ -13671,7 +13669,6 @@ document.addEventListener('click', (e)=>{
     const ov = x.closest('.overlay') || x.closest('.tpl-editor-overlay');
     if(ov){
       ov.classList.remove('open','bsgt-workspace-overlay');
-      document.body.classList.remove('bsgt-workspace-open');
       e.stopPropagation();
     }
   }
@@ -13907,11 +13904,10 @@ function openDetail(id){
   updateHash('records', id);
   const card = document.getElementById('detailCard');
   const isBsgtDetail = isBaharSwakenCompany(companyDataFor(r));
-  // The application shell creates a containing block on some layouts. Moving this
-  // one workspace to body guarantees that its full-screen canvas is truly viewport-sized.
-  if(isBsgtDetail && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+  // Mount above body so shell padding, zoom, and future navigation layout changes
+  // can never constrain the full-screen BSGT workspace.
+  if(isBsgtDetail && overlay.parentElement !== document.documentElement) document.documentElement.appendChild(overlay);
   overlay.classList.toggle('bsgt-workspace-overlay', isBsgtDetail);
-  document.body.classList.toggle('bsgt-workspace-open', isBsgtDetail);
   card.classList.toggle('bsgt-detail-card', isBsgtDetail);
   card.innerHTML = isBsgtDetail ? renderBsgtDetail(r) : `
     <div class="dh">
@@ -13993,7 +13989,6 @@ function openDetail(id){
   if(isBsgtDetail) wireBsgtDetailSidebar(card);
   document.getElementById('closeDetail').addEventListener('click', ()=>{
     overlay.classList.remove('open','bsgt-workspace-overlay');
-    document.body.classList.remove('bsgt-workspace-open');
   });
   renderDocOrderList(r);
   wireDocActionButtons(r);
