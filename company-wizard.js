@@ -270,7 +270,7 @@
       </style>
       <div class="bs-workspace"><div class="bs-card">
         <div class="bs-top"><label class="bs-toggle"><input class="bs-show-stamp" type="checkbox"> إظهار الختم على الفاتورة</label><label class="bs-toggle"><input class="bs-show-signature" type="checkbox"> إظهار خط التوقيع</label><label class="bs-toggle"><input class="bs-show-qr" type="checkbox"> إظهار QR التحقق</label><label class="bs-toggle"><input class="bs-show-qr-caption" type="checkbox"> إظهار نص التحقق تحت QR</label><label class="bs-toggle"><input class="bs-transparent-cells" type="checkbox"> خلفيات الجداول شفافة وحدود سوداء</label></div>
-        <h3>جدول فاتورة Bahar Swaken</h3><p>إعدادات خاصة بمعاينة فاتورة بحر سواكن فقط، ولا تؤثر على الشركات الأخرى أو الفواتير الحالية.</p>
+        <h3>جدول فاتورة Bahar Swaken</h3><p>إعدادات خاصة بفاتورة بحر سواكن ولا تؤثر على الشركات الأخرى. بعد الحفظ استخدم زر تحديث الحزم لنشر التصميم على ملفات QR القديمة.</p>
         <div class="bs-grid" style="margin-top:18px"><div class="field"><label>اسم النموذج</label><input class="bs-name" dir="ltr"></div><div class="field"><label>خط جدول البنود</label><select class="bs-font"><option value="IBM Plex Sans">IBM Plex Sans</option></select></div><div class="field"><label>لون التصميم الرئيسي</label><input class="bs-accent" type="color"></div><div class="field"><label>لون رأس الجدول</label><input class="bs-header" type="color"></div></div>
         <div class="section-title" style="margin-top:20px">أحجام خطوط الفاتورة</div>
         <div class="bs-grid">
@@ -330,7 +330,7 @@
         ${transformControls('qr', 'تحريك وتعديل QR العملية', qrPosition)}
         ${fileControl('signature', 'صورة التوقيع', 'image/png,image/jpeg,image/webp', settings.signature, 'يفضل PNG بخلفية شفافة. الصورة اختيارية.')}
         ${transformControls('signature', 'تحريك وتعديل التوقيع', signaturePosition)}
-        <div class="bs-actions"><button type="button" class="btn btn-primary bs-save">حفظ إعدادات المعاينة</button><button type="button" class="btn btn-ghost bs-preview">معاينة الطباعة</button></div>
+        <div class="bs-actions"><button type="button" class="btn btn-primary bs-save">حفظ إعدادات المعاينة</button><button type="button" class="btn btn-gold bs-save-refresh">حفظ وتحديث كل حزم QR</button><button type="button" class="btn btn-ghost bs-preview">معاينة الطباعة</button></div>
       </div><aside class="bs-live"><div class="bs-live-head"><div><strong>المعاينة الحية</strong><small>نموذج A4 حقيقي</small></div><div class="bs-zoom"><button type="button" data-zoom=".62">Fit</button><button type="button" data-zoom=".75">75%</button><button type="button" data-zoom="1">100%</button></div></div><div class="bs-page-stage"><iframe class="bs-live-frame" title="المعاينة الحية لفاتورة بحر سواكن" src="/invoice-template-preview/bahar-swaken/?embed=editor&v=20260906-qr2"></iframe></div></aside></div>`;
     const one = selector => simple.querySelector(selector);
     one('.bs-name').value = settings.name;
@@ -439,6 +439,28 @@
       }
     };
     one('.bs-save').addEventListener('click', async () => { await store(); if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken'); });
+    one('.bs-save-refresh').addEventListener('click', async event => {
+      const button = event.currentTarget;
+      const original = button.textContent;
+      button.disabled = true;
+      try {
+        await store();
+        if (typeof window.refreshAllPublishedBsgtQrPackages !== 'function') throw new Error('خدمة تحديث الحزم غير متاحة حالياً.');
+        const result = await window.refreshAllPublishedBsgtQrPackages((done, total) => {
+          button.textContent = `جارٍ تحديث الحزم ${done}/${total}`;
+        });
+        if (result.failed.length) {
+          alert(`تم تحديث ${result.updated} حزمة، وتعذر تحديث ${result.failed.length}. يمكنك إعادة المحاولة دون فقد أي ملف.`);
+        } else if (typeof toast === 'function') {
+          toast(`تم حفظ الإعدادات وتحديث ${result.updated} حزمة QR`);
+        }
+      } catch (error) {
+        alert(error?.message || 'تعذر تحديث حزم QR. حاول مرة أخرى.');
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    });
     one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
   }
 

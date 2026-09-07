@@ -14986,7 +14986,7 @@ async function ensureQrToken(r){
   r.qrToken = newQrToken();
   await persistQrFields(r);
 }
-async function publishQrPackage(r, blob){
+async function publishQrPackage(r, blob, silent=false){
   if(!r?.id || !isUuid(r.id)) return;
   await ensureQrToken(r);
   const path = `qr-package/${r.id}/${Date.now()}.pdf`;
@@ -14997,7 +14997,7 @@ async function publishQrPackage(r, blob){
   r.qrPublishedAt = new Date().toISOString();
   await persistQrFields(r);
   if(previous && previous !== path){ try{ await sb.storage.from('shipment-files').remove([previous]); }catch(e){} }
-  toast('تم تحديث حزمة رمز QR لهذه العملية ✓', 'ok');
+  if(!silent) toast('تم تحديث حزمة رمز QR لهذه العملية ✓', 'ok');
 }
 
 // The QR only contains a link to the protected shipment screen. The invoice
@@ -17093,6 +17093,28 @@ async function mergeBsgtPackageLocally(r, lang){
   return new Blob([await merged.save()], {type:'application/pdf'});
 }
 
+window.refreshAllPublishedBsgtQrPackages = async function refreshAllPublishedBsgtQrPackages(onProgress){
+  const targets = records.filter(r => isBaharSwakenCompany(companyDataFor(r)) && r.qrPackagePath);
+  const failed = [];
+  let updated = 0;
+  if(typeof onProgress === 'function') onProgress(0, targets.length);
+  for(const record of targets){
+    try{
+      await loadShipmentFiles(record.id);
+      await loadPackageAttachments(record.id);
+      await ensureQrToken(record);
+      const blob = await mergeBsgtPackageLocally(record, 'en');
+      await publishQrPackage(record, blob, true);
+      updated += 1;
+    }catch(error){
+      console.error('BSGT QR package refresh failed', record.operationNo || record.id, error);
+      failed.push({id:record.id, operationNo:record.operationNo || '', message:error?.message || String(error)});
+    }
+    if(typeof onProgress === 'function') onProgress(updated + failed.length, targets.length);
+  }
+  return {updated, total:targets.length, failed};
+};
+
 async function mergeFullPackage(r, lang, triggerBtn){
   // Both package actions use the same reliable PDF pipeline.
   const btn = triggerBtn || document.getElementById('mergeAllBtn');
@@ -18226,7 +18248,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-shared-settings"></script>
+<script src="company-wizard.js?v=20260907-bulk-qr-refresh"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>
