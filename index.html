@@ -613,6 +613,7 @@ body{padding-right:230px;}
 /* BSGT shipment details are a workspace, not a centered modal. Existing IDs and
    handlers remain intact; these rules only expand and reorganize the presentation. */
 #overlay.bsgt-workspace-overlay{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;padding:0!important;background:#f6f8fc!important;align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important;z-index:9999!important;}
+body.bsgt-workspace-open{padding-right:0!important;overflow:hidden!important;}
 #detailCard.bsgt-detail-card{width:100vw!important;max-width:none!important;height:100dvh;max-height:none!important;min-height:100dvh;margin:0;border-radius:0;box-shadow:none;background:#f6f8fc;}
 .bsgt-detail-shell{grid-template-columns:224px minmax(0,1fr);height:100dvh;min-height:0;max-height:none;}
 .bsgt-detail-side{padding:24px 14px;background:#10345e;box-shadow:inset -1px 0 rgba(255,255,255,.1);}
@@ -13659,6 +13660,7 @@ const overlay = document.getElementById('overlay');
 function closeAllOverlays(){
   document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));
   overlay.classList.remove('bsgt-workspace-overlay');
+  document.body.classList.remove('bsgt-workspace-open');
   const tpl = document.getElementById('tplEditorOverlay');
   if(tpl) tpl.classList.remove('open');
 }
@@ -13669,6 +13671,7 @@ document.addEventListener('click', (e)=>{
     const ov = x.closest('.overlay') || x.closest('.tpl-editor-overlay');
     if(ov){
       ov.classList.remove('open','bsgt-workspace-overlay');
+      document.body.classList.remove('bsgt-workspace-open');
       e.stopPropagation();
     }
   }
@@ -13908,6 +13911,7 @@ function openDetail(id){
   // one workspace to body guarantees that its full-screen canvas is truly viewport-sized.
   if(isBsgtDetail && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   overlay.classList.toggle('bsgt-workspace-overlay', isBsgtDetail);
+  document.body.classList.toggle('bsgt-workspace-open', isBsgtDetail);
   card.classList.toggle('bsgt-detail-card', isBsgtDetail);
   card.innerHTML = isBsgtDetail ? renderBsgtDetail(r) : `
     <div class="dh">
@@ -13989,6 +13993,7 @@ function openDetail(id){
   if(isBsgtDetail) wireBsgtDetailSidebar(card);
   document.getElementById('closeDetail').addEventListener('click', ()=>{
     overlay.classList.remove('open','bsgt-workspace-overlay');
+    document.body.classList.remove('bsgt-workspace-open');
   });
   renderDocOrderList(r);
   wireDocActionButtons(r);
