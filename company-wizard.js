@@ -196,10 +196,16 @@
     };
   }
 
+  function invoiceSettingsCompany() {
+    const editingId = typeof compEditId !== 'undefined' ? compEditId : null;
+    if (editingId && typeof companyById === 'function') return companyById(editingId);
+    return typeof activeCompany === 'function' ? activeCompany() : null;
+  }
+
   function getInvoicePreviewSettings() {
     try {
-      const active = typeof activeCompany === 'function' ? activeCompany() : null;
-      const shared = active?.settings?.invoiceBranding || active?.settings?.collectionBranding || {};
+      const edited = invoiceSettingsCompany();
+      const shared = edited?.settings?.invoiceBranding || edited?.settings?.collectionBranding || {};
       const settings = Object.assign({}, invoicePreviewDefaults(), shared);
       // Bahar Swaken uses a letterhead watermark, so opaque cells would hide it.
       settings.transparentTableCells = true;
@@ -431,14 +437,22 @@
       const stampToggle = document.getElementById('ce_showStamp'), signatureToggle = document.getElementById('ce_showSigLine');
       if (stampToggle) { stampToggle.checked = next.showStamp; stampToggle.dispatchEvent(new Event('change', { bubbles:true })); }
       if (signatureToggle) { signatureToggle.checked = next.showSigLine; signatureToggle.dispatchEvent(new Event('change', { bubbles:true })); }
-      const active = typeof activeCompany === 'function' ? activeCompany() : null;
-      if (active?.id && typeof saveCompanyById === 'function') {
-        const settings = Object.assign({}, active.settings || {}, {invoiceBranding:next, collectionBranding:next});
-        try { await saveCompanyById(active.id, settings); }
-        catch (error) { console.warn('Could not save shared BSGT invoice branding', error); }
-      }
+      const edited = invoiceSettingsCompany();
+      if (!edited?.id || typeof saveCompanyById !== 'function') throw new Error('تعذر تحديد شركة بحر سواكن المفتوحة للحفظ.');
+      const settings = Object.assign({}, edited.settings || {}, company || {}, {invoiceBranding:next, collectionBranding:next});
+      company.invoiceBranding = next;
+      company.collectionBranding = next;
+      await saveCompanyById(edited.id, settings);
+      return next;
     };
-    one('.bs-save').addEventListener('click', async () => { await store(); if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken'); });
+    one('.bs-save').addEventListener('click', async () => {
+      try {
+        await store();
+        if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken');
+      } catch (error) {
+        alert(error?.message || 'تعذر حفظ إعدادات فاتورة بحر سواكن.');
+      }
+    });
     one('.bs-save-refresh').addEventListener('click', async event => {
       const button = event.currentTarget;
       const original = button.textContent;
