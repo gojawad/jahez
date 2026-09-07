@@ -15019,7 +15019,10 @@ function shipmentOperationQr(r, className, position){
     code.make();
     const width = position ? (Number(position.widthPercent)||12) : 12;
     const style = position ? ` style="left:${Number(position.xPercent)||0}%;top:${Number(position.yPercent)||0}%;width:${width}%;transform:rotate(${Number(position.rotate)||0}deg)"` : '';
-    const caption = baharInvoiceRuntimeSettings(r)?.showQrCaption === false ? '' : '<span class="operation-qr-caption"><b>امسح الباركود للتحقق من صحة البيانات والمطابقة.</b><small>Scan the QR to verify the data</small></span>';
+    const qrSettings = baharInvoiceRuntimeSettings(r) || {};
+    const captionAr = qrSettings.qrCaptionAr ?? 'امسح الباركود للتحقق من صحة البيانات.';
+    const captionEn = qrSettings.qrCaptionEn ?? 'Scan the QR to verify the data';
+    const caption = qrSettings.showQrCaption === false ? '' : `<span class="operation-qr-caption"><b>${esc(captionAr)}</b><small>${esc(captionEn)}</small></span>`;
     return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح مركز العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'مركز العملية')}">${caption}</a>`;
   }catch(error){
     console.warn('operation QR', error);
@@ -18254,7 +18257,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-fast-settings-save"></script>
+<script src="company-wizard.js?v=20260907-editable-qr-caption"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>

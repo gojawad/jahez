@@ -175,6 +175,7 @@
       name:'Bahar Swaken — Commercial Invoice', accent:'#86191f', tableHeader:'#86191f', tableFont:'IBM Plex Sans',
       background:'', watermark:'', watermarkOpacity:7, showWatermark:false, signature:'', stamp:'', showStamp:true, showSigLine:true,
       stampPosition:{xPercent:78,yPercent:78,widthPercent:13,rotate:0}, signaturePosition:{xPercent:10,yPercent:81,widthPercent:23,rotate:0}, qrPosition:{xPercent:85,yPercent:20,widthPercent:12,rotate:0}, showQr:true, showQrCaption:true,
+      qrCaptionAr:'امسح الباركود للتحقق من صحة البيانات.', qrCaptionEn:'Scan the QR to verify the data',
       // Typography — fixed px sizes (never auto-shrunk); granular fields fall back to the base
       // label/value pair when left unset (empty string), so most users only touch the base four.
       labelFontSize:14, labelFontWeight:700, valueFontSize:13, valueFontWeight:400,
@@ -278,6 +279,8 @@
         <div class="bs-top"><label class="bs-toggle"><input class="bs-show-stamp" type="checkbox"> إظهار الختم على الفاتورة</label><label class="bs-toggle"><input class="bs-show-signature" type="checkbox"> إظهار خط التوقيع</label><label class="bs-toggle"><input class="bs-show-qr" type="checkbox"> إظهار QR التحقق</label><label class="bs-toggle"><input class="bs-show-qr-caption" type="checkbox"> إظهار نص التحقق تحت QR</label><label class="bs-toggle"><input class="bs-transparent-cells" type="checkbox"> خلفيات الجداول شفافة وحدود سوداء</label></div>
         <h3>جدول فاتورة Bahar Swaken</h3><p>إعدادات خاصة بفاتورة بحر سواكن ولا تؤثر على الشركات الأخرى. بعد الحفظ استخدم زر تحديث الحزم لنشر التصميم على ملفات QR القديمة.</p>
         <div class="bs-grid" style="margin-top:18px"><div class="field"><label>اسم النموذج</label><input class="bs-name" dir="ltr"></div><div class="field"><label>خط جدول البنود</label><select class="bs-font"><option value="IBM Plex Sans">IBM Plex Sans</option></select></div><div class="field"><label>لون التصميم الرئيسي</label><input class="bs-accent" type="color"></div><div class="field"><label>لون رأس الجدول</label><input class="bs-header" type="color"></div></div>
+        <div class="section-title" style="margin-top:20px">نص التحقق أسفل QR</div>
+        <div class="bs-grid"><div class="field"><label>النص العربي</label><textarea class="bs-qr-caption-ar" rows="2" maxlength="160"></textarea></div><div class="field"><label>English text</label><textarea class="bs-qr-caption-en" rows="2" maxlength="160" dir="ltr"></textarea></div></div>
         <div class="section-title" style="margin-top:20px">أحجام خطوط الفاتورة</div>
         <div class="bs-grid">
           ${fontSizeField('labelFontSize', 'حجم خط العناوين', settings.labelFontSize)}
@@ -340,6 +343,8 @@
       </div><aside class="bs-live"><div class="bs-live-head"><div><strong>المعاينة الحية</strong><small>نموذج A4 حقيقي</small></div><div class="bs-zoom"><button type="button" data-zoom=".62">Fit</button><button type="button" data-zoom=".75">75%</button><button type="button" data-zoom="1">100%</button></div></div><div class="bs-page-stage"><iframe class="bs-live-frame" title="المعاينة الحية لفاتورة بحر سواكن" src="/invoice-template-preview/bahar-swaken/?embed=editor&v=20260906-qr2"></iframe></div></aside></div>`;
     const one = selector => simple.querySelector(selector);
     one('.bs-name').value = settings.name;
+    one('.bs-qr-caption-ar').value = settings.qrCaptionAr ?? invoicePreviewDefaults().qrCaptionAr;
+    one('.bs-qr-caption-en').value = settings.qrCaptionEn ?? invoicePreviewDefaults().qrCaptionEn;
     one('.bs-font').value = settings.tableFont;
     one('.bs-accent').value = settings.accent;
     one('.bs-header').value = settings.tableHeader;
@@ -400,7 +405,7 @@
     const collect = () => ({
       name:one('.bs-name').value.trim() || invoicePreviewDefaults().name, tableFont:one('.bs-font').value, accent:one('.bs-accent').value, tableHeader:one('.bs-header').value,
       background:simple.querySelector('[data-key="background"]').dataset.value || settings.background || '', watermark:simple.querySelector('[data-key="watermark"]').dataset.value || settings.watermark || '',
-      signature:simple.querySelector('[data-key="signature"]').dataset.value || settings.signature || '', watermarkOpacity:Number(one('.bs-opacity').value), stamp:simple.querySelector('[data-key="stamp"]').dataset.value || settings.stamp || company.stamp || '', showStamp:one('.bs-show-stamp').checked, showSigLine:one('.bs-show-signature').checked, showQr:one('.bs-show-qr').checked, showQrCaption:one('.bs-show-qr-caption').checked, showWatermark:one('.bs-show-watermark').checked, transparentTableCells:one('.bs-transparent-cells').checked, stampPosition:transformValue('stamp'), qrPosition:transformValue('qr'), signaturePosition:transformValue('signature'),
+      signature:simple.querySelector('[data-key="signature"]').dataset.value || settings.signature || '', watermarkOpacity:Number(one('.bs-opacity').value), stamp:simple.querySelector('[data-key="stamp"]').dataset.value || settings.stamp || company.stamp || '', showStamp:one('.bs-show-stamp').checked, showSigLine:one('.bs-show-signature').checked, showQr:one('.bs-show-qr').checked, showQrCaption:one('.bs-show-qr-caption').checked, qrCaptionAr:one('.bs-qr-caption-ar').value.trim(), qrCaptionEn:one('.bs-qr-caption-en').value.trim(), showWatermark:one('.bs-show-watermark').checked, transparentTableCells:one('.bs-transparent-cells').checked, stampPosition:transformValue('stamp'), qrPosition:transformValue('qr'), signaturePosition:transformValue('signature'),
       ...typographyValues()
     });
     const liveFrame = one('.bs-live-frame');
@@ -729,7 +734,7 @@
   const safe = value => typeof esc === 'function' ? esc(value ?? '') : String(value ?? '');
   // Generate the QR before the sheet is printed, so it remains visible in both
   // browser printing and the generated PDF without depending on an external image.
-  const operationQr = (record, position, showCaption = true) => {
+  const operationQr = (record, position, showCaption = true, captionAr = 'امسح الباركود للتحقق من صحة البيانات.', captionEn = 'Scan the QR to verify the data') => {
     if (!record?.id || typeof qrcode !== 'function') return '';
     try {
       // The printed QR must always open the saved, full PDF package - never a data page.
@@ -743,7 +748,7 @@
       code.make();
       const pos = Object.assign({ xPercent: 85, yPercent: 20, widthPercent: 12, rotate: 0 }, position || {});
       const width = Number(pos.widthPercent) || 12;
-      return `<a class="operation-qr" href="${safe(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${safe(record.operationNo || '')}" style="left:${Number(pos.xPercent) || 0}%;top:${Number(pos.yPercent) || 0}%;width:${width}%;transform:rotate(${Number(pos.rotate) || 0}deg)"><img src="${code.createDataURL(4, 0)}" alt="QR: ${safe(record.operationNo || 'ملف العملية')}">${showCaption === false ? '' : '<span class="operation-qr-caption"><b>امسح الباركود للتحقق من صحة البيانات والمطابقة.</b><small>Scan the QR to verify the data</small></span>'}</a>`;
+      return `<a class="operation-qr" href="${safe(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${safe(record.operationNo || '')}" style="left:${Number(pos.xPercent) || 0}%;top:${Number(pos.yPercent) || 0}%;width:${width}%;transform:rotate(${Number(pos.rotate) || 0}deg)"><img src="${code.createDataURL(4, 0)}" alt="QR: ${safe(record.operationNo || 'ملف العملية')}">${showCaption === false ? '' : `<span class="operation-qr-caption"><b>${safe(captionAr)}</b><small>${safe(captionEn)}</small></span>`}</a>`;
     } catch (error) {
       console.warn('BSGT operation QR', error);
       return '';
@@ -889,7 +894,7 @@
     const stampPos = Object.assign({ xPercent: 78, yPercent: 78, widthPercent: 13, rotate: 0 }, settings.stampPosition || {});
     const signPos = Object.assign({ xPercent: 10, yPercent: 81, widthPercent: 23, rotate: 0 }, settings.signaturePosition || {});
     const qrPos = Object.assign({ xPercent: 85, yPercent: 20, widthPercent: 12, rotate: 0 }, settings.qrPosition || {});
-    const qr = settings.showQr === false ? '' : operationQr(record, qrPos, settings.showQrCaption !== false);
+    const qr = settings.showQr === false ? '' : operationQr(record, qrPos, settings.showQrCaption !== false, settings.qrCaptionAr, settings.qrCaptionEn);
     const date = typeof fmtDateByLang === 'function' ? fmtDateByLang(proforma ? record.proformaDate : record.invoiceDate, 'en') : (proforma ? record.proformaDate : record.invoiceDate);
     // WEIGHT column always shows in the packing list (its whole purpose), but in the
     // proforma/invoice it's opt-in per shipment via the entry form's "إظهار في الفاتورة" toggle.
