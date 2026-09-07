@@ -753,6 +753,9 @@ html > #overlay.bsgt-workspace-overlay{position:fixed!important;inset:0!importan
 .view.active{display:block;animation:viewIn .3s var(--ease);}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
+/* ===== مركز العملية ===== */
+.operation-center-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:18px;padding:23px 26px;border:1px solid #d9e6f4;border-radius:18px;background:linear-gradient(120deg,#113b68,#1d669a);color:#fff;box-shadow:0 10px 24px rgba(17,59,104,.16);}.operation-center-hero h2{margin:0;font-size:22px;}.operation-center-hero p{margin:7px 0 0;font-size:13px;color:#d9eafa;}.operation-center-search{width:min(100%,360px);flex:none;}.operation-center-search input{width:100%;border:0;border-radius:11px;padding:12px 14px;background:#fff;color:#173753;font:inherit;outline:0;}.operation-center-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px;}.operation-center-stat{padding:14px 16px;border:1px solid #e0e9f3;border-radius:13px;background:#fff;box-shadow:0 2px 10px rgba(20,49,80,.04);}.operation-center-stat span{display:block;color:#66809a;font-size:11px;font-weight:700;}.operation-center-stat b{display:block;margin-top:7px;color:#193b5d;font-size:20px;}.operation-center-list{border:1px solid #e0e9f3;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 3px 14px rgba(20,49,80,.04);}.operation-center-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:17px 20px;border-bottom:1px solid #e6edf5;color:#193b5d;font-weight:800;}.operation-center-list-head small{color:#7389a0;font-weight:600;}.operation-center-rows{display:grid;}.operation-center-row{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(160px,1fr) minmax(150px,1fr) minmax(120px,.7fr) minmax(120px,.65fr) auto;gap:14px;align-items:center;padding:15px 20px;border-bottom:1px solid #edf2f7;transition:background .18s var(--ease);}.operation-center-row:last-child{border-bottom:0;}.operation-center-row:hover{background:#f7fbff;}.operation-center-ref{font-family:'IBM Plex Mono',monospace;font-weight:800;color:#1768bd;font-size:13px;}.operation-center-meta{min-width:0;}.operation-center-meta span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1f405f;font-size:12px;font-weight:700;}.operation-center-meta small{display:block;margin-top:4px;color:#8093a8;font-size:10.5px;}.operation-center-status{display:inline-flex;width:max-content;max-width:100%;padding:5px 9px;border-radius:999px;background:#edf5ff;color:#2167ad;font-size:11px;font-weight:800;}.operation-center-docs{color:#5f7891;font-size:12px;font-weight:700;}.operation-center-empty{padding:44px 20px;text-align:center;color:#7890a7;font-weight:700;}@media (max-width:980px){.operation-center-stats{grid-template-columns:repeat(2,minmax(0,1fr));}.operation-center-row{grid-template-columns:1fr 1fr;}.operation-center-row .btn{justify-self:start;}}@media (max-width:620px){.operation-center-hero{display:block;padding:18px;}.operation-center-search{width:100%;margin-top:15px;}.operation-center-stats{grid-template-columns:1fr 1fr;}.operation-center-row{grid-template-columns:1fr;padding:14px;gap:8px;}}
+
 /* ===== لوحة المعلومات ===== */
 .dash-welcome{
   background:var(--brand);
@@ -1798,6 +1801,7 @@ body.role-bsgt-user #navDashboard,
 body.role-bsgt-user #navTasks,
 body.role-bsgt-user #navCreateShip,
 body.role-bsgt-user #navOperations,
+body.role-bsgt-user #navOperationCenter,
 body.role-bsgt-user #navActivityLog,
 body.role-bsgt-user #navReview,
 body.role-bsgt-user #navMoney,
@@ -2494,6 +2498,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
     <button class="navtab" data-view="tasks" id="navTasks" data-ic="clipboard">جدول المهام <span class="nav-badge tasks" id="tasksBadge">0</span></button>
     <button class="navtab" data-view="createShip" id="navCreateShip" data-ic="plus">انشاء عملية</button>
     <button class="navtab" data-view="records" id="navOperations" data-ic="list">العمليات</button>
+    <button class="navtab" data-view="operationCenter" id="navOperationCenter" data-ic="folder">مركز العملية</button>
     <button class="navtab" data-view="bsgt" id="navBsgt" data-ic="ship">شحنات BSGT</button>
     <button class="navtab" data-view="activityLog" id="navActivityLog" data-ic="history">سجل العمليات</button>
     <button class="navtab" data-view="review" id="navReview" data-ic="checkCircle" style="display:none;">الاعتمادات <span class="nav-badge review" id="reviewBadge">0</span></button>
@@ -2708,6 +2713,27 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
       <h3>سجل العمليات <span class="cnt" id="logCount"></span></h3>
       <ul class="log-list" id="activityLog"></ul>
     </div>
+  </div>
+
+  <!-- ===== مركز العملية ===== -->
+  <div class="view" id="viewOperationCenter">
+    <section class="operation-center-hero">
+      <div>
+        <h2>مركز العملية</h2>
+        <p>المرجع الكامل للشحنة ومستنداتها وتحصلاتها تحت رقم عملية موحد.</p>
+      </div>
+      <div class="operation-center-search"><input id="operationCenterSearch" type="search" placeholder="ابحث برقم العملية أو العميل أو الصنف..."></div>
+    </section>
+    <div class="operation-center-stats">
+      <div class="operation-center-stat"><span>إجمالي العمليات</span><b id="ocTotal">0</b></div>
+      <div class="operation-center-stat"><span>العمليات الصادرة</span><b id="ocIssued">0</b></div>
+      <div class="operation-center-stat"><span>قيد التحصيل</span><b id="ocCollection">0</b></div>
+      <div class="operation-center-stat"><span>مكتملة المستندات</span><b id="ocComplete">0</b></div>
+    </div>
+    <section class="operation-center-list">
+      <div class="operation-center-list-head"><span>أرقام العمليات</span><small id="ocResultCount">0 عملية</small></div>
+      <div class="operation-center-rows" id="operationCenterRows"></div>
+    </section>
   </div>
 
   <!-- ===== الشحنات ===== -->
@@ -8119,6 +8145,7 @@ function switchView(v){
   if(isStaffRole() && v === 'records' && !allowStaffRecords) v = 'tasks';
   document.querySelectorAll('.navtab').forEach(t=>t.classList.toggle('active', t.dataset.view===navKey));
   document.getElementById('viewDashboard').classList.toggle('active', v==='dashboard');
+  document.getElementById('viewOperationCenter').classList.toggle('active', v==='operationCenter');
   document.getElementById('viewRecords').classList.toggle('active', v==='records');
   document.getElementById('viewRecords').classList.toggle('bsgt-shipment-view', v==='records' && currentCompanyScope==='bsgt');
   document.getElementById('viewCreateShip').classList.toggle('active', v==='createShip');
@@ -8129,12 +8156,13 @@ function switchView(v){
   document.getElementById('viewMoney').classList.toggle('active', v==='money');
   document.getElementById('viewWallet').classList.toggle('active', v==='wallet');
   document.getElementById('viewActivityLog').classList.toggle('active', v==='activityLog');
-  const names = {dashboard:'لوحة المعلومات', records:'الشحنات', bsgt:'شحنات BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
+  const names = {dashboard:'لوحة المعلومات', operationCenter:'مركز العملية', records:'الشحنات', bsgt:'شحنات BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
   document.getElementById('crumbCurrent').textContent = names[navKey] || names[v] || '';
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt') ? 'inline-flex' : 'none';
   document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
+  if(v==='operationCenter') renderOperationCenter();
   if(v==='records'){
     render(); renderSea(); renderIssued(); renderDrafts(); renderReview();
     if(currentCompanyScope==='bsgt') switchShipTab('issued');
@@ -8147,6 +8175,36 @@ function switchView(v){
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
   updateHash(v);
 }
+
+function renderOperationCenter(){
+  const query = (document.getElementById('operationCenterSearch')?.value || '').trim().toLowerCase();
+  const rows = records.slice().sort((a,b)=>new Date(b.updatedAt||b.createdAt||0)-new Date(a.updatedAt||a.createdAt||0));
+  const searchable = rows.filter(r=>[r.operationNo,r.itemDesc,r.consignee,r.exporter,r.invoiceNo].some(v=>String(v||'').toLowerCase().includes(query)));
+  const docsComplete = r=>['proformaNo','invoiceNo','certNo','billNo'].filter(key=>String(r[key]||'').trim()).length;
+  const collectionLabel = r=>{
+    const state = String(r.collectionStatus||'').toLowerCase();
+    if(state==='collected' || state==='paid') return 'تم التحصيل';
+    if(state==='sent') return 'أرسلت للتحصيل';
+    return STATUS_AR[recStatus(r)] || 'قيد المتابعة';
+  };
+  document.getElementById('ocTotal').textContent = rows.length.toLocaleString('en-US');
+  document.getElementById('ocIssued').textContent = rows.filter(r=>recStatus(r)==='sent').length.toLocaleString('en-US');
+  document.getElementById('ocCollection').textContent = rows.filter(r=>String(r.collectionStatus||'').toLowerCase()==='sent').length.toLocaleString('en-US');
+  document.getElementById('ocComplete').textContent = rows.filter(r=>docsComplete(r)===4).length.toLocaleString('en-US');
+  document.getElementById('ocResultCount').textContent = `${searchable.length} عملية`;
+  const host = document.getElementById('operationCenterRows');
+  host.innerHTML = searchable.length ? searchable.map(r=>`<article class="operation-center-row">
+    <div class="operation-center-meta"><span class="operation-center-ref">${escapeHtml(r.operationNo||r.taskRef||'—')}</span><small>${escapeHtml(r.itemDesc||'بدون وصف')}</small></div>
+    <div class="operation-center-meta"><span>${escapeHtml(r.consignee||'—')}</span><small>المرسل إليه</small></div>
+    <div class="operation-center-meta"><span>${escapeHtml(r.exporter||'—')}</span><small>المصدر</small></div>
+    <div><span class="operation-center-status">${escapeHtml(collectionLabel(r))}</span></div>
+    <div class="operation-center-docs">${docsComplete(r)} / 4 مستندات</div>
+    <button class="btn btn-ghost btn-small" type="button" data-operation-open="${escapeHtml(r.id)}">فتح المرجع</button>
+  </article>`).join('') : '<div class="operation-center-empty">لا توجد عمليات مطابقة للبحث.</div>';
+  host.querySelectorAll('[data-operation-open]').forEach(button=>button.addEventListener('click', ()=>openDetail(button.dataset.operationOpen)));
+}
+
+document.getElementById('operationCenterSearch').addEventListener('input', renderOperationCenter);
 
 // ===== مرفقات المهام =====
 let pendingFiles = [];      // ملفات مختارة لم تُرفع بعد
