@@ -13851,7 +13851,6 @@ function renderBsgtDetail(r){
           <p class="qr-package-status">كل مستندات الشحنة والتحصيل تُحفظ هنا تحت رقم العملية. إذن الاستيراد يظهر أولا دائما.</p>
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
           <div class="bsgt-doc-order"><div class="sf-head">${icon('list',14)} ترتيب مستندات الحزمة</div><div id="docOrderList" class="sf-list"></div></div>
-          ${recStatus(r)==='sent' ? `<div class="sf-section" id="pkgAttSection"><div class="sf-head">${icon('folder',14)} مستندات التحصيل والمرفقات الإضافية</div><div id="pkgAttList" class="sf-list"><div class="sf-loading">جاري التحميل…</div></div><div id="pkgAttForm" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input type="text" id="pkgAttName" placeholder="مثل: خطاب التحصيل أو إشعار البنك" style="flex:1;min-width:180px;"><label class="btn btn-ghost btn-small sf-upload-btn" for="pkgAttFile">${icon('upload',14)} إضافة مستند</label><input type="file" id="pkgAttFile" accept="application/pdf,image/*" style="display:none;"></div><div id="pkgAttLimitNote" class="sf-empty" style="display:none;">وصلت للحد الأقصى (5 مرفقات).</div></div>` : ''}
         </section>
 
         <section class="bsgt-detail-section" id="bsgtShipmentData">
