@@ -14875,7 +14875,8 @@ function shipmentOperationQr(r, className, position){
     code.make();
     const width = position ? (Number(position.widthPercent)||12) : 12;
     const style = position ? ` style="left:${Number(position.xPercent)||0}%;top:${Number(position.yPercent)||0}%;width:${width}%;transform:rotate(${Number(position.rotate)||0}deg)"` : '';
-    return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'ملف العملية')}"><span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span></a>`;
+    const caption = baharInvoiceRuntimeSettings(r)?.showQrCaption === false ? '' : '<span class="operation-qr-caption"><b>للتحقق من صحة الفاتورة</b><small>Scan to verify invoice</small></span>';
+    return `<a class="${className}"${style} href="${esc(target)}" target="_blank" rel="noopener" title="فتح ملف العملية ${esc(r.operationNo||'')}"><img src="${code.createDataURL(4, 0)}" alt="QR: ${esc(r.operationNo||'ملف العملية')}">${caption}</a>`;
   }catch(error){
     console.warn('operation QR', error);
     return '';
