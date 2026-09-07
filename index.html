@@ -13479,6 +13479,16 @@ function bsgtContractPaymentMethod(paymentTerm){
   return value || 'As per agreed payment terms';
 }
 
+function bsgtInvoiceAedText(amountText, enabled = true){
+  const text = String(amountText || '').trim();
+  if(!text || enabled === false) return text;
+  const currency = (text.match(/[A-Za-z]{2,3}/) || [''])[0].toUpperCase();
+  if(currency !== 'USD') return text;
+  const numeric = parseFloat(text.replace(/[A-Za-z]/g, '').replace(/,/g, '').trim());
+  if(!Number.isFinite(numeric)) return text;
+  return 'AED ' + (numeric * 3.67).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
 function openBsgtShipForm(id){
   bsgtShipEditId = id || null;
   const r = id ? records.find(x=>x.id===id) : null;
@@ -15456,13 +15466,14 @@ function baharSwakenContractSheet(r){
     pageSideMm:presetSideMm,
     tableTopMm:bounded(settings.contractTableTopMm, 0, -25, 25)
   };
+  const invoiceValue = value => bsgtInvoiceAedText(value, r.bsgtAutoAed !== false);
   const items = Array.from({length:15}, (_, index) => {
     const suffix = index ? String(index + 1) : '';
     return {
       description: r[`item${suffix}Desc`] || (index === 0 ? r.itemDesc || '' : ''),
       quantity: r[`item${suffix}Qty`] || (index === 0 ? r.qty || '' : ''),
       packaging: r[`item${suffix}Unit`] || (index === 0 ? r.qtyUnit || '' : ''),
-      price: r[`item${suffix}Price`] || (index === 0 ? r.item1Price || r.unitPrice || '' : ''),
+      price: invoiceValue(r[`item${suffix}Price`] || (index === 0 ? r.item1Price || r.unitPrice || '' : '')),
       hsCode: r[`item${suffix}HsCode`] || (index === 0 ? r.hsCode || '' : '')
     };
   }).filter(item=>item.description || item.quantity || item.packaging || item.price || item.hsCode);
@@ -15470,6 +15481,8 @@ function baharSwakenContractSheet(r){
   const quantity = items.map(item=>[item.quantity,item.packaging].filter(Boolean).join(' ')).filter(Boolean).join(' / ') || [r.totalQty||r.qty,r.qtyUnit].filter(Boolean).join(' ');
   const sellerAddress = String(settings.sellerAddress || '').trim();
   const paymentMethod = r.paymentMethod || bsgtContractPaymentMethod(r.paymentTerm);
+  const contractTotal = invoiceValue(r.totalAmount || '');
+  const contractCurrency = currencyPrefix(contractTotal).trim() || (r.bsgtAutoAed !== false ? 'AED' : (r.currency || ''));
   const details = [
     ['رقم العقد', r.contractNo || r.operationNo || r.proformaNo, 'Contract No.'],
     ['التاريخ', fmtDateByLang(bsgtContractDate(r), 'en'), 'Date'],
@@ -15480,8 +15493,8 @@ function baharSwakenContractSheet(r){
     ['رمز HS', unique(items.map(item=>item.hsCode)) || r.hsCode || '', 'HS Code'],
     ['بلد المنشأ', r.countryOrigin || '', 'Country of Origin'],
     ['سعر الوحدة', unique(items.map(item=>item.price)) || r.unitPrice || '', 'Unit Price'],
-    ['إجمالي القيمة', r.totalAmount || '', 'Total Contract Value'],
-    ['العملة', r.currency || currencyPrefix(r.totalAmount).trim(), 'Currency'],
+    ['إجمالي القيمة', contractTotal, 'Total Contract Value'],
+    ['العملة', contractCurrency, 'Currency'],
     ['شرط التسليم', [r.incoterm,'Incoterms® 2020'].filter(Boolean).join(' — '), 'Delivery Term'],
     ['مكان التسليم / الوصول', r.portDischarge || r.destination || '', 'Place of Delivery / Destination'],
     ['فترة الشحن', r.shipmentPeriod || 'As per shipping documents', 'Shipment Period'],

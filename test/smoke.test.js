@@ -61,6 +61,11 @@ async function main() {
       assert.ok(appHtml.includes('function shiftIsoDate(value, dayOffset)'));
       assert.ok(appHtml.includes('shiftIsoDate(r.proformaDate, 3)'));
       assert.ok(appHtml.includes('date.setUTCDate(date.getUTCDate() + Number(dayOffset || 0))'));
+      assert.ok(appHtml.includes('function bsgtInvoiceAedText(amountText, enabled = true)'));
+      assert.ok(appHtml.includes("return 'AED ' + (numeric * 3.67)"));
+      assert.ok(appHtml.includes('const invoiceValue = value => bsgtInvoiceAedText(value, r.bsgtAutoAed !== false)'));
+      assert.ok(appHtml.includes("['إجمالي القيمة', contractTotal, 'Total Contract Value']"));
+      assert.ok(appHtml.includes("['العملة', contractCurrency, 'Currency']"));
       assert.ok(appHtml.includes("const stationery = settings.header || '';"));
       assert.ok(appHtml.includes('bahar-contract-stationery'));
       assert.ok(!contractSource.includes('bahar-contract-bg'));
