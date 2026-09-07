@@ -10847,6 +10847,7 @@ async function loadCompanyCounters(){
 // فتُطبَّق تلقائياً على أي شاشة تانية بتقرأ company (مكان شعار البوليصة المبنية بالكود، أماكن الحقول، إلخ)
 function openCompanyModal(id){
   compEditId = id || null;
+  companyEditOverlay.dataset.companyId = id || '';
   const c = id ? companyById(id) : null;
   company = c
     ? Object.assign({}, DEFAULT_COMPANY, c.settings||{}, {nameAr:c.name_ar||'', nameEn:c.name_en||'', tagline:c.tagline||''})
@@ -18248,7 +18249,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-company-target-fix"></script>
+<script src="company-wizard.js?v=20260907-company-target-fix2"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>

@@ -197,7 +197,7 @@
   }
 
   function invoiceSettingsCompany() {
-    const editingId = typeof compEditId !== 'undefined' ? compEditId : null;
+    const editingId = overlay.dataset.companyId || (typeof compEditId !== 'undefined' ? compEditId : null);
     if (editingId && typeof companyById === 'function') return companyById(editingId);
     return typeof activeCompany === 'function' ? activeCompany() : null;
   }
