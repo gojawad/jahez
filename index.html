@@ -631,6 +631,10 @@ body{padding-right:230px;}
   display:flex;gap:10px;margin-top:18px;border-top:1px solid var(--border);
   padding:18px 0 26px;flex-wrap:wrap;
 }
+.qr-package-status{
+  width:100%;margin:0 0 2px;color:#5d7187;font-size:12px;line-height:1.5;
+}
+.qr-package-status b{color:#1d5fa8;}
 .footer-note{margin-top:30px;font-size:13px;color:var(--muted);text-align:center;}
 
 /* ===== شاشة الدخول ===== */
@@ -13837,7 +13841,8 @@ function renderBsgtDetail(r){
         </div>
 
         <footer class="detail-actions">
-          <button class="btn btn-gold" id="packageBtn">${icon('printer')} تجميع الحزمة الكاملة PDF</button>
+          ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR منشورة.</b> المسح يفتح آخر PDF محفوظ؛ بعد تعديل التنسيق اضغط «تحديث حزمة QR» لنشر النسخة الحالية.</p>' : '<p class="qr-package-status">بعد تجميع الحزمة سيظهر رمز QR في المستندات ويتيح فتح الحزمة الكاملة.</p>'}
+          <button class="btn btn-gold" id="packageBtn">${icon('printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
           <button class="btn btn-ghost" id="mergeAllBtn">${icon('doc')} دمج الحزمة في ملف واحد</button>
           ${reviewButtonsHtml(r)}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
@@ -13932,7 +13937,8 @@ function openDetail(id){
     </div>` : ''}
 
     <div class="detail-actions">
-      <button class="btn btn-gold" id="packageBtn">${icon('printer')} تجميع الحزمة الكاملة PDF</button>
+      ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR منشورة.</b> المسح يفتح آخر PDF محفوظ؛ بعد تعديل التنسيق اضغط «تحديث حزمة QR» لنشر النسخة الحالية.</p>' : '<p class="qr-package-status">بعد تجميع الحزمة سيظهر رمز QR في المستندات ويتيح فتح الحزمة الكاملة.</p>'}
+      <button class="btn btn-gold" id="packageBtn">${icon('printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
       <button class="btn btn-ghost" id="mergeAllBtn">${icon('doc')} دمج الحزمة في ملف واحد</button>
       ${reviewButtonsHtml(r)}
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
