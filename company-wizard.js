@@ -450,7 +450,7 @@
       if (typeof window.refreshAllPublishedBsgtQrPackages !== 'function') throw new Error('خدمة تحديث الحزم غير متاحة حالياً.');
       return window.refreshAllPublishedBsgtQrPackages(onProgress);
     };
-    window.saveBaharSwakenInvoiceSettings = storeAndRefresh;
+    window.saveBaharSwakenInvoiceSettings = store;
     const runSaveAndRefresh = async button => {
       const original = button.textContent;
       button.disabled = true;
@@ -470,7 +470,21 @@
         button.textContent = original;
       }
     };
-    one('.bs-save').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
+    one('.bs-save').addEventListener('click', async event => {
+      const button = event.currentTarget;
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'جارٍ الحفظ...';
+      try {
+        await store();
+        if (typeof toast === 'function') toast('تم حفظ إعدادات معاينة Bahar Swaken');
+      } catch (error) {
+        alert(error?.message || 'تعذر حفظ إعدادات فاتورة بحر سواكن.');
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    });
     one('.bs-save-refresh').addEventListener('click', event => runSaveAndRefresh(event.currentTarget));
     one('.bs-preview').addEventListener('click', async () => { await store(); window.open('/invoice-template-preview/bahar-swaken/', '_blank', 'noopener'); });
   }

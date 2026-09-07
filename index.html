@@ -11119,9 +11119,7 @@ document.getElementById('ceSaveBtn').addEventListener('click', async ()=>{
   try{
     const baharEditor = document.getElementById('baharSimpleSettings');
     if(compEditId && baharEditor && baharEditor.style.display !== 'none' && typeof window.saveBaharSwakenInvoiceSettings === 'function'){
-      await window.saveBaharSwakenInvoiceSettings((done, total)=>{
-        saveBtn.textContent = `تحديث الحزم ${done}/${total}`;
-      });
+      await window.saveBaharSwakenInvoiceSettings();
       nameAr = readCeForm();
     }
     const row = {
@@ -18256,7 +18254,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-company-save-refresh"></script>
+<script src="company-wizard.js?v=20260907-fast-settings-save"></script>
 <script src="shipment-detail.js"></script>
 </body>
 </html>
