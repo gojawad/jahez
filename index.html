@@ -572,6 +572,7 @@ body{padding-right:230px;}
 .doc-action-btn:active{transform:translateY(-1px) scale(.99);}
 .doc-action-btn .t{font-weight:800;font-size:14.5px;color:var(--ink);}
 .doc-action-btn .s{font-size:12px;color:var(--muted);}
+.doc-action-btn.has-file-error{border-color:#dc3545;background:#fff7f7;}.doc-action-btn.has-file-error .s{color:#b4232d;font-weight:700;}
 
 /* BSGT details: rearranges the existing detail controls without changing their handlers. */
 #detailCard.bsgt-detail-card{width:min(96vw,1500px)!important;max-width:1500px!important;max-height:92vh;border-radius:16px;background:#fff;box-shadow:0 16px 42px rgba(18,45,80,.16);overflow:hidden;}
@@ -8332,13 +8333,18 @@ async function openTaskFile(path, name){
 
 // ===== أرشيف المستندات الموقّعة للشحنة =====
 let shipmentFilesCache = {};
+let shipmentFilesErrors = {};
+
+function canManageShipmentFiles(r){
+  return !!(r && currentUser && (r.ownerId === currentUser.id || isAdmin()));
+}
 
 function renderShipmentFiles(id){
   const el = document.getElementById('sfList');
   if(!el) return;
   const list = shipmentFilesCache[id] || [];
   const r = records.find(x=>x.id===id);
-  const canManage = !!(r && (r.ownerId===currentUser.id || isAdmin()));
+  const canManage = canManageShipmentFiles(r);
   el.innerHTML = list.length ? list.map(f=>`<div class="tk-file">
       <span class="tf-n">${icon('doc',14)} ${escapeHtml(f.name)}${f.label? ' <span class="sf-lbl">('+escapeHtml(f.label)+')</span>' : ''}</span>
       <span class="tf-s">${humanSize(f.size_bytes||0)}</span>
@@ -8367,7 +8373,12 @@ async function loadShipmentFiles(id){
     const {data, error} = await sb.from('shipment_files').select('*').eq('shipment_id', id).order('created_at',{ascending:false});
     if(error) throw error;
     shipmentFilesCache[id] = data || [];
-  }catch(e){ shipmentFilesCache[id] = []; }
+    delete shipmentFilesErrors[id];
+  }catch(e){
+    shipmentFilesCache[id] = [];
+    shipmentFilesErrors[id] = e?.message || 'تعذر تحميل الملفات المرفقة';
+    console.error('load shipment files', e);
+  }
   renderShipmentFiles(id);
 }
 async function uploadShipmentFiles(id, files, label){
@@ -14075,19 +14086,22 @@ function renderDocOrderList(r){
 }
 function renderDocActionsGrid(r){
   const baharOverride = isBsgtRecord(r);
+  const canManageFiles = canManageShipmentFiles(r);
+  const filesError = shipmentFilesErrors[r.id];
   const recordOrder = docOrderOf(r);
   const order = baharOverride ? ['contract','importPermit', ...recordOrder.filter(k=>k!=='contract')] : recordOrder;
   return order.map(k=>{
     const m = baharOverride && BAHAR_EXTERNAL_DOC_META[k] ? BAHAR_EXTERNAL_DOC_META[k] : DOC_META[k];
     if(baharOverride && BAHAR_EXTERNAL_DOC_META[k]){
       const uploaded = baharUploadedDoc(r, k);
-      return `<div class="doc-action-btn doc-upload-dropzone" id="${m.btnId}Wrap" data-doc-key="${k}">
+      const status = filesError ? 'تعذر تحميل الملف — تحقق من الصلاحية أو الاتصال' : uploaded ? ('مرفوع: '+escapeHtml(uploaded.name)) : canManageFiles ? 'لم يُرفع بعد — يُضاف يدوياً' : 'لم يُرفع بعد';
+      return `<div class="doc-action-btn${canManageFiles?' doc-upload-dropzone':''}${filesError?' has-file-error':''}" id="${m.btnId}Wrap" data-doc-key="${k}">
           <span class="t">${icon(m.icon)} ${m.label}</span>
-          <span class="s">${uploaded ? ('مرفوع: '+escapeHtml(uploaded.name)) : 'لم يُرفع بعد — يُضاف يدوياً'}</span>
-          <span class="doc-drop-hint">اسحب ملف PDF أو صورة وأسقطها هنا</span>
+          <span class="s">${status}</span>
+          ${canManageFiles ? '<span class="doc-drop-hint">اسحب ملف PDF أو صورة وأسقطها هنا</span>' : ''}
           <div style="display:flex;gap:6px;margin-top:6px">
             ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
-            <button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>
+            ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>` : ''}
           </div>
         </div>`;
     }
@@ -14104,9 +14118,9 @@ function wireDocActionButtons(r){
     ['importPermit','cert','bol'].forEach(k=>{
       const m = BAHAR_EXTERNAL_DOC_META[k];
       const uploaded = baharUploadedDoc(r, k);
-      document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
+      if(canManageShipmentFiles(r)) document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
-      bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
+      if(canManageShipmentFiles(r)) bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
     });
   } else {
     document.getElementById('btnCert').addEventListener('click', ()=>{
