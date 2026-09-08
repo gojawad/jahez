@@ -19,8 +19,16 @@
   let archivedListLoaded = false;
   let formDirty = false;
   let aedConversionEnabled = true;
-  const standaloneRegister = new URLSearchParams(location.search).get('portal') === 'import-permit-records';
+  const portalRouteParams = new URLSearchParams(location.search);
+  const standaloneRegister = portalRouteParams.get('portal') === 'import-permit-records';
+  let requestedPortalView = portalRouteParams.get('permitView') === 'new' ? 'new' : 'history';
   let standaloneRegisterOpened = false;
+  let recordPage = 1;
+  let recordPageSize = 10;
+  let recordPagination = {page:1, pageSize:10, total:0, totalPages:1, from:0, to:0, availableTotal:0};
+  let recordClients = [];
+  let recordRequestSequence = 0;
+  let recordFilterTimer = 0;
 
   const byId = id => document.getElementById(id);
   const numeric = value => {
@@ -63,9 +71,27 @@
 
   async function loadSavedRecords(force){
     if(recordListLoaded && !force) return;
-    byId('importPermitRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل السجل...</div>';
-    const result = await portalApi('/api/import-permit-invoices?status=active');
+    const requestSequence = ++recordRequestSequence;
+    recordListLoaded = false;
+    renderSavedRecords();
+    const params = new URLSearchParams({
+      status:'active',
+      page:String(recordPage),
+      pageSize:String(recordPageSize),
+      search:String(byId('importPermitFilterSearch').value || '').trim(),
+      client:byId('importPermitFilterClient').value,
+      currency:byId('importPermitFilterCurrency').value,
+      from:byId('importPermitFilterFrom').value,
+      to:byId('importPermitFilterTo').value,
+      sort:byId('importPermitFilterSort').value
+    });
+    const result = await portalApi(`/api/import-permit-invoices?${params}`);
+    if(requestSequence !== recordRequestSequence) return;
     savedRecords = Array.isArray(result.records) ? result.records : [];
+    recordPagination = {...recordPagination, ...(result.pagination || {})};
+    recordPage = recordPagination.page || 1;
+    recordPageSize = recordPagination.pageSize || recordPageSize;
+    recordClients = Array.isArray(result.filters?.clients) ? result.filters.clients : [];
     recordListLoaded = true;
     renderSavedRecords();
   }
@@ -73,7 +99,7 @@
   async function loadArchivedRecords(force){
     if(archivedListLoaded && !force) return;
     byId('importPermitArchivedRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل الأرشيف...</div>';
-    const result = await portalApi('/api/import-permit-invoices?status=archived');
+    const result = await portalApi('/api/import-permit-invoices?status=archived&page=1&pageSize=100');
     archivedRecords = Array.isArray(result.records) ? result.records : [];
     archivedListLoaded = true;
     renderArchivedRecords();
@@ -486,81 +512,76 @@
   function fillRecordFilterOptions(){
     const select = byId('importPermitFilterClient');
     const current = select.value;
-    const clients = [...new Set(savedRecords.map(record => String(record.data?.consignee || '').trim()).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, 'ar'));
-    select.innerHTML = '<option value="">كل العملاء</option>' + clients.map(client => `<option value="${escapeText(client)}">${escapeText(client)}</option>`).join('');
-    if(clients.includes(current)) select.value = current;
+    select.innerHTML = '<option value="">كل العملاء</option>' + recordClients.map(client => `<option value="${escapeText(client)}">${escapeText(client)}</option>`).join('');
+    if(recordClients.includes(current)) select.value = current;
   }
 
-  function filteredSavedRecords(){
-    const query = String(byId('importPermitFilterSearch').value || '').trim().toLowerCase();
-    const client = byId('importPermitFilterClient').value;
-    const currency = byId('importPermitFilterCurrency').value;
-    const from = byId('importPermitFilterFrom').value;
-    const to = byId('importPermitFilterTo').value;
-    const sort = byId('importPermitFilterSort').value;
-    const filtered = savedRecords.filter(record => {
-      const data = record.data || {};
-      const searchable = [
-        record.reference,
-        data.proformaNo,
-        data.consignee,
-        data.consigneeAddress,
-        ...(data.items || []).flatMap(item => [item.description, item.descriptionEn, item.hsCode])
-      ].join(' ').toLowerCase();
-      return (!query || searchable.includes(query))
-        && (!client || data.consignee === client)
-        && (!currency || data.currency === currency)
-        && (!from || String(data.proformaDate || '') >= from)
-        && (!to || String(data.proformaDate || '') <= to);
+  function hasRecordFilters(){
+    return ['importPermitFilterSearch','importPermitFilterClient','importPermitFilterCurrency','importPermitFilterFrom','importPermitFilterTo']
+      .some(id => String(byId(id).value || '').trim());
+  }
+
+  function renderRecordPagination(){
+    const pagination = byId('importPermitPagination');
+    const pages = Math.max(1, Number(recordPagination.totalPages) || 1);
+    pagination.hidden = !recordListLoaded || !recordPagination.total;
+    byId('importPermitPageSize').value = String(recordPageSize);
+    byId('importPermitPrevPage').disabled = recordPage <= 1;
+    byId('importPermitNextPage').disabled = recordPage >= pages;
+    const candidates = new Set([1, pages, recordPage - 2, recordPage - 1, recordPage, recordPage + 1, recordPage + 2]);
+    const visiblePages = [...candidates].filter(page => page >= 1 && page <= pages).sort((a, b) => a - b);
+    const parts = [];
+    let previous = 0;
+    visiblePages.forEach(page => {
+      if(previous && page - previous > 1) parts.push('<span aria-hidden="true">…</span>');
+      parts.push(`<button type="button" class="${page === recordPage ? 'active' : ''}" data-import-permit-page="${page}"${page === recordPage ? ' aria-current="page"' : ''}>${page.toLocaleString('ar-AE')}</button>`);
+      previous = page;
     });
-    filtered.sort((a, b) => {
-      if(sort === 'date-desc') return String(b.data?.proformaDate || '').localeCompare(String(a.data?.proformaDate || ''));
-      if(sort === 'date-asc') return String(a.data?.proformaDate || '').localeCompare(String(b.data?.proformaDate || ''));
-      if(sort === 'reference-asc') return String(a.reference || '').localeCompare(String(b.reference || ''), undefined, {numeric:true});
-      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
-    });
-    return filtered;
+    byId('importPermitPageNumbers').innerHTML = parts.join('');
   }
 
   function renderSavedRecords(){
     const host = byId('importPermitRecords');
     if(!host) return;
     if(!recordListLoaded){
-      host.innerHTML = '<div class="import-permit-records-empty">جاري تحميل السجل...</div>';
-      return;
-    }
-    if(!savedRecords.length){
-      host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير محفوظة بعد.</div>';
-      byId('importPermitResultsSummary').textContent = 'لا توجد فواتير محفوظة بعد.';
+      host.innerHTML = `<div class="import-permit-records-skeleton" aria-label="جاري تحميل سجل الفواتير">${Array.from({length:6}, () => '<span></span>').join('')}</div>`;
+      byId('importPermitResultsSummary').textContent = 'جاري تحميل سجل الفواتير...';
+      renderRecordPagination();
       return;
     }
     fillRecordFilterOptions();
-    const records = filteredSavedRecords();
-    byId('importPermitResultsSummary').textContent = `عرض ${records.length.toLocaleString('ar-AE')} من ${savedRecords.length.toLocaleString('ar-AE')} فاتورة`;
-    if(!records.length){
-      host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير مطابقة للفلاتر الحالية.</div>';
+    const total = Number(recordPagination.total) || 0;
+    const availableTotal = Number(recordPagination.availableTotal) || 0;
+    if(!total){
+      const filtered = hasRecordFilters();
+      host.innerHTML = `<div class="import-permit-records-empty"><b>${filtered ? 'لا توجد نتائج مطابقة لبحثك.' : 'لا توجد فواتير إذن استيراد حتى الآن.'}</b><button type="button" class="btn btn-primary btn-small" data-import-permit-empty-action="${filtered ? 'clear' : 'new'}">${filtered ? 'مسح عوامل التصفية' : 'إنشاء فاتورة جديدة'}</button></div>`;
+      byId('importPermitResultsSummary').textContent = filtered ? `لا توجد نتائج ضمن ${availableTotal.toLocaleString('ar-AE')} فاتورة` : 'لا توجد فواتير محفوظة بعد.';
+      renderRecordPagination();
       return;
     }
-    host.innerHTML = records.map(record => {
+    byId('importPermitResultsSummary').textContent = `عرض ${(recordPagination.from || 0).toLocaleString('ar-AE')} - ${(recordPagination.to || 0).toLocaleString('ar-AE')} من ${total.toLocaleString('ar-AE')} فاتورة`;
+    const rows = savedRecords.map(record => {
       const active = record.id === currentRecordId ? ' active' : '';
       const items = record.data?.items || [];
       const total = items.reduce((sum, item) => sum + (numeric(item.amount) || 0), 0);
-      return `<article class="import-permit-record${active}">
-        <button type="button" class="import-permit-record-main" data-record-open="${escapeText(record.id)}">
-          <b>${escapeText(record.reference)}</b>
-          <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
-          <div class="import-permit-record-meta"><em>${escapeText(record.data?.proformaDate || 'بدون تاريخ')}</em><em>${escapeText(record.data?.currency || 'AED')} ${escapeText(money(total))}</em><em>${items.length.toLocaleString('ar-AE')} بند</em></div>
-          <small>${escapeText(formatSavedDate(record.updatedAt))}</small>
-        </button>
-        <div class="import-permit-record-actions">
+      return `<tr class="${active.trim()}">
+        <td data-label="المرجع"><b dir="ltr">${escapeText(record.reference)}</b></td>
+        <td data-label="رقم الفاتورة"><button type="button" class="import-permit-record-link" data-record-open="${escapeText(record.id)}">${escapeText(record.data?.proformaNo || 'بدون رقم')}</button></td>
+        <td data-label="العميل">${escapeText(record.data?.consignee || 'بدون مستلم')}</td>
+        <td data-label="التاريخ"><span dir="ltr">${escapeText(record.data?.proformaDate || 'بدون تاريخ')}</span></td>
+        <td data-label="الإجمالي"><b dir="ltr">${escapeText(record.data?.currency || 'AED')} ${escapeText(money(total))}</b><small>${items.length.toLocaleString('ar-AE')} بند</small></td>
+        <td data-label="أنشأها">${escapeText(record.ownerName || '—')}<small>${escapeText(formatSavedDate(record.updatedAt))}</small></td>
+        <td data-label="الحالة"><span class="import-permit-status">نشطة</span></td>
+        <td data-label="الإجراءات"><div class="import-permit-record-actions">
           <button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}" data-ic="edit">فتح</button>
           <button type="button" class="btn btn-ghost btn-small" data-record-preview="${escapeText(record.id)}" data-ic="eye">معاينة</button>
           <button type="button" class="btn btn-primary btn-small" data-record-print="${escapeText(record.id)}" data-ic="printer">طباعة</button>
           <button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}" data-ic="archive">أرشفة</button>
-        </div>
-      </article>`;
+        </div></td>
+      </tr>`;
     }).join('');
+    host.innerHTML = `<div class="import-permit-table-wrap"><table class="import-permit-table"><thead><tr><th>المرجع</th><th>رقم الفاتورة</th><th>العميل / المرسل إليه</th><th>التاريخ</th><th>الإجمالي</th><th>أنشأها / آخر تحديث</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    renderRecordPagination();
     if(typeof hydrateIcons === 'function') hydrateIcons(host);
   }
 
@@ -627,14 +648,15 @@
         body:JSON.stringify({id, archived})
       });
       if(archived){
-        savedRecords = savedRecords.filter(item => item.id !== id);
         archivedListLoaded = false;
         if(currentRecordId === id) resetPortal();
         toast('تم نقل الفاتورة إلى الأرشيف');
+        await loadSavedRecords(true);
       }else{
         archivedRecords = archivedRecords.filter(item => item.id !== id);
         recordListLoaded = false;
         toast('تم استرجاع الفاتورة إلى السجل');
+        await loadArchivedRecords(true);
       }
       renderSavedRecords();
       renderArchivedRecords();
@@ -670,11 +692,47 @@
     overlay.setAttribute('aria-hidden', 'false');
   }
 
+  function updateStandalonePortalView(view){
+    requestedPortalView = view;
+    if(!standaloneRegister) return;
+    const url = new URL(location.href);
+    url.searchParams.set('portal', 'import-permit-records');
+    url.searchParams.set('permitView', view);
+    history.replaceState(null, '', url);
+  }
+
+  function setPortalTabState(view){
+    document.querySelectorAll('[data-import-permit-tab]').forEach(button => {
+      const active = button.dataset.importPermitTab === view;
+      button.classList.toggle('active', active);
+      if(active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
+  }
+
+  function openNewInvoicePortal(reset = true){
+    if(!portalIsReady()) return false;
+    fillPortalOptions();
+    if(reset) resetPortal();
+    hidePortal('importPermitRecordsOverlay');
+    hidePortal('importPermitArchiveOverlay');
+    byId('importPermitRouteLoader')?.classList.add('hidden');
+    showPortal('importPermitOverlay');
+    setPortalTabState('new');
+    updateStandalonePortalView('new');
+    return true;
+  }
+
   function closePortal(){ hidePortal('importPermitOverlay'); }
 
   function openRecordsInNewTab(){
+    if(standaloneRegister){
+      openRecordsPortal();
+      return;
+    }
     const url = new URL(location.href);
     url.searchParams.set('portal', 'import-permit-records');
+    url.searchParams.set('permitView', 'history');
     url.hash = 'v=bsgt';
     const opened = window.open(url.href, 'jahezImportPermitRecords');
     if(!opened) toast('اسمح للنوافذ المنبثقة لفتح سجل الفواتير في تبويب مستقل.', 'err');
@@ -706,28 +764,30 @@
   }
 
   window.openImportPermitInvoice = function(){
-    if(!portalIsReady()) return;
-    fillPortalOptions();
-    resetPortal();
-    hidePortal('importPermitRecordsOverlay');
-    hidePortal('importPermitArchiveOverlay');
-    showPortal('importPermitOverlay');
+    openNewInvoicePortal(true);
   };
 
   window.openImportPermitRecords = openRecordsInNewTab;
 
   async function openRecordsPortal(){
-    if(!portalIsReady()) return;
-    if(byId('importPermitOverlay').classList.contains('open') && formDirty && !confirm('توجد تعديلات غير محفوظة. هل تريد مغادرة شاشة الإدخال؟')) return;
+    if(!portalIsReady()) return false;
+    if(byId('importPermitOverlay').classList.contains('open') && formDirty && !confirm('توجد تعديلات غير محفوظة. هل تريد مغادرة شاشة الإدخال؟')) return false;
     hidePortal('importPermitOverlay');
     hidePortal('importPermitArchiveOverlay');
     byId('importPermitRouteLoader')?.classList.add('hidden');
     showPortal('importPermitRecordsOverlay');
+    setPortalTabState('history');
+    updateStandalonePortalView('history');
     try{ await loadSavedRecords(true); }
     catch(error){
-      byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error">${escapeText(error.message)}</div>`;
+      recordListLoaded = false;
+      byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error"><b>تعذر تحميل سجل الفواتير.</b><span>${escapeText(error.message)}</span><button type="button" class="btn btn-primary btn-small" data-import-permit-retry>إعادة المحاولة</button></div>`;
+      byId('importPermitResultsSummary').textContent = 'تعذر تحميل البيانات. السجل ما زال مفتوحاً.';
+      byId('importPermitPagination').hidden = true;
+      console.error('import permit invoice history load', error);
       toast(error.message || 'تعذر تحميل سجل الفواتير', 'err');
     }
+    return true;
   }
 
   async function openArchivePortal(){
@@ -745,21 +805,28 @@
   byId('importPermitCloseX').addEventListener('click', closePortal);
   byId('importPermitRecordsCloseX').addEventListener('click', closeRecordsPortal);
   byId('importPermitArchiveCloseX').addEventListener('click', () => hidePortal('importPermitArchiveOverlay'));
-  byId('importPermitOpenRecordsBtn').addEventListener('click', openRecordsInNewTab);
   byId('importPermitOpenArchiveBtn').addEventListener('click', openArchivePortal);
   byId('importPermitBackToRecordsBtn').addEventListener('click', openRecordsPortal);
   byId('importPermitResetBtn').addEventListener('click', resetPortal);
   byId('importPermitNewBtn').addEventListener('click', () => {
-    hidePortal('importPermitRecordsOverlay');
-    resetPortal();
-    showPortal('importPermitOverlay');
+    openNewInvoicePortal(true);
   });
   byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord);
   byId('importPermitRecords').addEventListener('click', event => {
+    const retryButton = event.target.closest('[data-import-permit-retry]');
+    const emptyAction = event.target.closest('[data-import-permit-empty-action]');
     const openButton = event.target.closest('[data-record-open]');
     const previewButton = event.target.closest('[data-record-preview]');
     const printButton = event.target.closest('[data-record-print]');
     const archiveButton = event.target.closest('[data-record-archive]');
+    if(retryButton) return loadSavedRecords(true).catch(error => {
+      byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error"><b>تعذر تحميل سجل الفواتير.</b><span>${escapeText(error.message)}</span><button type="button" class="btn btn-primary btn-small" data-import-permit-retry>إعادة المحاولة</button></div>`;
+    });
+    if(emptyAction){
+      if(emptyAction.dataset.importPermitEmptyAction === 'new') openNewInvoicePortal(true);
+      else resetRecordFilters();
+      return;
+    }
     if(archiveButton) return changeArchiveState(archiveButton.dataset.recordArchive, true);
     if(previewButton){
       const record = savedRecords.find(item => item.id === previewButton.dataset.recordPreview);
@@ -777,23 +844,61 @@
       hidePortal('importPermitRecordsOverlay');
       hydratePortal(record);
       showPortal('importPermitOverlay');
+      setPortalTabState('new');
+      updateStandalonePortalView('new');
     }
   });
   byId('importPermitArchivedRecords').addEventListener('click', event => {
     const button = event.target.closest('[data-record-restore]');
     if(button) changeArchiveState(button.dataset.recordRestore, false);
   });
-  ['importPermitFilterSearch','importPermitFilterClient','importPermitFilterCurrency','importPermitFilterFrom','importPermitFilterTo','importPermitFilterSort'].forEach(id => {
-    byId(id).addEventListener(id === 'importPermitFilterSearch' ? 'input' : 'change', renderSavedRecords);
+  function queueRecordLoad(delay = 0){
+    clearTimeout(recordFilterTimer);
+    recordPage = 1;
+    recordFilterTimer = setTimeout(() => loadSavedRecords(true).catch(error => {
+      byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error"><b>تعذر تحميل سجل الفواتير.</b><span>${escapeText(error.message)}</span><button type="button" class="btn btn-primary btn-small" data-import-permit-retry>إعادة المحاولة</button></div>`;
+      byId('importPermitPagination').hidden = true;
+    }), delay);
+  }
+  byId('importPermitFilterSearch').addEventListener('input', () => queueRecordLoad(380));
+  ['importPermitFilterClient','importPermitFilterCurrency','importPermitFilterFrom','importPermitFilterTo','importPermitFilterSort'].forEach(id => {
+    byId(id).addEventListener('change', () => queueRecordLoad());
   });
-  byId('importPermitFilterResetBtn').addEventListener('click', () => {
+  function resetRecordFilters(){
     byId('importPermitFilterSearch').value = '';
     byId('importPermitFilterClient').value = '';
     byId('importPermitFilterCurrency').value = '';
     byId('importPermitFilterFrom').value = '';
     byId('importPermitFilterTo').value = '';
     byId('importPermitFilterSort').value = 'updated-desc';
-    renderSavedRecords();
+    queueRecordLoad();
+  }
+  byId('importPermitFilterResetBtn').addEventListener('click', resetRecordFilters);
+  byId('importPermitPageSize').addEventListener('change', event => {
+    recordPageSize = Number(event.target.value) || 10;
+    queueRecordLoad();
+  });
+  byId('importPermitPrevPage').addEventListener('click', () => {
+    if(recordPage <= 1) return;
+    recordPage -= 1;
+    loadSavedRecords(true).catch(error => toast(error.message, 'err'));
+  });
+  byId('importPermitNextPage').addEventListener('click', () => {
+    if(recordPage >= recordPagination.totalPages) return;
+    recordPage += 1;
+    loadSavedRecords(true).catch(error => toast(error.message, 'err'));
+  });
+  byId('importPermitPageNumbers').addEventListener('click', event => {
+    const button = event.target.closest('[data-import-permit-page]');
+    if(!button) return;
+    recordPage = Number(button.dataset.importPermitPage) || 1;
+    loadSavedRecords(true).catch(error => toast(error.message, 'err'));
+  });
+  document.addEventListener('click', event => {
+    const tab = event.target.closest('[data-import-permit-tab]');
+    if(!tab) return;
+    if(tab.dataset.importPermitTab === 'history') openRecordsInNewTab();
+    else if(!tab.classList.contains('active')) openNewInvoicePortal(true);
   });
   byId('importPermitAddItemBtn').addEventListener('click', () => { addItem(); markFormDirty(); });
   byId('permit_currency').addEventListener('change', updateAedConversionUi);
@@ -856,16 +961,22 @@
 
   async function openStandaloneRegister(){
     if(!standaloneRegister || standaloneRegisterOpened) return;
+    if(!byId('lockScreen').classList.contains('hidden')) return;
     if(!canUsePortal() || !catalog.length || !baharCompanyEntry()) return;
     standaloneRegisterOpened = true;
-    await openRecordsPortal();
+    if(requestedPortalView === 'new') openNewInvoicePortal(true);
+    else await openRecordsPortal();
   }
 
-  window.addEventListener('jahez:session-ready', openStandaloneRegister);
+  function scheduleStandaloneRegister(){
+    setTimeout(openStandaloneRegister, 0);
+  }
+
+  window.addEventListener('jahez:session-ready', scheduleStandaloneRegister);
   if(standaloneRegister){
-    openStandaloneRegister();
+    scheduleStandaloneRegister();
     const waitForSession = setInterval(() => {
-      openStandaloneRegister();
+      scheduleStandaloneRegister();
       if(standaloneRegisterOpened) clearInterval(waitForSession);
     }, 300);
     setTimeout(() => {

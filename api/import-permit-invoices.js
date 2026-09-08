@@ -9,6 +9,7 @@ const DATA_DIR = process.env.JAHEZ_DATA_DIR || path.join(__dirname, '..', 'data'
 const STORE_PATH = path.join(DATA_DIR, 'import-permit-invoices.json');
 const ALLOWED_ROLES = new Set(['admin', 'editor', 'staff', 'bsgt_user']);
 const MAX_ITEMS = 10;
+const PAGE_SIZES = new Set([10, 25, 50, 100]);
 let writeQueue = Promise.resolve();
 
 function readRequestBody(req) {
@@ -146,6 +147,67 @@ function publicRecord(record) {
   };
 }
 
+function listInvoices(records, profile, query = {}) {
+  const archived = String(query.status || '').toLowerCase() === 'archived';
+  const pageSizeValue = Number(query.pageSize);
+  const pageSize = PAGE_SIZES.has(pageSizeValue) ? pageSizeValue : 10;
+  const requestedPage = Math.max(1, Math.floor(Number(query.page) || 1));
+  const search = cleanText(query.search, 160).toLocaleLowerCase('en-US');
+  const client = cleanText(query.client, 300);
+  const currency = cleanText(query.currency, 8).toUpperCase();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(String(query.from || '')) ? String(query.from) : '';
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(String(query.to || '')) ? String(query.to) : '';
+  const sort = ['updated-desc', 'date-desc', 'date-asc', 'reference-asc'].includes(String(query.sort || ''))
+    ? String(query.sort)
+    : 'updated-desc';
+
+  const available = records
+    .filter(record => profile.role === 'admin' || record.ownerId === profile.id)
+    .filter(record => archived ? !!record.archivedAt : !record.archivedAt);
+  const clients = [...new Set(available.map(record => cleanText(record.data?.consignee)).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ar'));
+  const filtered = available.filter(record => {
+    const data = record.data || {};
+    const searchable = [
+      record.reference,
+      data.proformaNo,
+      data.consignee,
+      data.consigneeAddress,
+      ...(Array.isArray(data.items) ? data.items.flatMap(item => [item.description, item.descriptionEn, item.hsCode]) : [])
+    ].join(' ').toLocaleLowerCase('en-US');
+    return (!search || searchable.includes(search))
+      && (!client || data.consignee === client)
+      && (!currency || String(data.currency || '').toUpperCase() === currency)
+      && (!from || String(data.proformaDate || '') >= from)
+      && (!to || String(data.proformaDate || '') <= to);
+  });
+  filtered.sort((a, b) => {
+    if (sort === 'date-desc') return String(b.data?.proformaDate || '').localeCompare(String(a.data?.proformaDate || ''));
+    if (sort === 'date-asc') return String(a.data?.proformaDate || '').localeCompare(String(b.data?.proformaDate || ''));
+    if (sort === 'reference-asc') return String(a.reference || '').localeCompare(String(b.reference || ''), undefined, { numeric: true });
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  });
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+  const pageRecords = filtered.slice(offset, offset + pageSize).map(publicRecord);
+  return {
+    records: pageRecords,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      from: total ? offset + 1 : 0,
+      to: total ? offset + pageRecords.length : 0,
+      availableTotal: available.length
+    },
+    filters: { clients }
+  };
+}
+
 async function saveInvoice(profile, body) {
   const payload = normalizePayload(body.data);
   const requestedId = cleanText(body.id, 80);
@@ -216,13 +278,7 @@ module.exports = async function importPermitInvoices(req, res) {
   try {
     const profile = await authorize(req);
     if (req.method === 'GET') {
-      const archived = String(req.query?.status || '').toLowerCase() === 'archived';
-      const records = (await loadStore())
-        .filter(record => profile.role === 'admin' || record.ownerId === profile.id)
-        .filter(record => archived ? !!record.archivedAt : !record.archivedAt)
-        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
-        .map(publicRecord);
-      return res.status(200).json({ records });
+      return res.status(200).json(listInvoices(await loadStore(), profile, req.query));
     }
     if (req.method === 'POST') {
       const body = await readRequestBody(req);
@@ -242,3 +298,5 @@ module.exports = async function importPermitInvoices(req, res) {
     return res.status(status).json({ error: status >= 500 ? 'تعذر حفظ فواتير إذن الاستيراد الآن.' : error.message });
   }
 };
+
+module.exports.listInvoicesForTest = listInvoices;

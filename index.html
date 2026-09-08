@@ -2452,7 +2452,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
-  <link rel="stylesheet" href="import-permit.css?v=20260908-5">
+  <link rel="stylesheet" href="import-permit.css?v=20260908-7">
   <link rel="stylesheet" href="shipment-list.css?v=20260908-glass-pagination-1">
 </head>
 <body>
@@ -5212,7 +5212,10 @@ SWIFT: NBEGEGCX"></textarea>
         <p>فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً.</p>
       </div>
       <div class="import-permit-header-buttons">
-        <button type="button" class="btn btn-ghost btn-small" id="importPermitOpenRecordsBtn" data-ic="folder">سجل الفواتير في تبويب جديد</button>
+        <nav class="import-permit-view-tabs" aria-label="التنقل في بوابة فاتورة إذن الاستيراد">
+          <button type="button" class="active" data-import-permit-tab="new" aria-current="page">فاتورة جديدة</button>
+          <button type="button" id="importPermitOpenRecordsBtn" data-import-permit-tab="history">سجل الفواتير</button>
+        </nav>
         <button type="button" class="close-x" id="importPermitCloseX" data-ic="close" aria-label="إغلاق"></button>
       </div>
     </header>
@@ -5290,6 +5293,10 @@ SWIFT: NBEGEGCX"></textarea>
     <header class="import-permit-header">
       <div><span class="import-permit-kicker">مرجع مستقل</span><h2>سجل فواتير إذن الاستيراد</h2><p>الفواتير النشطة بعيدة عن شاشة الإدخال لتسهيل البحث والمراجعة.</p></div>
       <div class="import-permit-header-buttons">
+        <nav class="import-permit-view-tabs" aria-label="التنقل في بوابة فاتورة إذن الاستيراد">
+          <button type="button" data-import-permit-tab="new">فاتورة جديدة</button>
+          <button type="button" class="active" data-import-permit-tab="history" aria-current="page">سجل الفواتير</button>
+        </nav>
         <button type="button" class="btn btn-ghost btn-small" id="importPermitOpenArchiveBtn" data-ic="archive">الأرشيف</button>
         <button type="button" class="close-x" id="importPermitRecordsCloseX" data-ic="close" aria-label="إغلاق"></button>
       </div>
@@ -5308,6 +5315,12 @@ SWIFT: NBEGEGCX"></textarea>
         </div>
         <div class="import-permit-results-summary" id="importPermitResultsSummary">جاري تحميل السجل...</div>
         <div class="import-permit-records import-permit-records-page" id="importPermitRecords"><div class="import-permit-records-empty">جاري تحميل السجل...</div></div>
+        <div class="import-permit-pagination" id="importPermitPagination" hidden>
+          <label>عرض <select id="importPermitPageSize"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+          <button type="button" class="btn btn-ghost btn-small" id="importPermitPrevPage">السابق</button>
+          <div class="import-permit-page-numbers" id="importPermitPageNumbers" aria-label="صفحات سجل الفواتير"></div>
+          <button type="button" class="btn btn-ghost btn-small" id="importPermitNextPage">التالي</button>
+        </div>
       </section>
     </main>
     <footer class="import-permit-actions">
@@ -18979,7 +18992,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-6"></script>
+<script src="import-permit.js?v=20260908-7"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>

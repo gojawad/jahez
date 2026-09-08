@@ -157,6 +157,10 @@ async function main() {
       assert.ok(appHtml.includes('id="importPermitFilterFrom"'));
       assert.ok(appHtml.includes('id="importPermitFilterSort"'));
       assert.ok(appHtml.includes('id="importPermitRouteLoader"'));
+      assert.ok(appHtml.includes('id="importPermitPagination"'));
+      assert.ok(appHtml.includes('id="importPermitPageSize"'));
+      assert.ok(appHtml.includes('data-import-permit-tab="new"'));
+      assert.ok(appHtml.includes('data-import-permit-tab="history"'));
       assert.ok(appHtml.includes("window.dispatchEvent(new CustomEvent('jahez:session-ready'))"));
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
@@ -176,8 +180,13 @@ async function main() {
       assert.ok(permitSource.includes('data-record-preview'));
       assert.ok(permitSource.includes('data-record-print'));
       assert.ok(permitSource.includes("url.searchParams.set('portal', 'import-permit-records')"));
+      assert.ok(permitSource.includes("url.searchParams.set('permitView', 'history')"));
       assert.ok(permitSource.includes("window.open(url.href, 'jahezImportPermitRecords')"));
-      assert.ok(permitSource.includes("window.addEventListener('jahez:session-ready', openStandaloneRegister)"));
+      assert.ok(permitSource.includes("window.addEventListener('jahez:session-ready', scheduleStandaloneRegister)"));
+      assert.ok(permitSource.includes("setTimeout(openStandaloneRegister, 0)"));
+      assert.ok(permitSource.includes("byId('lockScreen').classList.contains('hidden')"));
+      assert.ok(permitSource.includes('pageSize:String(recordPageSize)'));
+      assert.ok(permitSource.includes('queueRecordLoad(380)'));
       assert.ok(permitSource.includes("byId('importPermitRouteLoader')?.classList.add('hidden')"));
       assert.ok(permitSource.includes("chooseDocLang({...record.data, permitInvoice:true}"));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
@@ -187,6 +196,36 @@ async function main() {
       assert.ok(!permitSource.includes("from('shipments')"));
       assert.ok(!permitSource.includes('ledger'));
       assert.ok(!permitSource.includes('localStorage'));
+    });
+    await check('import-permit history API paginates and filters without changing records', async () => {
+      const api = require(path.join(__dirname, '..', 'api', 'import-permit-invoices.js'));
+      const records = Array.from({length: 26}, (_, index) => ({
+        id:`invoice-${index + 1}`,
+        reference:`BSGT-IP-2026-${String(index + 1).padStart(4, '0')}`,
+        ownerId:index === 25 ? 'other-user' : 'user-1',
+        ownerName:'Test User',
+        createdAt:`2026-09-${String((index % 9) + 1).padStart(2, '0')}T08:00:00.000Z`,
+        updatedAt:`2026-09-${String((index % 9) + 1).padStart(2, '0')}T09:00:00.000Z`,
+        data:{
+          proformaNo:`PI-${index + 1}`,
+          proformaDate:`2026-09-${String((index % 9) + 1).padStart(2, '0')}`,
+          consignee:index % 2 ? 'Client B' : 'Client A',
+          currency:index % 2 ? 'USD' : 'AED',
+          items:[{description:index === 7 ? 'Needle special' : 'General goods', descriptionEn:'Goods', hsCode:`63039${index}`}]
+        }
+      }));
+      const original = JSON.stringify(records);
+      const firstPage = api.listInvoicesForTest(records, {id:'user-1', role:'editor'}, {page:'1', pageSize:'10'});
+      assert.strictEqual(firstPage.records.length, 10);
+      assert.strictEqual(firstPage.pagination.total, 25);
+      assert.strictEqual(firstPage.pagination.totalPages, 3);
+      assert.strictEqual(firstPage.pagination.from, 1);
+      assert.strictEqual(firstPage.pagination.to, 10);
+      const filtered = api.listInvoicesForTest(records, {id:'user-1', role:'editor'}, {search:'Needle', currency:'USD', page:'1', pageSize:'25'});
+      assert.strictEqual(filtered.records.length, 1);
+      assert.strictEqual(filtered.records[0].id, 'invoice-8');
+      assert.deepStrictEqual(filtered.filters.clients, ['Client A', 'Client B']);
+      assert.strictEqual(JSON.stringify(records), original, 'history queries must not mutate stored records');
     });
     await check('static assets served with correct MIME', async () => {
       for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['shipment-list.js', 'text/javascript'], ['shipment-list.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {

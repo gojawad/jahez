@@ -116,6 +116,34 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
   gap: 10px;
 }
 
+.import-permit-view-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d5e3ef;
+  border-radius: 13px;
+  background: #eef5fb;
+}
+
+.import-permit-view-tabs button {
+  min-height: 36px;
+  padding: 7px 17px;
+  border: 0;
+  border-radius: 9px;
+  color: #59718a;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.import-permit-view-tabs button.active {
+  color: #fff;
+  background: linear-gradient(135deg, #1d68ad, #124a80);
+  box-shadow: 0 5px 13px rgba(23, 85, 140, .2);
+}
+
 .import-permit-body {
   display: grid;
   align-content: start;
@@ -359,7 +387,11 @@ div.import-permit-record-main { cursor: default; }
 }
 .import-permit-record.archived { border-style: dashed; background: #f8fafc; }
 .import-permit-record.archived .import-permit-record-actions { grid-template-columns: 1fr; }
-.import-permit-records-page { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.import-permit-records-page { display: block; }
+#importPermitArchivedRecords {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .import-permit-record-meta {
   display: flex;
   flex-wrap: wrap;
@@ -399,6 +431,131 @@ div.import-permit-record-main { cursor: default; }
   font-size: 10px;
   font-weight: 700;
 }
+
+.import-permit-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #dce7f1;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .92);
+}
+
+.import-permit-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9px;
+}
+
+.import-permit-table th {
+  padding: 12px 10px;
+  border-bottom: 1px solid #cbdbea;
+  color: #4b647e;
+  background: #edf5fb;
+  font-weight: 800;
+  text-align: right;
+}
+
+.import-permit-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid #e5edf5;
+  color: #183b61;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.import-permit-table tbody tr:last-child td { border-bottom: 0; }
+.import-permit-table tbody tr:hover td,
+.import-permit-table tbody tr.active td { background: #f4f9fd; }
+.import-permit-table td > small { display: block; margin-top: 4px; color: #7a8ca1; font-size: 8px; }
+.import-permit-table th:nth-child(1) { width: 13%; }
+.import-permit-table th:nth-child(2) { width: 11%; }
+.import-permit-table th:nth-child(3) { width: 16%; }
+.import-permit-table th:nth-child(4) { width: 9%; }
+.import-permit-table th:nth-child(5) { width: 11%; }
+.import-permit-table th:nth-child(6) { width: 13%; }
+.import-permit-table th:nth-child(7) { width: 7%; }
+.import-permit-table th:nth-child(8) { width: 20%; }
+
+.import-permit-record-link {
+  padding: 0;
+  border: 0;
+  color: #1767ad;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.import-permit-status {
+  display: inline-flex;
+  padding: 4px 8px;
+  border: 1px solid #a8dec9;
+  border-radius: 999px;
+  color: #08744e;
+  background: #e6f7f0;
+  font-weight: 800;
+}
+
+.import-permit-table .import-permit-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+}
+
+.import-permit-table .import-permit-record-actions .btn {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 8px;
+}
+
+.import-permit-records-skeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.import-permit-records-skeleton span {
+  height: 48px;
+  border: 1px solid #e1ebf3;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #edf4fa 25%, #f8fbfe 42%, #edf4fa 65%);
+  background-size: 300% 100%;
+  animation: import-permit-skeleton 1.1s ease-in-out infinite;
+}
+
+@keyframes import-permit-skeleton { to { background-position: -100% 0; } }
+
+.import-permit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.import-permit-pagination[hidden] { display: none; }
+.import-permit-pagination label { display: inline-flex; align-items: center; gap: 6px; color: #637b93; font-size: 9px; font-weight: 700; }
+.import-permit-pagination select { width: 68px; min-height: 34px; }
+.import-permit-page-numbers { display: inline-flex; align-items: center; gap: 4px; }
+.import-permit-page-numbers button {
+  min-width: 34px;
+  height: 34px;
+  border: 1px solid #d5e3ef;
+  border-radius: 9px;
+  color: #41617f;
+  background: #fff;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.import-permit-page-numbers button.active { border-color: #1767ad; color: #fff; background: #1767ad; }
+.import-permit-page-numbers span { color: #7c8fa2; }
 .import-permit-records-empty {
   display: grid;
   grid-column: 1 / -1;
@@ -409,6 +566,8 @@ div.import-permit-record-main { cursor: default; }
   color: #74879c;
   font-size: 10px;
 }
+.import-permit-records-empty b { color: #294c6f; font-size: 12px; }
+.import-permit-records-empty.error { gap: 8px; border-color: #efb8bb; color: #9a2026; background: #fff7f7; }
 
 .import-permit-overlay .permit-field-missing {
   border-color: #d9252b !important;
@@ -454,6 +613,7 @@ div.import-permit-record-main { cursor: default; }
 
 @media (max-width: 1180px) {
   .import-permit-records { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #importPermitArchivedRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .import-permit-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .import-permit-filter-search { grid-column: span 2; }
   .import-permit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -466,6 +626,9 @@ div.import-permit-record-main { cursor: default; }
 @media (max-width: 760px) {
   .import-permit-header { min-height: 88px; padding: 14px 16px; }
   .import-permit-header-buttons .btn { display: inline-flex; }
+  .import-permit-header { align-items: flex-start; }
+  .import-permit-header-buttons { align-items: flex-start; }
+  .import-permit-view-tabs button { padding-inline: 10px; }
   .import-permit-header p, .import-permit-card-heading small { display: none; }
   .import-permit-body { padding: 12px; }
   .import-permit-card { padding: 14px; border-radius: 14px; }
@@ -473,6 +636,7 @@ div.import-permit-record-main { cursor: default; }
   .import-permit-register { grid-template-columns: 1fr; }
   .import-permit-register .import-permit-card-heading { grid-column: auto; }
   .import-permit-records { grid-template-columns: 1fr; }
+  #importPermitArchivedRecords { grid-template-columns: 1fr; }
   .import-permit-filters { grid-template-columns: 1fr 1fr; }
   .import-permit-filter-search { grid-column: 1 / -1; }
   .import-permit-filter-reset { grid-column: 1 / -1; }
@@ -489,4 +653,5 @@ div.import-permit-record-main { cursor: default; }
   .import-permit-actions > div:first-child { display: none; }
   .import-permit-actions > div:last-child { width: 100%; }
   .import-permit-actions .btn { flex: 1; }
+  .import-permit-pagination { flex-wrap: wrap; }
 }
