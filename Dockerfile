@@ -24,7 +24,7 @@ ARG BUILD_SHA=unknown
 ARG DEPLOYED_AT=unknown
 ENV BUILD_SHA=$BUILD_SHA DEPLOYED_AT=$DEPLOYED_AT
 
-RUN chown -R node:node /app
+RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

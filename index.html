@@ -2452,7 +2452,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
-  <link rel="stylesheet" href="import-permit.css?v=20260908-1">
+  <link rel="stylesheet" href="import-permit.css?v=20260908-2">
 </head>
 <body>
 
@@ -5199,6 +5199,18 @@ SWIFT: NBEGEGCX"></textarea>
     </header>
     <main class="import-permit-body">
       <div class="import-permit-validation" id="importPermitValidation" role="alert"></div>
+      <section class="import-permit-card import-permit-register">
+        <div class="import-permit-card-heading">
+          <div><span>00</span><h3>سجل فواتير إذن الاستيراد</h3></div>
+          <button type="button" class="btn btn-ghost btn-small" id="importPermitNewBtn" data-ic="plus">فاتورة جديدة</button>
+        </div>
+        <div class="import-permit-current-ref">
+          <small>المرجع الحالي</small>
+          <strong id="importPermitCurrentRef">مسودة غير محفوظة</strong>
+          <span id="importPermitSaveState">احفظ الفاتورة ليصدر رقمها المرجعي المستقل.</span>
+        </div>
+        <div class="import-permit-records" id="importPermitRecords"><div class="import-permit-records-empty">جاري تحميل السجل...</div></div>
+      </section>
       <section class="import-permit-card import-permit-card-accent">
         <div class="import-permit-card-heading">
           <div><span>01</span><h3>بيانات الفاتورة المبدئية</h3></div>
@@ -5243,10 +5255,11 @@ SWIFT: NBEGEGCX"></textarea>
       </section>
     </main>
     <footer class="import-permit-actions">
-      <div><b>لا يتم حفظ هذه البيانات كسجل شحنة.</b><span>راجع الفاتورة ثم اطبعها أو احفظها PDF من نافذة الطباعة.</span></div>
+      <div><b>تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات.</b><span>يمكن فتح الفاتورة وتعديلها وطباعتها لاحقاً من سجل البوابة.</span></div>
       <div>
         <button type="button" class="btn btn-ghost" id="importPermitResetBtn">تفريغ الحقول</button>
-        <button type="button" class="btn btn-primary" id="importPermitPrintBtn" data-ic="printer">معاينة وطباعة الفاتورة</button>
+        <button type="button" class="btn btn-ghost" id="importPermitSaveBtn" data-ic="save">حفظ الفاتورة</button>
+        <button type="button" class="btn btn-primary" id="importPermitPrintBtn" data-ic="printer">حفظ ومعاينة الطباعة</button>
       </div>
     </footer>
   </div>
@@ -8276,7 +8289,7 @@ function switchView(v){
   document.getElementById('crumbCurrent').textContent = names[navKey] || names[v] || '';
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt') ? 'inline-flex' : 'none';
-  document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
+  document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && (canEdit() || isBsgtPortalUser())) ? 'inline-flex' : 'none';
   document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
   if(v==='operationCenter') renderOperationCenter();
@@ -18892,7 +18905,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-1"></script>
+<script src="import-permit.js?v=20260908-2"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>

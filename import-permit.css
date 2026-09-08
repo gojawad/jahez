@@ -208,6 +208,75 @@
 
 .import-permit-validation.show { display: block; }
 
+.import-permit-register {
+  display: grid;
+  grid-template-columns: minmax(210px, .36fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.import-permit-register .import-permit-card-heading {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.import-permit-current-ref {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-height: 94px;
+  padding: 15px 17px;
+  border: 1px solid #dce7f1;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #153f6e, #0f3158);
+  color: #fff;
+}
+
+.import-permit-current-ref small { color: #bfd3e8; font-size: 9px; }
+.import-permit-current-ref strong {
+  direction: ltr;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  text-align: right;
+}
+.import-permit-current-ref span { color: #d6e3f0; font-size: 9px; }
+
+.import-permit-records {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  min-width: 0;
+}
+
+.import-permit-record {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid #dce7f1;
+  border-radius: 13px;
+  color: #183b61;
+  background: #fbfdff;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+.import-permit-record:hover,
+.import-permit-record.active { border-color: #4386c0; background: #f0f7fd; }
+.import-permit-record b { direction: ltr; font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: right; }
+.import-permit-record span { overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.import-permit-record small { color: #7a8ca1; font-size: 8px; }
+.import-permit-records-empty {
+  display: grid;
+  grid-column: 1 / -1;
+  place-items: center;
+  min-height: 94px;
+  border: 1px dashed #cad9e8;
+  border-radius: 13px;
+  color: #74879c;
+  font-size: 10px;
+}
+
 .import-permit-overlay .permit-field-missing {
   border-color: #d9252b !important;
   box-shadow: 0 0 0 3px rgba(217, 37, 43, .1) !important;
@@ -235,6 +304,7 @@
 .import-permit-actions > div:last-child { display: flex; gap: 9px; }
 
 @media (max-width: 1180px) {
+  .import-permit-records { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .import-permit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .import-permit-item {
     grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(95px, .8fr)) minmax(115px, .9fr) 40px;
@@ -248,6 +318,9 @@
   .import-permit-body { padding: 12px; }
   .import-permit-card { padding: 14px; border-radius: 14px; }
   .import-permit-grid { grid-template-columns: 1fr; }
+  .import-permit-register { grid-template-columns: 1fr; }
+  .import-permit-register .import-permit-card-heading { grid-column: auto; }
+  .import-permit-records { grid-template-columns: 1fr; }
   .import-permit-grid .span2 { grid-column: auto; }
   .import-permit-item { grid-template-columns: 1fr 1fr; }
   .import-permit-item .permit-commodity { grid-column: 1 / -1; }

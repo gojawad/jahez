@@ -142,9 +142,14 @@ async function main() {
       assert.ok(appHtml.includes('id="bsgtImportPermitBtn"'));
       assert.ok(appHtml.includes('id="importPermitOverlay"'));
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
+      assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
+      assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
       assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase()"));
       assert.ok(permitSource.includes("openPrintWindow(buildSheet(record, 'proforma', 'en'))"));
       assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
+      assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
+      assert.ok(permitSource.includes('saveCurrentRecord'));
+      assert.ok(permitSource.includes('document.documentElement.appendChild(overlay)'));
       assert.ok(!permitSource.includes('dbSaveRecord'));
       assert.ok(!permitSource.includes("from('shipments')"));
       assert.ok(!permitSource.includes('ledger'));
@@ -205,6 +210,63 @@ async function main() {
     });
     await check('unknown api route is 404', async () => {
       assert.strictEqual((await fetch(`${BASE}/api/nope`)).status, 404);
+    });
+    await check('import-permit record API requires an authenticated session', async () => {
+      const read = await fetch(`${BASE}/api/import-permit-invoices`);
+      assert.strictEqual(read.status, 401);
+      const save = await fetch(`${BASE}/api/import-permit-invoices`, {
+        method: 'POST', headers: {'content-type':'application/json'}, body: '{}'
+      });
+      assert.strictEqual(save.status, 401);
+    });
+    await check('import-permit records persist with independent sequential references', async () => {
+      const dataDir = path.join(__dirname, 'output', 'permit-api-store');
+      fs.rmSync(dataDir, {recursive:true, force:true});
+      const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const previousDir = process.env.JAHEZ_DATA_DIR;
+      const originalFetch = global.fetch;
+      process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+      process.env.JAHEZ_DATA_DIR = dataDir;
+      const modulePath = require.resolve('../api/import-permit-invoices');
+      delete require.cache[modulePath];
+      global.fetch = async url => {
+        if(String(url).includes('/auth/v1/user')) return new Response(JSON.stringify({id:'user-1'}), {status:200});
+        if(String(url).includes('/rest/v1/profiles')) return new Response(JSON.stringify([{id:'user-1',email:'editor@example.test',display_name:'Editor',role:'editor',active:true}]), {status:200});
+        throw new Error(`unexpected fetch ${url}`);
+      };
+      const call = async (method, body) => {
+        const req = {method, headers:{authorization:'Bearer user-token'}, body};
+        const res = {
+          statusCode:200, headers:{}, setHeader(k,v){this.headers[k]=v;},
+          status(code){this.statusCode=code;return this;}, json(value){this.body=value;return this;}
+        };
+        await require('../api/import-permit-invoices')(req, res);
+        return res;
+      };
+      const data = {
+        proformaNo:'PI-001', proformaDate:'2026-09-08', consignee:'Buyer', consigneeAddress:'Address',
+        portDischarge:'Port Sudan', countryOrigin:'China', currency:'AED', incoterm:'CFR',
+        paymentTerm:'D/A 90 DAYS', bankId:'bank-1', weight:'100 KG',
+        items:[{commodityId:'10',description:'GOODS',category:'CATEGORY',hsCode:'630392',unit:'PCE',quantity:5,amount:100}]
+      };
+      try {
+        const first = await call('POST', {data});
+        const second = await call('POST', {data:{...data, proformaNo:'PI-002'}});
+        assert.strictEqual(first.statusCode, 200);
+        assert.strictEqual(first.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0001`);
+        assert.strictEqual(second.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0002`);
+        const updated = await call('POST', {id:first.body.record.id, data:{...data, proformaNo:'PI-001-A'}});
+        assert.strictEqual(updated.body.record.reference, first.body.record.reference);
+        const list = await call('GET');
+        assert.strictEqual(list.body.records.length, 2);
+        assert.strictEqual(list.body.records.find(record => record.id===first.body.record.id).data.proformaNo, 'PI-001-A');
+      } finally {
+        global.fetch = originalFetch;
+        if(previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+        if(previousDir === undefined) delete process.env.JAHEZ_DATA_DIR; else process.env.JAHEZ_DATA_DIR = previousDir;
+        delete require.cache[modulePath];
+        fs.rmSync(dataDir, {recursive:true, force:true});
+      }
     });
     await check('render-bsgt-pdf rejects GET and empty body', async () => {
       assert.strictEqual((await fetch(`${BASE}/api/render-bsgt-pdf`)).status, 405);

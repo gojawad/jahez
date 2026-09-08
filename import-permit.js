@@ -5,6 +5,11 @@
   const catalog = Array.isArray(window.BALDNA_COMMODITY_CATALOG) ? window.BALDNA_COMMODITY_CATALOG : [];
   const catalogById = new Map(catalog.map(item => [String(item.id), item]));
   let rowSequence = 0;
+  let savedRecords = [];
+  let currentRecordId = '';
+  let currentReference = '';
+  let recordListLoaded = false;
+  let formDirty = false;
 
   const byId = id => document.getElementById(id);
   const numeric = value => {
@@ -18,6 +23,40 @@
     const date = new Date();
     const offset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  }
+
+  function canUsePortal(){
+    return (typeof canEdit === 'function' && canEdit()) || (typeof isBsgtPortalUser === 'function' && isBsgtPortalUser());
+  }
+
+  async function portalApi(path, options){
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session?.access_token) throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
+    const response = await fetch(path, {
+      ...options,
+      headers: {...(options?.headers || {}), Authorization:`Bearer ${session.access_token}`, 'Content-Type':'application/json'}
+    });
+    const result = await response.json().catch(() => ({}));
+    if(!response.ok) throw new Error(result.error || 'تعذر الاتصال بخدمة فواتير إذن الاستيراد.');
+    return result;
+  }
+
+  function escapeText(value){
+    return typeof escapeHtml === 'function' ? escapeHtml(value) : String(value ?? '');
+  }
+
+  function formatSavedDate(value){
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('ar-AE', {dateStyle:'short', timeStyle:'short'});
+  }
+
+  async function loadSavedRecords(force){
+    if(recordListLoaded && !force) return;
+    byId('importPermitRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل السجل...</div>';
+    const result = await portalApi('/api/import-permit-invoices');
+    savedRecords = Array.isArray(result.records) ? result.records : [];
+    recordListLoaded = true;
+    renderSavedRecords();
   }
 
   function setSelectOptions(id, values, placeholder){
@@ -219,6 +258,85 @@
     return [...totals.entries()].map(([unit, quantity]) => `${quantity.toLocaleString('en-US')} ${unit}`).join(' / ');
   }
 
+  function formPayload(){
+    return {
+      proformaNo: byId('permit_proformaNo').value.trim(),
+      proformaDate: byId('permit_proformaDate').value,
+      consignee: byId('permit_consignee').value,
+      consigneeAddress: byId('permit_consigneeAddress').value,
+      portDischarge: byId('permit_portDischarge').value,
+      countryOrigin: byId('permit_countryOrigin').value,
+      currency: byId('permit_currency').value,
+      incoterm: byId('permit_incoterm').value,
+      paymentTerm: byId('permit_paymentTerm').value,
+      bankId: byId('permit_bankPick').value,
+      weight: byId('permit_weight').value.trim(),
+      items: [...byId('importPermitItems').children].map(row => {
+        const commodity = selectedCommodity(row);
+        return {
+          commodityId: commodity?.id || '',
+          description: commodity?.name || '',
+          category: commodity?.category || '',
+          hsCode: commodity?.hsCode || '',
+          unit: commodity?.unit || '',
+          quantity: numeric(row.querySelector('.permit-item-qty').value),
+          amount: numeric(row.querySelector('.permit-item-amount').value)
+        };
+      })
+    };
+  }
+
+  function hydratePortal(record){
+    const data = record?.data || {};
+    fillPortalOptions();
+    ['proformaNo','proformaDate','weight'].forEach(key => {
+      const id = key === 'weight' ? 'permit_weight' : `permit_${key}`;
+      byId(id).value = data[key] || (key === 'proformaDate' ? todayIso() : '');
+    });
+    ['consignee','consigneeAddress','portDischarge','countryOrigin','incoterm','paymentTerm'].forEach(key => {
+      setSelectValue(byId(`permit_${key}`), data[key] || '');
+    });
+    byId('permit_currency').value = data.currency || 'AED';
+    setSelectValue(byId('permit_bankPick'), data.bankId || '');
+    byId('importPermitItems').innerHTML = '';
+    (data.items || []).forEach(item => addItem({commodityId:item.commodityId, quantity:item.quantity, amount:item.amount}));
+    if(!byId('importPermitItems').children.length) addItem();
+    clearValidation();
+    recalculateGrandTotal();
+    setCurrentRecord(record);
+  }
+
+  async function saveCurrentRecord(){
+    if(!validatePortal()) return null;
+    const button = byId('importPermitSaveBtn');
+    const printButton = byId('importPermitPrintBtn');
+    button.disabled = true;
+    printButton.disabled = true;
+    const original = button.textContent;
+    button.textContent = 'جاري الحفظ...';
+    try{
+      const result = await portalApi('/api/import-permit-invoices', {
+        method:'POST',
+        body:JSON.stringify({id:currentRecordId || undefined, data:formPayload()})
+      });
+      const saved = result.record;
+      const index = savedRecords.findIndex(record => record.id === saved.id);
+      if(index >= 0) savedRecords[index] = saved;
+      else savedRecords.unshift(saved);
+      savedRecords.sort((a,b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      setCurrentRecord(saved);
+      toast(`تم حفظ الفاتورة بالمرجع ${saved.reference}`);
+      return saved;
+    }catch(error){
+      toast(error.message || 'تعذر حفظ الفاتورة', 'err');
+      return null;
+    }finally{
+      button.textContent = original;
+      button.disabled = false;
+      printButton.disabled = false;
+    }
+  }
+
   function portalRecord(){
     const companyEntry = baharCompanyEntry();
     const currency = byId('permit_currency').value;
@@ -240,6 +358,7 @@
       companyId: companyEntry.id,
       permitInvoice: true,
       permitInvoiceCurrency: currency,
+      permitInvoiceReference: currentReference,
       proformaNo: byId('permit_proformaNo').value.trim(),
       proformaDate: byId('permit_proformaDate').value,
       consignee: byId('permit_consignee').value,
@@ -278,6 +397,45 @@
     return record;
   }
 
+  function setCurrentRecord(record){
+    currentRecordId = record?.id || '';
+    currentReference = record?.reference || '';
+    formDirty = false;
+    byId('importPermitCurrentRef').textContent = currentReference || 'مسودة غير محفوظة';
+    byId('importPermitSaveState').textContent = currentReference
+      ? `آخر حفظ: ${formatSavedDate(record.updatedAt)}`
+      : 'احفظ الفاتورة ليصدر رقمها المرجعي المستقل.';
+    renderSavedRecords();
+  }
+
+  function markFormDirty(){
+    formDirty = true;
+    byId('importPermitSaveState').textContent = currentReference
+      ? 'توجد تعديلات غير محفوظة.'
+      : 'مسودة جديدة لم تُحفظ بعد.';
+  }
+
+  function renderSavedRecords(){
+    const host = byId('importPermitRecords');
+    if(!host) return;
+    if(!recordListLoaded){
+      host.innerHTML = '<div class="import-permit-records-empty">جاري تحميل السجل...</div>';
+      return;
+    }
+    if(!savedRecords.length){
+      host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير محفوظة بعد.</div>';
+      return;
+    }
+    host.innerHTML = savedRecords.slice(0, 12).map(record => {
+      const active = record.id === currentRecordId ? ' active' : '';
+      return `<button type="button" class="import-permit-record${active}" data-record-id="${escapeText(record.id)}">
+        <b>${escapeText(record.reference)}</b>
+        <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
+        <small>${escapeText(formatSavedDate(record.updatedAt))}</small>
+      </button>`;
+    }).join('');
+  }
+
   function resetPortal(){
     clearValidation();
     ['permit_proformaNo','permit_weight'].forEach(id => { byId(id).value = ''; });
@@ -287,6 +445,7 @@
     byId('importPermitItems').innerHTML = '';
     addItem();
     recalculateGrandTotal();
+    setCurrentRecord(null);
   }
 
   function closePortal(){
@@ -295,8 +454,8 @@
     overlay.setAttribute('aria-hidden', 'true');
   }
 
-  window.openImportPermitInvoice = function(){
-    if(typeof canEdit === 'function' && !canEdit()){
+  window.openImportPermitInvoice = async function(){
+    if(!canUsePortal()){
       toast('ليست لديك صلاحية إنشاء الفاتورة', 'err');
       return;
     }
@@ -311,13 +470,29 @@
     fillPortalOptions();
     if(!byId('importPermitItems').children.length) resetPortal();
     const overlay = byId('importPermitOverlay');
+    if(overlay.parentElement !== document.documentElement) document.documentElement.appendChild(overlay);
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
+    if(!recordListLoaded){
+      try{ await loadSavedRecords(); }
+      catch(error){
+        byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error">${escapeText(error.message)}</div>`;
+        toast(error.message || 'تعذر تحميل سجل الفواتير', 'err');
+      }
+    }
   };
 
   byId('importPermitCloseX').addEventListener('click', closePortal);
   byId('importPermitResetBtn').addEventListener('click', resetPortal);
-  byId('importPermitAddItemBtn').addEventListener('click', () => addItem());
+  byId('importPermitNewBtn').addEventListener('click', resetPortal);
+  byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord);
+  byId('importPermitRecords').addEventListener('click', event => {
+    const button = event.target.closest('[data-record-id]');
+    if(!button) return;
+    const record = savedRecords.find(item => item.id === button.dataset.recordId);
+    if(record) hydratePortal(record);
+  });
+  byId('importPermitAddItemBtn').addEventListener('click', () => { addItem(); markFormDirty(); });
   byId('permit_currency').addEventListener('change', recalculateGrandTotal);
   byId('permit_consignee').addEventListener('change', function(){
     if(byId('permit_consigneeAddress').value) return;
@@ -341,18 +516,25 @@
     button.closest('.import-permit-item').remove();
     renumberItems();
     recalculateGrandTotal();
+    markFormDirty();
   });
   byId('importPermitOverlay').addEventListener('input', event => {
     event.target.classList.remove('permit-field-missing');
     event.target.removeAttribute('aria-invalid');
+    if(event.target.matches('input,select')) markFormDirty();
   });
   byId('importPermitOverlay').addEventListener('change', event => {
     event.target.classList.remove('permit-field-missing');
     event.target.removeAttribute('aria-invalid');
+    if(event.target.matches('input,select')) markFormDirty();
   });
 
-  byId('importPermitPrintBtn').addEventListener('click', () => {
+  byId('importPermitPrintBtn').addEventListener('click', async () => {
     if(!validatePortal()) return;
+    if(formDirty || !currentRecordId){
+      const saved = await saveCurrentRecord();
+      if(!saved) return;
+    }
     const record = portalRecord();
     openPrintWindow(buildSheet(record, 'proforma', 'en'));
   });
