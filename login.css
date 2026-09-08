@@ -1,0 +1,451 @@
+/* Jahez sign-in is intentionally isolated from the internal glass UI. */
+body.login-active {
+  overflow: hidden;
+  zoom: 100%;
+}
+
+#lockScreen {
+  --login-red: #c9202d;
+  --login-red-dark: #a70f20;
+  --login-ink: #1c252d;
+  --login-muted: #7d858d;
+  --login-line: #e4e7eb;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+  direction: rtl;
+  background: #fff;
+  color: var(--login-ink);
+}
+
+#lockScreen.hidden { display: none; }
+
+#lockScreen .lock-image-panel {
+  position: relative;
+  z-index: 0;
+  order: 1;
+  flex: 0 0 55%;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #f7f8fa;
+  background-image: url("jahez-login-bsqt.jpeg");
+  background-size: 100vw 100vh;
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+
+#lockScreen .lock-image-panel.has-custom-login-image {
+  background-size: cover;
+  background-position: center;
+}
+
+#lockScreen .lock-image-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.2), transparent 18%),
+    linear-gradient(180deg, rgba(255,255,255,.02), transparent 58%, rgba(255,255,255,.1));
+}
+
+#lockScreen .lock-form-panel {
+  position: relative;
+  z-index: 1;
+  order: 2;
+  flex: 0 0 45%;
+  height: 100vh;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 4vh, 44px) clamp(24px, 4vw, 64px);
+  overflow-y: auto;
+  background: #fafbfc;
+}
+
+#lockScreen .lock-card {
+  position: relative;
+  width: min(100%, 570px);
+  max-width: none;
+  margin: auto;
+  padding: clamp(24px, 3.2vh, 38px) clamp(24px, 3vw, 48px) 22px;
+  text-align: right;
+  background: rgba(255,255,255,.98);
+  border: 1px solid #eceff2;
+  border-radius: 24px;
+  box-shadow: 0 20px 55px rgba(33,42,52,.09);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: loginCardIn .45s cubic-bezier(.2,.75,.25,1) both;
+}
+
+@keyframes loginCardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#lockScreen .login-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: clamp(12px, 2vh, 22px);
+  color: #343b43;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#lockScreen .login-lang,
+#lockScreen .login-secure,
+#lockScreen .login-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#lockScreen .login-lang-mark {
+  width: 21px;
+  height: 21px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #cfd5db;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+#lockScreen .login-secure { color: #28333d; }
+#lockScreen .login-secure::before,
+#lockScreen .login-connection::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #18b66b;
+  box-shadow: 0 0 0 4px rgba(24,182,107,.1);
+}
+
+#lockScreen .login-brand {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  margin-bottom: clamp(18px, 2.5vh, 28px);
+}
+
+#lockScreen .lock-logo {
+  width: 94px;
+  height: 94px;
+  margin: 0 auto 13px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  color: var(--login-red);
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+#lockScreen .lock-logo svg {
+  width: 72px;
+  height: 72px;
+  color: currentColor;
+}
+
+#lockScreen .lock-logo img {
+  object-fit: contain !important;
+  border-radius: 0 !important;
+}
+
+#lockScreen #lockTitle {
+  margin: 0;
+  color: var(--login-ink);
+  font-size: clamp(30px, 3vw, 43px);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -.035em;
+}
+
+#lockScreen #lockTitle::first-letter { color: var(--login-red); }
+
+#lockScreen .lock-sub {
+  max-width: 420px;
+  margin: 8px auto 0;
+  color: #555f68;
+  font-size: clamp(13px, 1.15vw, 16px);
+  line-height: 1.7;
+}
+
+#lockScreen .login-welcome {
+  margin-bottom: 17px;
+}
+
+#lockScreen .login-welcome h2 {
+  margin: 0 0 4px;
+  color: var(--login-ink);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+#lockScreen .login-welcome p {
+  margin: 0;
+  color: var(--login-muted);
+  font-size: 12.5px;
+}
+
+#lockScreen .lg-field {
+  margin-bottom: 14px;
+  text-align: right;
+}
+
+#lockScreen .lg-field > label {
+  display: block;
+  margin-bottom: 6px;
+  color: #30383f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+#lockScreen .lg-input-wrap {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  direction: rtl;
+  background: #fff;
+  border: 1px solid #dfe3e7;
+  border-radius: 11px;
+  box-shadow: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+#lockScreen .lg-input-wrap:focus-within {
+  border-color: rgba(201,32,45,.68);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(201,32,45,.08);
+}
+
+#lockScreen .lg-input-wrap.err {
+  border-color: var(--login-red);
+  background: #fff8f8;
+}
+
+#lockScreen .lg-input-wrap input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--login-ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+#lockScreen .lg-input-wrap input::placeholder { color: #a0a6ac; }
+
+#lockScreen .lg-input-wrap .lg-ico,
+#lockScreen .lg-eye {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: #4e5964;
+  opacity: .72;
+}
+
+#lockScreen .lg-eye {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+#lockScreen .lg-eye:hover,
+#lockScreen .lg-eye.on { opacity: 1; color: var(--login-red); }
+
+#lockScreen .login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 12px;
+}
+
+#lockScreen .lg-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #454e57;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#lockScreen .lg-remember input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--login-red);
+}
+
+#lockScreen .login-turnstile {
+  min-height: 0;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid #e4e7ea;
+  border-radius: 11px;
+  background: #fbfcfd;
+}
+
+#lockScreen .login-turnstile[hidden] { display: none; }
+#lockScreen #turnstileWidget { min-height: 65px; display: grid; place-items: center; overflow: hidden; }
+#lockScreen .login-security-note { margin-top: 5px; color: #7a838c; font-size: 10.5px; text-align: center; }
+#lockScreen .login-turnstile.is-error { border-color: #f1b9bd; background: #fff8f8; color: #a70f20; }
+
+#lockScreen .lock-err {
+  min-height: 20px;
+  margin: 0 0 8px;
+  color: #b01222;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+#lockScreen #lockBtn {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--login-red), var(--login-red-dark));
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 9px 20px rgba(181,22,37,.2);
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+}
+
+#lockScreen #lockBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(181,22,37,.25);
+}
+
+#lockScreen #lockBtn:disabled { cursor: not-allowed; opacity: .64; }
+
+#lockScreen .btn.loading #lockBtnTxt::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  margin-inline-start: 9px;
+  border: 2px solid rgba(255,255,255,.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: loginSpin .7s linear infinite;
+}
+
+@keyframes loginSpin { to { transform: rotate(360deg); } }
+
+#lockScreen .login-connection {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+  padding: 10px 12px;
+  color: #39434c;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #e6e9ec;
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+#lockScreen .lock-note {
+  margin-top: 13px;
+  color: #959ba1;
+  font-size: 10.5px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+@media (max-height: 790px) and (min-width: 781px) {
+  #lockScreen .lock-form-panel { padding-block: 14px; }
+  #lockScreen .lock-card { padding-block: 18px 14px; }
+  #lockScreen .login-meta { margin-bottom: 8px; }
+  #lockScreen .login-brand { margin-bottom: 12px; }
+  #lockScreen .lock-logo { width: 70px; height: 70px; margin-bottom: 7px; }
+  #lockScreen .lock-logo svg { width: 56px; height: 56px; }
+  #lockScreen #lockTitle { font-size: 30px; }
+  #lockScreen .lock-sub { margin-top: 4px; font-size: 12px; }
+  #lockScreen .login-welcome { margin-bottom: 10px; }
+  #lockScreen .lg-field { margin-bottom: 9px; }
+  #lockScreen .lg-input-wrap, #lockScreen #lockBtn { min-height: 46px; }
+  #lockScreen .login-turnstile { padding: 6px; margin-bottom: 8px; }
+  #lockScreen .login-connection { margin-top: 9px; padding: 7px; }
+  #lockScreen .lock-note { margin-top: 7px; line-height: 1.35; }
+}
+
+@media (max-width: 980px) {
+  #lockScreen .lock-image-panel { flex-basis: 48%; }
+  #lockScreen .lock-form-panel { flex-basis: 52%; padding-inline: 24px; }
+  #lockScreen .lock-card { padding-inline: 28px; }
+}
+
+@media (max-width: 780px) {
+  body.login-active { overflow: auto; }
+  #lockScreen {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: #fafbfc;
+  }
+  #lockScreen .lock-form-panel {
+    order: 1;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    padding: 18px 14px;
+  }
+  #lockScreen .lock-card {
+    width: min(100%, 560px);
+    padding: 22px 20px 18px;
+    border-radius: 20px;
+  }
+  #lockScreen .lock-image-panel {
+    order: 2;
+    flex: 0 0 230px;
+    width: 100%;
+    height: 230px;
+    min-height: 230px;
+    background-size: cover;
+    background-position: right center;
+  }
+  #lockScreen .login-brand { margin-bottom: 18px; }
+  #lockScreen .lock-logo { width: 76px; height: 76px; }
+  #lockScreen #lockTitle { font-size: 31px; }
+  #lockScreen .lock-sub { font-size: 12.5px; }
+}
+
+@media (max-width: 390px) {
+  #lockScreen .lock-form-panel { padding: 10px; }
+  #lockScreen .lock-card { padding-inline: 16px; border-radius: 17px; }
+  #lockScreen .login-meta { font-size: 11.5px; }
+  #lockScreen #turnstileWidget { transform: scale(.88); transform-origin: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lockScreen .lock-card { animation: none; }
+  #lockScreen #lockBtn { transition: none; }
+}

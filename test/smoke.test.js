@@ -21,7 +21,17 @@ async function waitForServer(proc) {
 
 async function main() {
   const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-    env: { ...process.env, PORT: String(PORT), BUILD_SHA: 'test-sha', BROWSERLESS_TOKEN: '', SUPABASE_SERVICE_ROLE_KEY: '' },
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      BUILD_SHA: 'test-sha',
+      NODE_ENV: 'test',
+      BROWSERLESS_TOKEN: '',
+      SUPABASE_SERVICE_ROLE_KEY: '',
+      SUPABASE_ANON_KEY: '',
+      TURNSTILE_SITE_KEY: '',
+      TURNSTILE_SECRET_KEY: ''
+    },
     stdio: ['ignore', 'inherit', 'inherit']
   });
   try {
@@ -48,6 +58,30 @@ async function main() {
       const wizardResponse = await fetch(`${BASE}/company-wizard.js`);
       assert.strictEqual(wizardResponse.status, 200);
       companyWizard = await wizardResponse.text();
+    });
+    await check('login screen is isolated, responsive, and server-protected', async () => {
+      assert.ok(appHtml.includes('login.css?v=20260908-bsqt-login-1'));
+      assert.ok(appHtml.includes('مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة'));
+      assert.ok(appHtml.includes("fetch('/api/login-security'"));
+      assert.ok(appHtml.includes('sb.auth.setSession'));
+      assert.ok(!appHtml.includes("loginError(error.message)"));
+      const cssResponse = await fetch(`${BASE}/login.css`);
+      assert.strictEqual(cssResponse.status, 200);
+      const loginCss = await cssResponse.text();
+      assert.ok(loginCss.includes('body.login-active'));
+      assert.ok(loginCss.includes('@media (max-width: 780px)'));
+      const heroResponse = await fetch(`${BASE}/jahez-login-bsqt.jpeg`);
+      assert.strictEqual(heroResponse.status, 200);
+      assert.match(heroResponse.headers.get('content-type'), /image\/jpeg/);
+      const configResponse = await fetch(`${BASE}/api/login-security`);
+      const config = await configResponse.json();
+      assert.deepStrictEqual(config, { enabled: false, siteKey: '', developmentBypass: true });
+      const disabledPost = await fetch(`${BASE}/api/login-security`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'nobody@example.com', password: 'not-a-secret', turnstileToken: 'none' })
+      });
+      assert.strictEqual(disabledPost.status, 503);
     });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));

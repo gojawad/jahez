@@ -19,6 +19,7 @@ const API = {
   'render-bsgt-pdf': require('./api/render-bsgt-pdf'),
   'qr-package': require('./api/qr-package'),
   'import-permit-invoices': require('./api/import-permit-invoices'),
+  'login-security': require('./api/login-security'),
 };
 // /s/<token> — رابط رمز QR القصير المطبوع على الفواتير
 const QR_ROUTE = /^\/s\/([A-Za-z0-9_-]+)\/?$/;
