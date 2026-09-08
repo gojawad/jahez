@@ -2452,9 +2452,24 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
-  <link rel="stylesheet" href="import-permit.css?v=20260908-4">
+  <link rel="stylesheet" href="import-permit.css?v=20260908-5">
 </head>
 <body>
+
+<script>
+try{
+  if(new URLSearchParams(location.search).get('portal') === 'import-permit-records'){
+    document.documentElement.classList.add('import-permit-register-route');
+  }
+}catch(error){}
+</script>
+<div class="import-permit-route-loader" id="importPermitRouteLoader" aria-live="polite">
+  <div class="import-permit-route-loader-card">
+    <span class="import-permit-route-loader-mark"></span>
+    <strong>جاري فتح سجل فواتير إذن الاستيراد</strong>
+    <small>يتم استرجاع جلسة دخولك الحالية تلقائياً...</small>
+  </div>
+</div>
 
 <div id="lockScreen">
   <div class="lock-image-panel" id="lockImagePanel"></div>
@@ -6376,6 +6391,7 @@ async function afterSignIn(authUser){
 
   await bootData();
   unlockApp();
+  window.dispatchEvent(new CustomEvent('jahez:session-ready'));
   addLog('add', 'تسجيل دخول: ' + currentUser.displayName);
   return 'ok';
 }
@@ -18962,7 +18978,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-5"></script>
+<script src="import-permit.js?v=20260908-6"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>

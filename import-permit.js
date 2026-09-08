@@ -20,6 +20,7 @@
   let formDirty = false;
   let aedConversionEnabled = true;
   const standaloneRegister = new URLSearchParams(location.search).get('portal') === 'import-permit-records';
+  let standaloneRegisterOpened = false;
 
   const byId = id => document.getElementById(id);
   const numeric = value => {
@@ -720,6 +721,7 @@
     if(byId('importPermitOverlay').classList.contains('open') && formDirty && !confirm('توجد تعديلات غير محفوظة. هل تريد مغادرة شاشة الإدخال؟')) return;
     hidePortal('importPermitOverlay');
     hidePortal('importPermitArchiveOverlay');
+    byId('importPermitRouteLoader')?.classList.add('hidden');
     showPortal('importPermitRecordsOverlay');
     try{ await loadSavedRecords(true); }
     catch(error){
@@ -852,12 +854,24 @@
     });
   });
 
+  async function openStandaloneRegister(){
+    if(!standaloneRegister || standaloneRegisterOpened) return;
+    if(!canUsePortal() || !catalog.length || !baharCompanyEntry()) return;
+    standaloneRegisterOpened = true;
+    await openRecordsPortal();
+  }
+
+  window.addEventListener('jahez:session-ready', openStandaloneRegister);
   if(standaloneRegister){
+    openStandaloneRegister();
     const waitForSession = setInterval(() => {
-      if(!canUsePortal() || !catalog.length || !baharCompanyEntry()) return;
-      clearInterval(waitForSession);
-      openRecordsPortal();
+      openStandaloneRegister();
+      if(standaloneRegisterOpened) clearInterval(waitForSession);
     }, 300);
-    setTimeout(() => clearInterval(waitForSession), 300000);
+    setTimeout(() => {
+      if(standaloneRegisterOpened) return;
+      const message = byId('importPermitRouteLoader')?.querySelector('small');
+      if(message) message.textContent = 'ما زال النظام يسترجع جلستك الحالية؛ اترك هذا التبويب مفتوحاً للحظات.';
+    }, 12000);
   }
 })();

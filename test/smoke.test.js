@@ -154,6 +154,8 @@ async function main() {
       assert.ok(appHtml.includes('id="importPermitFilterSearch"'));
       assert.ok(appHtml.includes('id="importPermitFilterFrom"'));
       assert.ok(appHtml.includes('id="importPermitFilterSort"'));
+      assert.ok(appHtml.includes('id="importPermitRouteLoader"'));
+      assert.ok(appHtml.includes("window.dispatchEvent(new CustomEvent('jahez:session-ready'))"));
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
       assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
@@ -173,6 +175,8 @@ async function main() {
       assert.ok(permitSource.includes('data-record-print'));
       assert.ok(permitSource.includes("url.searchParams.set('portal', 'import-permit-records')"));
       assert.ok(permitSource.includes("window.open(url.href, 'jahezImportPermitRecords')"));
+      assert.ok(permitSource.includes("window.addEventListener('jahez:session-ready', openStandaloneRegister)"));
+      assert.ok(permitSource.includes("byId('importPermitRouteLoader')?.classList.add('hidden')"));
       assert.ok(permitSource.includes("chooseDocLang({...record.data, permitInvoice:true}"));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
       assert.ok(permitSource.includes('saveCurrentRecord'));
