@@ -131,8 +131,27 @@ async function main() {
       assert.ok(appHtml.includes("updateHash(navKey === 'bsgt' ? 'bsgt' : v)"));
       assert.ok(appHtml.includes('onclick="openBsgtShipForm(null)"'));
     });
+    await check('import-permit proforma portal is standalone and Baldna-restricted', async () => {
+      const permitSource = fs.readFileSync(path.join(__dirname, '..', 'import-permit.js'), 'utf8');
+      const catalogSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodities.js'), 'utf8');
+      const catalogJson = catalogSource.slice(catalogSource.indexOf('Object.freeze(') + 'Object.freeze('.length, catalogSource.lastIndexOf(');'));
+      const catalog = JSON.parse(catalogJson);
+      assert.strictEqual(catalog.length, 429);
+      assert.ok(catalog.every(item => item.id && item.category && item.name && /^\d{6,10}$/.test(item.hsCode) && item.unit));
+      assert.deepStrictEqual([...new Set(catalog.map(item => item.unit))].sort(), ['DZN','GRM','KGM','MTK','MTQ','PCE']);
+      assert.ok(appHtml.includes('id="bsgtImportPermitBtn"'));
+      assert.ok(appHtml.includes('id="importPermitOverlay"'));
+      assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
+      assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase()"));
+      assert.ok(permitSource.includes("openPrintWindow(buildSheet(record, 'proforma', 'en'))"));
+      assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
+      assert.ok(!permitSource.includes('dbSaveRecord'));
+      assert.ok(!permitSource.includes("from('shipments')"));
+      assert.ok(!permitSource.includes('ledger'));
+      assert.ok(!permitSource.includes('localStorage'));
+    });
     await check('static assets served with correct MIME', async () => {
-      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
+      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
         assert.strictEqual(r.status, 200, file);
         assert.match(r.headers.get('content-type'), new RegExp(type), file);

@@ -1,0 +1,262 @@
+.import-permit-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10020 !important;
+  display: none;
+  width: 100vw;
+  height: 100dvh;
+  padding: 0 !important;
+  overflow: hidden;
+  background: #eef5fb;
+  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif;
+}
+
+.import-permit-overlay.open { display: block; }
+
+.import-permit-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  color: #102a49;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(42, 145, 211, .12), transparent 25rem),
+    linear-gradient(145deg, #eef6fc 0%, #f8fbfe 46%, #edf4fa 100%);
+}
+
+.import-permit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 104px;
+  padding: 18px clamp(22px, 3vw, 52px);
+  border-bottom: 1px solid rgba(115, 153, 191, .25);
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 8px 30px rgba(37, 75, 111, .06);
+}
+
+.import-permit-header h2 {
+  margin: 3px 0 2px;
+  font-size: clamp(22px, 2vw, 31px);
+  line-height: 1.35;
+}
+
+.import-permit-header p {
+  margin: 0;
+  color: #70839a;
+  font-size: 12px;
+}
+
+.import-permit-kicker {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #9c2026;
+  background: #fff0f0;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.import-permit-header .close-x {
+  position: static;
+  flex: 0 0 auto;
+}
+
+.import-permit-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  overflow: auto;
+  padding: 22px clamp(22px, 3vw, 52px) 28px;
+}
+
+.import-permit-card {
+  border: 1px solid rgba(122, 158, 194, .24);
+  border-radius: 18px;
+  padding: clamp(17px, 2vw, 25px);
+  background: rgba(255, 255, 255, .92);
+  box-shadow: 0 12px 34px rgba(33, 71, 108, .07);
+}
+
+.import-permit-card-accent {
+  background:
+    linear-gradient(90deg, rgba(134, 25, 31, .025), transparent 38%),
+    rgba(255, 255, 255, .94);
+}
+
+.import-permit-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 19px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #e7eef5;
+}
+
+.import-permit-card-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-permit-card-heading span {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 10px;
+  color: #fff;
+  background: #153f6e;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.import-permit-card-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.import-permit-card-heading small {
+  color: #788aa0;
+  font-size: 10px;
+}
+
+.import-permit-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.import-permit-items {
+  display: grid;
+  gap: 9px;
+}
+
+.import-permit-item {
+  display: grid;
+  grid-template-columns: minmax(240px, 2.2fr) minmax(100px, .7fr) minmax(90px, .62fr) minmax(115px, .75fr) minmax(125px, .85fr) minmax(125px, .85fr) 40px;
+  gap: 9px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #dce7f1;
+  border-radius: 13px;
+  background: #f9fcff;
+}
+
+.import-permit-item .field { min-width: 0; }
+.import-permit-item .field label { font-size: 9px; }
+.import-permit-item input { width: 100%; }
+.import-permit-item input[readonly] {
+  color: #3c5876;
+  background: #edf4fa;
+  cursor: default;
+}
+
+.import-permit-item-remove {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 1px;
+  border: 1px solid #efb8bb;
+  border-radius: 10px;
+  color: #b82027;
+  background: #fff;
+  cursor: pointer;
+}
+
+.import-permit-item-remove:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.import-permit-items-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid #e7eef5;
+  color: #71849b;
+  font-size: 10px;
+}
+
+.import-permit-items-footer strong {
+  margin-inline-start: auto;
+  color: #17395f;
+  font-size: 13px;
+}
+
+.import-permit-items-footer strong b {
+  color: #a51f26;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+}
+
+.import-permit-validation {
+  display: none;
+  padding: 12px 15px;
+  border: 1px solid #ef9b9f;
+  border-radius: 12px;
+  color: #8e1b21;
+  background: #fff2f2;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.import-permit-validation.show { display: block; }
+
+.import-permit-overlay .permit-field-missing {
+  border-color: #d9252b !important;
+  box-shadow: 0 0 0 3px rgba(217, 37, 43, .1) !important;
+}
+
+.import-permit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 82px;
+  padding: 14px clamp(22px, 3vw, 52px);
+  border-top: 1px solid rgba(115, 153, 191, .24);
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 -12px 32px rgba(33, 71, 108, .07);
+}
+
+.import-permit-actions > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.import-permit-actions > div:first-child b { font-size: 11px; }
+.import-permit-actions > div:first-child span { color: #788aa0; font-size: 9px; }
+.import-permit-actions > div:last-child { display: flex; gap: 9px; }
+
+@media (max-width: 1180px) {
+  .import-permit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .import-permit-item {
+    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(95px, .8fr)) minmax(115px, .9fr) 40px;
+  }
+  .import-permit-item .permit-unit { display: none; }
+}
+
+@media (max-width: 760px) {
+  .import-permit-header { min-height: 88px; padding: 14px 16px; }
+  .import-permit-header p, .import-permit-card-heading small { display: none; }
+  .import-permit-body { padding: 12px; }
+  .import-permit-card { padding: 14px; border-radius: 14px; }
+  .import-permit-grid { grid-template-columns: 1fr; }
+  .import-permit-grid .span2 { grid-column: auto; }
+  .import-permit-item { grid-template-columns: 1fr 1fr; }
+  .import-permit-item .permit-commodity { grid-column: 1 / -1; }
+  .import-permit-item .permit-unit { display: block; }
+  .import-permit-item-remove { grid-column: 1 / -1; width: 100%; }
+  .import-permit-items-footer { flex-wrap: wrap; }
+  .import-permit-items-footer strong { width: 100%; margin: 0; }
+  .import-permit-actions { align-items: stretch; padding: 10px 12px; }
+  .import-permit-actions > div:first-child { display: none; }
+  .import-permit-actions > div:last-child { width: 100%; }
+  .import-permit-actions .btn { flex: 1; }
+}

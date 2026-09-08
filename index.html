@@ -2452,6 +2452,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
+  <link rel="stylesheet" href="import-permit.css?v=20260908-1">
 </head>
 <body>
 
@@ -2562,6 +2563,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
     <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">مختبر التحصيل (تجريبي)</button>
+    <button type="button" class="btn btn-ghost" id="bsgtImportPermitBtn" style="display:none;" data-ic="invoice" onclick="openImportPermitInvoice()" aria-controls="importPermitOverlay">فاتورة إذن الاستيراد</button>
     <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
   </div>
   <div class="o-cp-search" id="cpSearch" style="display:none;">
@@ -5182,6 +5184,71 @@ SWIFT: NBEGEGCX"></textarea>
       <button class="btn btn-primary" id="bsgtShipSaveBtn">حفظ الشحنة</button>
       <button class="btn btn-ghost" id="bsgtShipCancelBtn">إلغاء</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay import-permit-overlay bsgt-top-layer" id="importPermitOverlay" aria-hidden="true">
+  <div class="import-permit-shell">
+    <header class="import-permit-header">
+      <div>
+        <span class="import-permit-kicker">بوابة مستقلة داخل BSGT</span>
+        <h2>فاتورة إذن الاستيراد</h2>
+        <p>فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً.</p>
+      </div>
+      <button type="button" class="close-x" id="importPermitCloseX" data-ic="close" aria-label="إغلاق"></button>
+    </header>
+    <main class="import-permit-body">
+      <div class="import-permit-validation" id="importPermitValidation" role="alert"></div>
+      <section class="import-permit-card import-permit-card-accent">
+        <div class="import-permit-card-heading">
+          <div><span>01</span><h3>بيانات الفاتورة المبدئية</h3></div>
+          <small>تستخدم هوية وإعدادات فاتورة بحر سواكن المحفوظة.</small>
+        </div>
+        <div class="grid import-permit-grid">
+          <div class="field"><label>رقم الفاتورة المبدئية *</label><input type="text" id="permit_proformaNo" dir="ltr" maxlength="50"></div>
+          <div class="field"><label>تاريخ الفاتورة *</label><input type="date" id="permit_proformaDate"></div>
+          <div class="field"><label>المرسل إليه *</label><select class="lookup-sel" id="permit_consignee"></select></div>
+          <div class="field"><label>عنوان المرسل إليه *</label><select class="lookup-sel" id="permit_consigneeAddress"></select></div>
+          <div class="field"><label>جهة الوصول *</label><select class="lookup-sel" id="permit_portDischarge"></select></div>
+          <div class="field"><label>بلد المنشأ *</label><select class="lookup-sel" id="permit_countryOrigin"></select></div>
+        </div>
+      </section>
+
+      <section class="import-permit-card">
+        <div class="import-permit-card-heading">
+          <div><span>02</span><h3>السلع المقيدة حسب منصة بلدنا</h3></div>
+          <small><b id="permitCatalogCount">429</b> سلعة، مع تثبيت الوحدة وHS Code تلقائياً.</small>
+        </div>
+        <datalist id="permitCommodityOptions"></datalist>
+        <div class="import-permit-items" id="importPermitItems"></div>
+        <div class="import-permit-items-footer">
+          <button type="button" class="btn btn-ghost btn-small" id="importPermitAddItemBtn" data-ic="plus">إضافة سلعة</button>
+          <span id="importPermitItemsCount">سلعة واحدة من 10</span>
+          <strong>إجمالي الفاتورة: <b id="importPermitGrandTotal">0.00</b> <span id="importPermitGrandCurrency">AED</span></strong>
+        </div>
+      </section>
+
+      <section class="import-permit-card">
+        <div class="import-permit-card-heading">
+          <div><span>03</span><h3>شروط الفاتورة</h3></div>
+          <small>نفس القوائم الجاهزة المستخدمة في إدخال بحر سواكن.</small>
+        </div>
+        <div class="grid import-permit-grid">
+          <div class="field"><label>عملة الفاتورة *</label><select class="lookup-sel" id="permit_currency" dir="ltr"><option value="AED">AED - درهم إماراتي</option><option value="USD">USD - دولار أمريكي</option><option value="SAR">SAR - ريال سعودي</option><option value="EUR">EUR - يورو</option></select></div>
+          <div class="field"><label>نوع التأمين (Incoterm) *</label><select class="lookup-sel" id="permit_incoterm"></select></div>
+          <div class="field"><label>شروط الدفع *</label><select class="lookup-sel" id="permit_paymentTerm"></select></div>
+          <div class="field"><label>العنوان البنكي *</label><select class="lookup-sel" id="permit_bankPick"></select></div>
+          <div class="field span2"><label>الوزن (اختياري)</label><input type="text" id="permit_weight" dir="ltr" placeholder="مثال: 1500 KG"></div>
+        </div>
+      </section>
+    </main>
+    <footer class="import-permit-actions">
+      <div><b>لا يتم حفظ هذه البيانات كسجل شحنة.</b><span>راجع الفاتورة ثم اطبعها أو احفظها PDF من نافذة الطباعة.</span></div>
+      <div>
+        <button type="button" class="btn btn-ghost" id="importPermitResetBtn">تفريغ الحقول</button>
+        <button type="button" class="btn btn-primary" id="importPermitPrintBtn" data-ic="printer">معاينة وطباعة الفاتورة</button>
+      </div>
+    </footer>
   </div>
 </div>
 
@@ -8209,6 +8276,7 @@ function switchView(v){
   document.getElementById('crumbCurrent').textContent = names[navKey] || names[v] || '';
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt') ? 'inline-flex' : 'none';
+  document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
   document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
   if(v==='operationCenter') renderOperationCenter();
@@ -15498,17 +15566,18 @@ function baharSwakenInvoiceSheet(r, kind, lang){
   const settings = baharInvoiceRuntimeSettings(r);
   const isProforma = kind === 'proforma';
   const title = isProforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE';
+  const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase();
   const number = isProforma ? r.proformaNo : r.invoiceNo;
   const date = fmtDateByLang(isProforma ? r.proformaDate : r.invoiceDate, 'en');
   const items = Array.from({length:15}, (_, index) => {
     const suffix = index ? String(index + 1) : '';
     return {
-      description: r[`item${suffix}Desc`] || r.itemDesc || '',
-      quantity: r[`item${suffix}Qty`] || r.qty || '',
-      packaging: r[`item${suffix}Unit`] || r.qtyUnit || '',
-      price: r[`item${suffix}Price`] || r.unitPrice || '',
-      amount: r[`item${suffix}Amount`] || r.totalAmount || '',
-      hsCode: r[`item${suffix}HsCode`] || r.hsCode || ''
+      description: r[`item${suffix}Desc`] || (index === 0 ? r.itemDesc || '' : ''),
+      quantity: r[`item${suffix}Qty`] || (index === 0 ? r.qty || '' : ''),
+      packaging: r[`item${suffix}Unit`] || (index === 0 ? r.qtyUnit || '' : ''),
+      price: r[`item${suffix}Price`] || (index === 0 ? r.unitPrice || '' : ''),
+      amount: r[`item${suffix}Amount`] || (index === 0 ? r.totalAmount || '' : ''),
+      hsCode: r[`item${suffix}HsCode`] || (index === 0 ? r.hsCode || '' : '')
     };
   }).filter((item, index) => index === 0 || item.description || item.quantity || item.packaging);
   const displayRows = Array.from({length:Math.max(5, items.length)}, (_, index) => items[index] || {});
@@ -15542,7 +15611,7 @@ function baharSwakenInvoiceSheet(r, kind, lang){
     <main class="bahar-inv-content">
       <div class="bahar-inv-title"><span>${title}</span></div>
       <section class="bahar-inv-meta"><div><b>INVOICE NO &amp; DATE</b><span>${esc(number)} · ${esc(date)}</span></div><div><b>CONSIGNEE</b><span>${esc(r.consignee)}</span></div><div class="wide"><b>ADDRESS</b><span>${esc(r.consigneeAddress || r.portDischarge || '')}</span></div></section>
-      <table class="bahar-inv-items"><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PACKAGING TYPE</th><th>HS CODE</th><th>WEIGHT</th><th>AED U. PRICE</th><th>AED AMOUNT</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="bahar-inv-items"><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PACKAGING TYPE</th><th>HS CODE</th><th>WEIGHT</th><th>${esc(amountCurrency)} U. PRICE</th><th>${esc(amountCurrency)} AMOUNT</th></tr></thead><tbody>${rows}</tbody></table>
       <section class="bahar-inv-totals"><div><b>TOTAL PACKAGES</b><strong>${esc(totalPackages)} ${esc(r.qtyUnit||'')}</strong></div><div><b>TOTAL AMOUNT</b><strong>${esc(amount)}</strong></div></section>
       ${r.amountInWords ? `<div class="bahar-inv-words">${esc(r.amountInWords)}</div>` : ''}
       <section class="bahar-inv-terms"><div><b>INCOTERM</b><span>${esc(r.incoterm||'')}</span></div><div><b>PORT OF DELIVERY</b><span>${esc(r.portDischarge||'')}</span></div><div><b>COUNTRY OF ORIGIN</b><span>${esc(r.countryOfOrigin||'')}</span></div><div><b>TERM OF PAYMENTS</b><span>${esc(r.paymentTerm||'')}</span></div></section>
@@ -18822,6 +18891,8 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
   switchView(isStaffRole() ? 'tasks' : 'dashboard');
 })();
 </script>
+<script src="baldna-commodities.js?v=20260908-1"></script>
+<script src="import-permit.js?v=20260908-1"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>
