@@ -146,6 +146,10 @@ async function main() {
       assert.deepStrictEqual([...new Set(catalog.map(item => item.unit))].sort(), ['DZN','GRM','KGM','MTK','MTQ','PCE']);
       assert.ok(appHtml.includes('id="bsgtImportPermitBtn"'));
       assert.ok(appHtml.includes('id="importPermitOverlay"'));
+      assert.ok(appHtml.includes('id="importPermitRecordsOverlay"'));
+      assert.ok(appHtml.includes('id="importPermitArchiveOverlay"'));
+      assert.ok(appHtml.includes('id="permitAedToggle"'));
+      assert.ok(appHtml.includes('id="permit_aedRate" value="3.67"'));
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
       assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
@@ -156,6 +160,11 @@ async function main() {
       assert.ok(permitSource.includes('descriptionEn: commodity?.nameEn'));
       assert.ok(appHtml.includes('if(r.permitInvoice) return;'));
       assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
+      assert.ok(permitSource.includes("const shouldConvert = aedConversionEnabled && sourceCurrency !== 'AED'"));
+      assert.ok(permitSource.includes('amount: numeric(row.querySelector(\'.permit-item-amount\').value) * rate'));
+      assert.ok(permitSource.includes("method:'PATCH'"));
+      assert.ok(permitSource.includes('data-record-archive'));
+      assert.ok(permitSource.includes('data-record-restore'));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
       assert.ok(permitSource.includes('saveCurrentRecord'));
       assert.ok(permitSource.includes('document.documentElement.appendChild(overlay)'));
@@ -243,8 +252,8 @@ async function main() {
         if(String(url).includes('/rest/v1/profiles')) return new Response(JSON.stringify([{id:'user-1',email:'editor@example.test',display_name:'Editor',role:'editor',active:true}]), {status:200});
         throw new Error(`unexpected fetch ${url}`);
       };
-      const call = async (method, body) => {
-        const req = {method, headers:{authorization:'Bearer user-token'}, body};
+      const call = async (method, body, query = {}) => {
+        const req = {method, headers:{authorization:'Bearer user-token'}, body, query};
         const res = {
           statusCode:200, headers:{}, setHeader(k,v){this.headers[k]=v;},
           status(code){this.statusCode=code;return this;}, json(value){this.body=value;return this;}
@@ -254,7 +263,7 @@ async function main() {
       };
       const data = {
         proformaNo:'PI-001', proformaDate:'2026-09-08', consignee:'Buyer', consigneeAddress:'Address',
-        portDischarge:'Port Sudan', countryOrigin:'China', currency:'AED', incoterm:'CFR',
+        portDischarge:'Port Sudan', countryOrigin:'China', currency:'USD', convertToAed:true, aedRate:3.67, incoterm:'CFR',
         paymentTerm:'D/A 90 DAYS', bankId:'bank-1', weight:'100 KG',
         items:[{commodityId:'10',description:'سلعة',descriptionEn:'GOODS',category:'CATEGORY',hsCode:'630392',unit:'PCE',quantity:5,amount:100}]
       };
@@ -264,12 +273,30 @@ async function main() {
         assert.strictEqual(first.statusCode, 200);
         assert.strictEqual(first.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0001`);
         assert.strictEqual(first.body.record.data.items[0].descriptionEn, 'GOODS');
+        assert.strictEqual(first.body.record.data.convertToAed, true);
+        assert.strictEqual(first.body.record.data.aedRate, 3.67);
         assert.strictEqual(second.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0002`);
         const updated = await call('POST', {id:first.body.record.id, data:{...data, proformaNo:'PI-001-A'}});
         assert.strictEqual(updated.body.record.reference, first.body.record.reference);
-        const list = await call('GET');
-        assert.strictEqual(list.body.records.length, 2);
-        assert.strictEqual(list.body.records.find(record => record.id===first.body.record.id).data.proformaNo, 'PI-001-A');
+        const archived = await call('PATCH', {id:first.body.record.id, archived:true});
+        assert.strictEqual(archived.statusCode, 200);
+        assert.ok(archived.body.record.archivedAt);
+        const activeList = await call('GET');
+        assert.strictEqual(activeList.body.records.length, 1);
+        assert.strictEqual(activeList.body.records[0].id, second.body.record.id);
+        const archiveList = await call('GET', undefined, {status:'archived'});
+        assert.strictEqual(archiveList.body.records.length, 1);
+        assert.strictEqual(archiveList.body.records[0].id, first.body.record.id);
+        const blockedUpdate = await call('POST', {id:first.body.record.id, data:{...data, proformaNo:'BLOCKED'}});
+        assert.strictEqual(blockedUpdate.statusCode, 409);
+        const restored = await call('PATCH', {id:first.body.record.id, archived:false});
+        assert.strictEqual(restored.statusCode, 200);
+        assert.strictEqual(restored.body.record.archivedAt, null);
+        const restoredList = await call('GET');
+        assert.strictEqual(restoredList.body.records.length, 2);
+        assert.strictEqual(restoredList.body.records.find(record => record.id===first.body.record.id).data.proformaNo, 'PI-001-A');
+        const emptyArchive = await call('GET', undefined, {status:'archived'});
+        assert.strictEqual(emptyArchive.body.records.length, 0);
       } finally {
         global.fetch = originalFetch;
         if(previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;

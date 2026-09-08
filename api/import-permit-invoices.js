@@ -78,6 +78,10 @@ const cleanNumber = value => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
 };
+const cleanRate = value => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 && number <= 1000 ? number : 3.67;
+};
 
 function normalizePayload(input) {
   const data = input && typeof input === 'object' ? input : {};
@@ -108,6 +112,8 @@ function normalizePayload(input) {
     portDischarge: cleanText(data.portDischarge),
     countryOrigin: cleanText(data.countryOrigin),
     currency: cleanText(data.currency, 8).toUpperCase(),
+    convertToAed: data.convertToAed === true,
+    aedRate: cleanRate(data.aedRate),
     incoterm: cleanText(data.incoterm),
     paymentTerm: cleanText(data.paymentTerm, 500),
     bankId: cleanText(data.bankId, 80),
@@ -134,6 +140,8 @@ function publicRecord(record) {
     ownerName: record.ownerName,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    archivedAt: record.archivedAt || null,
+    archivedByName: record.archivedByName || '',
     data: record.data
   };
 }
@@ -150,6 +158,9 @@ async function saveInvoice(profile, body) {
       if (index < 0) throw Object.assign(new Error('الفاتورة المحفوظة غير موجودة.'), { status: 404 });
       if (profile.role !== 'admin' && records[index].ownerId !== profile.id) {
         throw Object.assign(new Error('لا يمكنك تعديل فاتورة أنشأها مستخدم آخر.'), { status: 403 });
+      }
+      if (records[index].archivedAt) {
+        throw Object.assign(new Error('استرجع الفاتورة من الأرشيف قبل تعديلها.'), { status: 409 });
       }
       records[index] = { ...records[index], data: payload, updatedAt: now };
       result = publicRecord(records[index]);
@@ -172,13 +183,43 @@ async function saveInvoice(profile, body) {
   return result;
 }
 
+async function setArchived(profile, body) {
+  const requestedId = cleanText(body.id, 80);
+  if (!requestedId || typeof body.archived !== 'boolean') {
+    throw Object.assign(new Error('طلب الأرشفة غير مكتمل.'), { status: 400 });
+  }
+  let result;
+  writeQueue = writeQueue.catch(() => {}).then(async () => {
+    const records = await loadStore();
+    const index = records.findIndex(record => record.id === requestedId);
+    if (index < 0) throw Object.assign(new Error('الفاتورة المحفوظة غير موجودة.'), { status: 404 });
+    if (profile.role !== 'admin' && records[index].ownerId !== profile.id) {
+      throw Object.assign(new Error('لا يمكنك أرشفة فاتورة أنشأها مستخدم آخر.'), { status: 403 });
+    }
+    const now = new Date().toISOString();
+    records[index] = {
+      ...records[index],
+      archivedAt: body.archived ? now : null,
+      archivedById: body.archived ? profile.id : null,
+      archivedByName: body.archived ? cleanText(profile.display_name || profile.email, 160) : '',
+      updatedAt: now
+    };
+    result = publicRecord(records[index]);
+    await saveStore(records);
+  });
+  await writeQueue;
+  return result;
+}
+
 module.exports = async function importPermitInvoices(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   try {
     const profile = await authorize(req);
     if (req.method === 'GET') {
+      const archived = String(req.query?.status || '').toLowerCase() === 'archived';
       const records = (await loadStore())
         .filter(record => profile.role === 'admin' || record.ownerId === profile.id)
+        .filter(record => archived ? !!record.archivedAt : !record.archivedAt)
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
         .map(publicRecord);
       return res.status(200).json({ records });
@@ -188,7 +229,12 @@ module.exports = async function importPermitInvoices(req, res) {
       const record = await saveInvoice(profile, body);
       return res.status(200).json({ record });
     }
-    res.setHeader('Allow', 'GET, POST');
+    if (req.method === 'PATCH') {
+      const body = await readRequestBody(req);
+      const record = await setArchived(profile, body);
+      return res.status(200).json({ record });
+    }
+    res.setHeader('Allow', 'GET, POST, PATCH');
     return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     const status = Number(error.status) || 500;

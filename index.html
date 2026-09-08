@@ -2452,7 +2452,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
-  <link rel="stylesheet" href="import-permit.css?v=20260908-2">
+  <link rel="stylesheet" href="import-permit.css?v=20260908-3">
 </head>
 <body>
 
@@ -5195,26 +5195,22 @@ SWIFT: NBEGEGCX"></textarea>
         <h2>فاتورة إذن الاستيراد</h2>
         <p>فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً.</p>
       </div>
-      <button type="button" class="close-x" id="importPermitCloseX" data-ic="close" aria-label="إغلاق"></button>
+      <div class="import-permit-header-buttons">
+        <button type="button" class="btn btn-ghost btn-small" id="importPermitOpenRecordsBtn" data-ic="folder">سجل الفواتير</button>
+        <button type="button" class="close-x" id="importPermitCloseX" data-ic="close" aria-label="إغلاق"></button>
+      </div>
     </header>
     <main class="import-permit-body">
       <div class="import-permit-validation" id="importPermitValidation" role="alert"></div>
-      <section class="import-permit-card import-permit-register">
-        <div class="import-permit-card-heading">
-          <div><span>00</span><h3>سجل فواتير إذن الاستيراد</h3></div>
-          <button type="button" class="btn btn-ghost btn-small" id="importPermitNewBtn" data-ic="plus">فاتورة جديدة</button>
-        </div>
-        <div class="import-permit-current-ref">
-          <small>المرجع الحالي</small>
-          <strong id="importPermitCurrentRef">مسودة غير محفوظة</strong>
-          <span id="importPermitSaveState">احفظ الفاتورة ليصدر رقمها المرجعي المستقل.</span>
-        </div>
-        <div class="import-permit-records" id="importPermitRecords"><div class="import-permit-records-empty">جاري تحميل السجل...</div></div>
-      </section>
       <section class="import-permit-card import-permit-card-accent">
         <div class="import-permit-card-heading">
           <div><span>01</span><h3>بيانات الفاتورة المبدئية</h3></div>
           <small>تستخدم هوية وإعدادات فاتورة بحر سواكن المحفوظة.</small>
+        </div>
+        <div class="import-permit-current-ref import-permit-current-ref-inline">
+          <small>المرجع الحالي</small>
+          <strong id="importPermitCurrentRef">مسودة غير محفوظة</strong>
+          <span id="importPermitSaveState">احفظ الفاتورة ليصدر رقمها المرجعي المستقل.</span>
         </div>
         <div class="grid import-permit-grid">
           <div class="field"><label>رقم الفاتورة المبدئية *</label><input type="text" id="permit_proformaNo" dir="ltr" maxlength="50"></div>
@@ -5236,7 +5232,7 @@ SWIFT: NBEGEGCX"></textarea>
         <div class="import-permit-items-footer">
           <button type="button" class="btn btn-ghost btn-small" id="importPermitAddItemBtn" data-ic="plus">إضافة سلعة</button>
           <span id="importPermitItemsCount">سلعة واحدة من 10</span>
-          <strong>إجمالي الفاتورة: <b id="importPermitGrandTotal">0.00</b> <span id="importPermitGrandCurrency">AED</span></strong>
+          <strong>إجمالي الفاتورة: <b id="importPermitGrandTotal">0.00</b> <span id="importPermitGrandCurrency">AED</span><small id="importPermitAedTotal"></small></strong>
         </div>
       </section>
 
@@ -5247,6 +5243,14 @@ SWIFT: NBEGEGCX"></textarea>
         </div>
         <div class="grid import-permit-grid">
           <div class="field"><label>عملة الفاتورة *</label><select class="lookup-sel" id="permit_currency" dir="ltr"><option value="AED">AED - درهم إماراتي</option><option value="USD">USD - دولار أمريكي</option><option value="SAR">SAR - ريال سعودي</option><option value="EUR">EUR - يورو</option></select></div>
+          <div class="field">
+            <label>تحويل مبلغ الطباعة إلى AED</label>
+            <div class="import-permit-conversion">
+              <button type="button" class="btn btn-ghost btn-small active" id="permitAedToggle">التحويل مفعّل</button>
+              <input type="number" id="permit_aedRate" value="3.67" min="0.000001" max="1000" step="any" inputmode="decimal" dir="ltr" aria-label="سعر التحويل إلى الدرهم">
+            </div>
+            <small id="permitAedHint">سعر التحويل إلى الدرهم: 3.67</small>
+          </div>
           <div class="field"><label>نوع التأمين (Incoterm) *</label><select class="lookup-sel" id="permit_incoterm"></select></div>
           <div class="field"><label>شروط الدفع *</label><select class="lookup-sel" id="permit_paymentTerm"></select></div>
           <div class="field"><label>العنوان البنكي *</label><select class="lookup-sel" id="permit_bankPick"></select></div>
@@ -5262,6 +5266,46 @@ SWIFT: NBEGEGCX"></textarea>
         <button type="button" class="btn btn-primary" id="importPermitPrintBtn" data-ic="printer">حفظ ومعاينة الطباعة</button>
       </div>
     </footer>
+  </div>
+</div>
+
+<div class="overlay import-permit-overlay bsgt-top-layer" id="importPermitRecordsOverlay" aria-hidden="true">
+  <div class="import-permit-shell import-permit-register-shell">
+    <header class="import-permit-header">
+      <div><span class="import-permit-kicker">مرجع مستقل</span><h2>سجل فواتير إذن الاستيراد</h2><p>الفواتير النشطة بعيدة عن شاشة الإدخال لتسهيل البحث والمراجعة.</p></div>
+      <div class="import-permit-header-buttons">
+        <button type="button" class="btn btn-ghost btn-small" id="importPermitOpenArchiveBtn" data-ic="archive">الأرشيف</button>
+        <button type="button" class="close-x" id="importPermitRecordsCloseX" data-ic="close" aria-label="إغلاق"></button>
+      </div>
+    </header>
+    <main class="import-permit-body">
+      <section class="import-permit-card">
+        <div class="import-permit-card-heading"><div><span>01</span><h3>الفواتير المحفوظة</h3></div><small>يمكن فتح أي فاتورة أو نقلها إلى الأرشيف دون حذفها.</small></div>
+        <div class="import-permit-records import-permit-records-page" id="importPermitRecords"><div class="import-permit-records-empty">جاري تحميل السجل...</div></div>
+      </section>
+    </main>
+    <footer class="import-permit-actions">
+      <div><b>الأرشفة آمنة ولا تحذف بيانات الفاتورة.</b><span>تستطيع استرجاعها لاحقاً من بوابة الأرشيف.</span></div>
+      <div><button type="button" class="btn btn-primary" id="importPermitNewBtn" data-ic="plus">فاتورة جديدة</button></div>
+    </footer>
+  </div>
+</div>
+
+<div class="overlay import-permit-overlay bsgt-top-layer" id="importPermitArchiveOverlay" aria-hidden="true">
+  <div class="import-permit-shell import-permit-register-shell">
+    <header class="import-permit-header">
+      <div><span class="import-permit-kicker">سلة آمنة</span><h2>أرشيف فواتير إذن الاستيراد</h2><p>الفواتير المؤرشفة محفوظة ويمكن إعادتها إلى السجل في أي وقت.</p></div>
+      <div class="import-permit-header-buttons">
+        <button type="button" class="btn btn-ghost btn-small" id="importPermitBackToRecordsBtn" data-ic="folder">السجل</button>
+        <button type="button" class="close-x" id="importPermitArchiveCloseX" data-ic="close" aria-label="إغلاق"></button>
+      </div>
+    </header>
+    <main class="import-permit-body">
+      <section class="import-permit-card">
+        <div class="import-permit-card-heading"><div><span>00</span><h3>المحفوظات</h3></div><small>لا يوجد حذف نهائي من هذه البوابة.</small></div>
+        <div class="import-permit-records import-permit-records-page" id="importPermitArchivedRecords"><div class="import-permit-records-empty">جاري تحميل الأرشيف...</div></div>
+      </section>
+    </main>
   </div>
 </div>
 
@@ -18907,7 +18951,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-3"></script>
+<script src="import-permit.js?v=20260908-4"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>

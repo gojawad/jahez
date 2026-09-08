@@ -12,10 +12,13 @@
   const catalogById = new Map(catalog.map(item => [String(item.id), item]));
   let rowSequence = 0;
   let savedRecords = [];
+  let archivedRecords = [];
   let currentRecordId = '';
   let currentReference = '';
   let recordListLoaded = false;
+  let archivedListLoaded = false;
   let formDirty = false;
+  let aedConversionEnabled = true;
 
   const byId = id => document.getElementById(id);
   const numeric = value => {
@@ -59,10 +62,19 @@
   async function loadSavedRecords(force){
     if(recordListLoaded && !force) return;
     byId('importPermitRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل السجل...</div>';
-    const result = await portalApi('/api/import-permit-invoices');
+    const result = await portalApi('/api/import-permit-invoices?status=active');
     savedRecords = Array.isArray(result.records) ? result.records : [];
     recordListLoaded = true;
     renderSavedRecords();
+  }
+
+  async function loadArchivedRecords(force){
+    if(archivedListLoaded && !force) return;
+    byId('importPermitArchivedRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل الأرشيف...</div>';
+    const result = await portalApi('/api/import-permit-invoices?status=archived');
+    archivedRecords = Array.isArray(result.records) ? result.records : [];
+    archivedListLoaded = true;
+    renderArchivedRecords();
   }
 
   function setSelectOptions(id, values, placeholder){
@@ -205,7 +217,32 @@
     const total = [...byId('importPermitItems').querySelectorAll('.permit-item-amount')]
       .reduce((sum, input) => sum + (Number.isFinite(numeric(input.value)) ? numeric(input.value) : 0), 0);
     byId('importPermitGrandTotal').textContent = money(total);
-    byId('importPermitGrandCurrency').textContent = byId('permit_currency').value || 'AED';
+    const currency = byId('permit_currency').value || 'AED';
+    byId('importPermitGrandCurrency').textContent = currency;
+    const shouldConvert = aedConversionEnabled && currency !== 'AED';
+    byId('importPermitAedTotal').textContent = shouldConvert
+      ? `يعادل AED ${money(total * conversionRate())}`
+      : '';
+  }
+
+  function conversionRate(){
+    const rate = numeric(byId('permit_aedRate').value);
+    return Number.isFinite(rate) && rate > 0 ? rate : 3.67;
+  }
+
+  function updateAedConversionUi(){
+    const currency = byId('permit_currency').value || 'AED';
+    const needsConversion = currency !== 'AED';
+    const button = byId('permitAedToggle');
+    const rateInput = byId('permit_aedRate');
+    button.disabled = !needsConversion;
+    button.classList.toggle('active', needsConversion && aedConversionEnabled);
+    button.textContent = !needsConversion ? 'الفاتورة بالدرهم' : (aedConversionEnabled ? 'التحويل مفعّل' : 'التحويل متوقف');
+    rateInput.disabled = !needsConversion || !aedConversionEnabled;
+    byId('permitAedHint').textContent = !needsConversion
+      ? 'لا يحتاج المبلغ إلى تحويل.'
+      : (aedConversionEnabled ? `سعر التحويل إلى الدرهم: ${conversionRate()}` : 'ستُطبع الفاتورة بعملتها الأصلية.');
+    recalculateGrandTotal();
   }
 
   function clearValidation(){
@@ -239,6 +276,9 @@
       const element = byId(id);
       if(!String(element.value || '').trim()) markMissing(element, label, missing, elements);
     });
+    if(aedConversionEnabled && byId('permit_currency').value !== 'AED' && !(numeric(byId('permit_aedRate').value) > 0)){
+      markMissing(byId('permit_aedRate'), 'سعر تحويل موجب إلى الدرهم', missing, elements);
+    }
 
     [...byId('importPermitItems').children].forEach((row, index) => {
       const commodityInput = row.querySelector('.permit-item-commodity');
@@ -273,6 +313,8 @@
       portDischarge: byId('permit_portDischarge').value,
       countryOrigin: byId('permit_countryOrigin').value,
       currency: byId('permit_currency').value,
+      convertToAed: aedConversionEnabled,
+      aedRate: conversionRate(),
       incoterm: byId('permit_incoterm').value,
       paymentTerm: byId('permit_paymentTerm').value,
       bankId: byId('permit_bankPick').value,
@@ -304,12 +346,14 @@
       setSelectValue(byId(`permit_${key}`), data[key] || '');
     });
     byId('permit_currency').value = data.currency || 'AED';
+    aedConversionEnabled = data.convertToAed === true;
+    byId('permit_aedRate').value = data.aedRate || 3.67;
     setSelectValue(byId('permit_bankPick'), data.bankId || '');
     byId('importPermitItems').innerHTML = '';
     (data.items || []).forEach(item => addItem({commodityId:item.commodityId, quantity:item.quantity, amount:item.amount}));
     if(!byId('importPermitItems').children.length) addItem();
     clearValidation();
-    recalculateGrandTotal();
+    updateAedConversionUi();
     setCurrentRecord(record);
   }
 
@@ -347,7 +391,10 @@
   function portalRecord(lang){
     const printLanguage = lang === 'en' ? 'en' : 'ar';
     const companyEntry = baharCompanyEntry();
-    const currency = byId('permit_currency').value;
+    const sourceCurrency = byId('permit_currency').value;
+    const shouldConvert = aedConversionEnabled && sourceCurrency !== 'AED';
+    const rate = shouldConvert ? conversionRate() : 1;
+    const currency = shouldConvert ? 'AED' : sourceCurrency;
     const bank = bankBook.find(entry => entry.id === byId('permit_bankPick').value);
     const lines = [...byId('importPermitItems').children].map(row => {
       const commodity = selectedCommodity(row);
@@ -356,8 +403,8 @@
         quantity: numeric(row.querySelector('.permit-item-qty').value),
         unit: commodity.unit,
         hsCode: commodity.hsCode,
-        amount: numeric(row.querySelector('.permit-item-amount').value),
-        price: numeric(row.querySelector('.permit-item-price').value)
+        amount: numeric(row.querySelector('.permit-item-amount').value) * rate,
+        price: numeric(row.querySelector('.permit-item-price').value) * rate
       };
     });
     const currencyValue = value => `${currency} ${money(value)}`;
@@ -366,6 +413,8 @@
       companyId: companyEntry.id,
       permitInvoice: true,
       permitInvoiceCurrency: currency,
+      permitInvoiceSourceCurrency: sourceCurrency,
+      permitInvoiceAedRate: rate,
       permitInvoiceReference: currentReference,
       proformaNo: byId('permit_proformaNo').value.trim(),
       proformaDate: byId('permit_proformaDate').value,
@@ -434,14 +483,67 @@
       host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير محفوظة بعد.</div>';
       return;
     }
-    host.innerHTML = savedRecords.slice(0, 12).map(record => {
+    host.innerHTML = savedRecords.map(record => {
       const active = record.id === currentRecordId ? ' active' : '';
-      return `<button type="button" class="import-permit-record${active}" data-record-id="${escapeText(record.id)}">
+      return `<article class="import-permit-record${active}">
+        <button type="button" class="import-permit-record-main" data-record-open="${escapeText(record.id)}">
+          <b>${escapeText(record.reference)}</b>
+          <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
+          <small>${escapeText(formatSavedDate(record.updatedAt))}</small>
+        </button>
+        <div class="import-permit-record-actions">
+          <button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}">فتح</button>
+          <button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}">أرشفة</button>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  function renderArchivedRecords(){
+    const host = byId('importPermitArchivedRecords');
+    if(!archivedListLoaded){
+      host.innerHTML = '<div class="import-permit-records-empty">جاري تحميل الأرشيف...</div>';
+      return;
+    }
+    if(!archivedRecords.length){
+      host.innerHTML = '<div class="import-permit-records-empty">الأرشيف فارغ.</div>';
+      return;
+    }
+    host.innerHTML = archivedRecords.map(record => `<article class="import-permit-record archived">
+      <div class="import-permit-record-main">
         <b>${escapeText(record.reference)}</b>
         <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
-        <small>${escapeText(formatSavedDate(record.updatedAt))}</small>
-      </button>`;
-    }).join('');
+        <small>أُرشفت ${escapeText(formatSavedDate(record.archivedAt))}${record.archivedByName ? ` بواسطة ${escapeText(record.archivedByName)}` : ''}</small>
+      </div>
+      <div class="import-permit-record-actions"><button type="button" class="btn btn-primary btn-small" data-record-restore="${escapeText(record.id)}">استرجاع إلى السجل</button></div>
+    </article>`).join('');
+  }
+
+  async function changeArchiveState(id, archived){
+    const source = archived ? savedRecords : archivedRecords;
+    const record = source.find(item => item.id === id);
+    if(!record) return;
+    if(archived && !confirm(`نقل ${record.reference} إلى الأرشيف؟`)) return;
+    try{
+      const result = await portalApi('/api/import-permit-invoices', {
+        method:'PATCH',
+        body:JSON.stringify({id, archived})
+      });
+      if(archived){
+        savedRecords = savedRecords.filter(item => item.id !== id);
+        archivedListLoaded = false;
+        if(currentRecordId === id) resetPortal();
+        toast('تم نقل الفاتورة إلى الأرشيف');
+      }else{
+        archivedRecords = archivedRecords.filter(item => item.id !== id);
+        recordListLoaded = false;
+        toast('تم استرجاع الفاتورة إلى السجل');
+      }
+      renderSavedRecords();
+      renderArchivedRecords();
+    }catch(error){
+      toast(error.message || 'تعذر تحديث الأرشيف', 'err');
+    }
   }
 
   function resetPortal(){
@@ -450,58 +552,117 @@
     ['permit_consignee','permit_consigneeAddress','permit_portDischarge','permit_countryOrigin','permit_incoterm','permit_paymentTerm','permit_bankPick'].forEach(id => { byId(id).value = ''; });
     byId('permit_proformaDate').value = todayIso();
     byId('permit_currency').value = 'AED';
+    aedConversionEnabled = true;
+    byId('permit_aedRate').value = '3.67';
     byId('importPermitItems').innerHTML = '';
     addItem();
-    recalculateGrandTotal();
+    updateAedConversionUi();
     setCurrentRecord(null);
   }
 
-  function closePortal(){
-    const overlay = byId('importPermitOverlay');
+  function hidePortal(id){
+    const overlay = byId(id);
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
   }
 
-  window.openImportPermitInvoice = async function(){
-    if(!canUsePortal()){
-      toast('ليست لديك صلاحية إنشاء الفاتورة', 'err');
-      return;
-    }
-    if(!catalog.length){
-      alert('تعذر تحميل دليل سلع منصة بلدنا. حدّث الصفحة وحاول مرة أخرى.');
-      return;
-    }
-    if(!baharCompanyEntry()){
-      alert('شركة بحر سواكن غير موجودة في قائمة الشركات.');
-      return;
-    }
-    fillPortalOptions();
-    if(!byId('importPermitItems').children.length) resetPortal();
-    const overlay = byId('importPermitOverlay');
+  function showPortal(id){
+    const overlay = byId(id);
     if(overlay.parentElement !== document.documentElement) document.documentElement.appendChild(overlay);
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
-    if(!recordListLoaded){
-      try{ await loadSavedRecords(); }
-      catch(error){
-        byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error">${escapeText(error.message)}</div>`;
-        toast(error.message || 'تعذر تحميل سجل الفواتير', 'err');
-      }
+  }
+
+  function closePortal(){ hidePortal('importPermitOverlay'); }
+
+  function portalIsReady(){
+    if(!canUsePortal()){
+      toast('ليست لديك صلاحية إنشاء الفاتورة', 'err');
+      return false;
     }
+    if(!catalog.length){
+      alert('تعذر تحميل دليل سلع منصة بلدنا. حدّث الصفحة وحاول مرة أخرى.');
+      return false;
+    }
+    if(!baharCompanyEntry()){
+      alert('شركة بحر سواكن غير موجودة في قائمة الشركات.');
+      return false;
+    }
+    return true;
+  }
+
+  window.openImportPermitInvoice = function(){
+    if(!portalIsReady()) return;
+    fillPortalOptions();
+    resetPortal();
+    hidePortal('importPermitRecordsOverlay');
+    hidePortal('importPermitArchiveOverlay');
+    showPortal('importPermitOverlay');
   };
 
+  async function openRecordsPortal(){
+    if(!portalIsReady()) return;
+    if(byId('importPermitOverlay').classList.contains('open') && formDirty && !confirm('توجد تعديلات غير محفوظة. هل تريد مغادرة شاشة الإدخال؟')) return;
+    hidePortal('importPermitOverlay');
+    hidePortal('importPermitArchiveOverlay');
+    showPortal('importPermitRecordsOverlay');
+    try{ await loadSavedRecords(true); }
+    catch(error){
+      byId('importPermitRecords').innerHTML = `<div class="import-permit-records-empty error">${escapeText(error.message)}</div>`;
+      toast(error.message || 'تعذر تحميل سجل الفواتير', 'err');
+    }
+  }
+
+  async function openArchivePortal(){
+    if(!portalIsReady()) return;
+    hidePortal('importPermitOverlay');
+    hidePortal('importPermitRecordsOverlay');
+    showPortal('importPermitArchiveOverlay');
+    try{ await loadArchivedRecords(true); }
+    catch(error){
+      byId('importPermitArchivedRecords').innerHTML = `<div class="import-permit-records-empty error">${escapeText(error.message)}</div>`;
+      toast(error.message || 'تعذر تحميل الأرشيف', 'err');
+    }
+  }
+
   byId('importPermitCloseX').addEventListener('click', closePortal);
+  byId('importPermitRecordsCloseX').addEventListener('click', () => hidePortal('importPermitRecordsOverlay'));
+  byId('importPermitArchiveCloseX').addEventListener('click', () => hidePortal('importPermitArchiveOverlay'));
+  byId('importPermitOpenRecordsBtn').addEventListener('click', openRecordsPortal);
+  byId('importPermitOpenArchiveBtn').addEventListener('click', openArchivePortal);
+  byId('importPermitBackToRecordsBtn').addEventListener('click', openRecordsPortal);
   byId('importPermitResetBtn').addEventListener('click', resetPortal);
-  byId('importPermitNewBtn').addEventListener('click', resetPortal);
+  byId('importPermitNewBtn').addEventListener('click', () => {
+    hidePortal('importPermitRecordsOverlay');
+    resetPortal();
+    showPortal('importPermitOverlay');
+  });
   byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord);
   byId('importPermitRecords').addEventListener('click', event => {
-    const button = event.target.closest('[data-record-id]');
-    if(!button) return;
-    const record = savedRecords.find(item => item.id === button.dataset.recordId);
-    if(record) hydratePortal(record);
+    const openButton = event.target.closest('[data-record-open]');
+    const archiveButton = event.target.closest('[data-record-archive]');
+    if(archiveButton) return changeArchiveState(archiveButton.dataset.recordArchive, true);
+    if(!openButton) return;
+    const record = savedRecords.find(item => item.id === openButton.dataset.recordOpen);
+    if(record){
+      hidePortal('importPermitRecordsOverlay');
+      hydratePortal(record);
+      showPortal('importPermitOverlay');
+    }
+  });
+  byId('importPermitArchivedRecords').addEventListener('click', event => {
+    const button = event.target.closest('[data-record-restore]');
+    if(button) changeArchiveState(button.dataset.recordRestore, false);
   });
   byId('importPermitAddItemBtn').addEventListener('click', () => { addItem(); markFormDirty(); });
-  byId('permit_currency').addEventListener('change', recalculateGrandTotal);
+  byId('permit_currency').addEventListener('change', updateAedConversionUi);
+  byId('permitAedToggle').addEventListener('click', () => {
+    if(byId('permit_currency').value === 'AED') return;
+    aedConversionEnabled = !aedConversionEnabled;
+    updateAedConversionUi();
+    markFormDirty();
+  });
+  byId('permit_aedRate').addEventListener('input', updateAedConversionUi);
   byId('permit_consignee').addEventListener('change', function(){
     if(byId('permit_consigneeAddress').value) return;
     const address = (lookupAddresses.consignee || {})[this.value] || clientByName(this.value)?.address || '';

@@ -63,6 +63,12 @@
   flex: 0 0 auto;
 }
 
+.import-permit-header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .import-permit-body {
   display: grid;
   align-content: start;
@@ -240,6 +246,15 @@
 }
 .import-permit-current-ref span { color: #d6e3f0; font-size: 9px; }
 
+.import-permit-current-ref-inline {
+  grid-template-columns: auto minmax(170px, auto) 1fr;
+  align-items: center;
+  min-height: 64px;
+  margin-bottom: 18px;
+}
+
+.import-permit-current-ref-inline span { text-align: start; }
+
 .import-permit-records {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -266,6 +281,32 @@
 .import-permit-record b { direction: ltr; font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: right; }
 .import-permit-record span { overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .import-permit-record small { color: #7a8ca1; font-size: 8px; }
+
+.import-permit-record-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+div.import-permit-record-main { cursor: default; }
+
+.import-permit-record-actions {
+  display: flex;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid #e4ecf4;
+}
+
+.import-permit-record-actions .btn { flex: 1; }
+.import-permit-record.archived { border-style: dashed; background: #f8fafc; }
+.import-permit-records-page { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .import-permit-records-empty {
   display: grid;
   grid-column: 1 / -1;
@@ -281,6 +322,22 @@
   border-color: #d9252b !important;
   box-shadow: 0 0 0 3px rgba(217, 37, 43, .1) !important;
 }
+
+.import-permit-conversion {
+  display: grid;
+  grid-template-columns: 1fr minmax(90px, .65fr);
+  gap: 8px;
+}
+
+.import-permit-conversion .btn.active {
+  border-color: #14865f;
+  color: #fff;
+  background: #14865f;
+}
+
+.import-permit-conversion input:disabled { opacity: .55; }
+#permitAedHint { display: block; margin-top: 5px; color: #70839a; }
+#importPermitAedTotal { display: block; margin-top: 3px; color: #14865f; font-size: 9px; }
 
 .import-permit-actions {
   display: flex;
@@ -314,6 +371,7 @@
 
 @media (max-width: 760px) {
   .import-permit-header { min-height: 88px; padding: 14px 16px; }
+  .import-permit-header-buttons .btn { display: inline-flex; }
   .import-permit-header p, .import-permit-card-heading small { display: none; }
   .import-permit-body { padding: 12px; }
   .import-permit-card { padding: 14px; border-radius: 14px; }
@@ -321,6 +379,7 @@
   .import-permit-register { grid-template-columns: 1fr; }
   .import-permit-register .import-permit-card-heading { grid-column: auto; }
   .import-permit-records { grid-template-columns: 1fr; }
+  .import-permit-current-ref-inline { grid-template-columns: 1fr; }
   .import-permit-grid .span2 { grid-column: auto; }
   .import-permit-item { grid-template-columns: 1fr 1fr; }
   .import-permit-item .permit-commodity { grid-column: 1 / -1; }
