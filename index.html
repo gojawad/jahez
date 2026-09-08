@@ -2451,7 +2451,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="profile-panel.css">
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
-  <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-2">
+  <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
 </head>
 <body>
 
@@ -2562,7 +2562,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
     <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">مختبر التحصيل (تجريبي)</button>
-    <button class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus">إنشاء شحنة BSGT</button>
+    <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
   </div>
   <div class="o-cp-search" id="cpSearch" style="display:none;">
     <div class="o-searchbox">
@@ -8225,7 +8225,7 @@ function switchView(v){
   if(v==='wallet') renderWallet();
   if(v==='activityLog') renderLog();
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
-  updateHash(v);
+  updateHash(navKey === 'bsgt' ? 'bsgt' : v);
 }
 
 function renderOperationCenter(){
@@ -13606,7 +13606,6 @@ function openBsgtShipForm(id){
   updateBsgtBillDuplicate();
   document.getElementById('bsgtShipOverlay').classList.add('open');
 }
-document.getElementById('bsgtNewBtn').addEventListener('click', ()=> openBsgtShipForm(null));
 document.getElementById('bsgt_proformaDate').addEventListener('input', event => {
   if(event.currentTarget.value) document.getElementById('bsgt_contractDate').value = shiftIsoDate(event.currentTarget.value, 3);
 });
