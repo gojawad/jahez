@@ -49,6 +49,19 @@ async function main() {
       assert.strictEqual(wizardResponse.status, 200);
       companyWizard = await wizardResponse.text();
     });
+    await check('new login presentation loads without optional security dependencies', async () => {
+      assert.ok(appHtml.includes('login.css?v=20260908-bsqt-login-1'));
+      assert.ok(appHtml.includes('مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة'));
+      assert.ok(!appHtml.includes("fetch('/api/login-security'"));
+      const cssResponse = await fetch(`${BASE}/login.css`);
+      assert.strictEqual(cssResponse.status, 200);
+      const loginCss = await cssResponse.text();
+      assert.ok(loginCss.includes('body.login-active'));
+      assert.ok(loginCss.includes('@media (max-width: 780px)'));
+      const heroResponse = await fetch(`${BASE}/jahez-login-bsqt.jpeg`);
+      assert.strictEqual(heroResponse.status, 200);
+      assert.match(heroResponse.headers.get('content-type'), /image\/jpeg/);
+    });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
       assert.ok(appHtml.includes('function isBsgtRecord(r)'));

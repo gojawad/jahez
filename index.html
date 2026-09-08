@@ -2454,8 +2454,9 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
   <link rel="stylesheet" href="import-permit.css?v=20260908-glass-1">
   <link rel="stylesheet" href="shipment-list.css?v=20260908-bsgt-table-meta-1">
+  <link rel="stylesheet" href="login.css?v=20260908-bsqt-login-1">
 </head>
-<body>
+<body class="login-active">
 
 <script>
 try{
@@ -2473,18 +2474,30 @@ try{
 </div>
 
 <div id="lockScreen">
-  <div class="lock-image-panel" id="lockImagePanel"></div>
+  <div class="lock-image-panel" id="lockImagePanel" role="img" aria-label="خدمات BSGT اللوجستية"></div>
   <div class="lock-form-panel">
-  <form class="lock-card" id="loginForm" autocomplete="on">
-    <div class="lock-logo" id="lockLogo"></div>
-    <h2 id="lockTitle">منصة جاهز</h2>
-    <div class="lock-sub" id="lockSub">سجّل الدخول للمتابعة</div>
+  <form class="lock-card" id="loginForm" autocomplete="on" novalidate>
+    <div class="login-meta">
+      <span class="login-lang"><span class="login-lang-mark" aria-hidden="true">AR</span> العربية</span>
+      <span class="login-secure">منصة آمنة</span>
+    </div>
+
+    <div class="login-brand">
+      <div class="lock-logo" id="lockLogo"></div>
+      <h1 id="lockTitle">منصة جاهز</h1>
+      <div class="lock-sub" id="lockSub">مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة</div>
+    </div>
+
+    <div class="login-welcome">
+      <h2>مرحباً بك</h2>
+      <p>سجّل الدخول بحسابك المعتمد للمتابعة</p>
+    </div>
 
     <div class="lg-field">
       <label for="loginUser">البريد الإلكتروني</label>
       <div class="lg-input-wrap">
         <span class="lg-ico" data-ic="user"></span>
-        <input type="email" id="loginUser" name="username" autocomplete="username" placeholder="you@example.com" dir="ltr">
+        <input type="email" id="loginUser" name="username" autocomplete="username" inputmode="email" placeholder="أدخل البريد الإلكتروني" dir="ltr" autocapitalize="none" spellcheck="false">
       </div>
     </div>
 
@@ -2492,7 +2505,7 @@ try{
       <label for="loginPass">كلمة المرور</label>
       <div class="lg-input-wrap">
         <span class="lg-ico" data-ic="key"></span>
-        <input type="password" id="loginPass" name="password" autocomplete="current-password" placeholder="كلمة المرور">
+        <input type="password" id="loginPass" name="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
         <button type="button" class="lg-eye" id="togglePass" title="إظهار/إخفاء كلمة المرور" data-ic="eye"></button>
       </div>
       <div class="lg-caps" id="capsWarn" data-ic="warning">مفتاح Caps Lock مفعّل</div>
@@ -2504,17 +2517,20 @@ try{
       <input type="password" id="loginPass2" style="display:none;">
     </div>
 
-    <label class="lg-remember">
-      <input type="checkbox" id="rememberMe"> تذكّر اسم المستخدم
-    </label>
+    <div class="login-options">
+      <label class="lg-remember">
+        <input type="checkbox" id="rememberMe"> تذكّرني
+      </label>
+    </div>
 
-    <div class="lock-err" id="lockErr"></div>
-    <button class="btn btn-primary" id="lockBtn" type="submit" style="width:100%;">
-      <span id="lockBtnTxt">دخول</span>
+    <div class="lock-err" id="lockErr" role="alert" aria-live="polite"></div>
+    <button class="btn btn-primary" id="lockBtn" type="submit">
+      <span id="lockBtnTxt">تسجيل الدخول</span>
     </button>
+    <div class="login-connection">متصل مع BSGT</div>
     <div class="lock-note" id="lockNote">
-      البيانات محفوظة على خادم آمن ومشتركة بين الفريق.<br>
-      الصلاحيات يحددها مدير النظام.
+      جميع الحقوق محفوظة لمنصة جاهز<br>
+      Powered by BSGT
     </div>
   </form>
   </div>
@@ -6313,18 +6329,21 @@ function renderPassStrength(){}
 
 function loginError(msg){
   const err = document.getElementById('lockErr');
-  err.textContent = msg;
-  const card = document.getElementById('lockCard');
+  if(err) err.textContent = msg;
+  const card = document.getElementById('loginForm');
+  if(!card) return;
   card.classList.remove('shake');
   void card.offsetWidth;
   card.classList.add('shake');
 }
 
 let isSetupMode = false;
+let loginSubmitting = false;
 
 async function initLock(){
-  document.getElementById('lockSub').textContent = 'سجّل الدخول بالبريد الإلكتروني';
-  document.getElementById('lockBtnTxt').textContent = 'دخول';
+  document.body.classList.add('login-active');
+  document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
+  document.getElementById('lockBtnTxt').textContent = 'تسجيل الدخول';
   try{
     const rem = localStorage.getItem('remember_email');
     if(rem){
@@ -6337,6 +6356,7 @@ async function initLock(){
 }
 
 async function handleLockSubmit(){
+  if(loginSubmitting) return;
   const btn = document.getElementById('lockBtn');
   const email = document.getElementById('loginUser').value.trim();
   const pass  = document.getElementById('loginPass').value;
@@ -6344,28 +6364,26 @@ async function handleLockSubmit(){
 
   if(!email){ loginError('اكتب البريد الإلكتروني'); return; }
   if(!pass){ loginError('اكتب كلمة المرور'); return; }
-
+  loginSubmitting = true;
   btn.classList.add('loading');
+  btn.disabled = true;
   try{
     const {data, error} = await sb.auth.signInWithPassword({email, password:pass});
-    if(error){
-      if(/Invalid login/i.test(error.message)) loginError('البريد أو كلمة المرور غير صحيحة');
-      else if(/Email not confirmed/i.test(error.message)) loginError('الحساب محتاج تأكيد البريد — كلّم مدير النظام');
-      else if(/Failed to fetch/i.test(error.message)) loginError('مفيش اتصال بالإنترنت');
-      else loginError(error.message);
-      document.getElementById('loginPass').value = '';
-      return;
-    }
+    if(error) throw new Error(/Failed to fetch/i.test(error.message || '')
+      ? 'تعذر الاتصال بخدمة الدخول الآن.'
+      : 'بيانات الدخول غير صحيحة.');
     try{
       if(document.getElementById('rememberMe').checked) localStorage.setItem('remember_email', email);
       else localStorage.removeItem('remember_email');
     }catch(e){}
     await afterSignIn(data.user);
   }catch(e){
-    loginError('حصل خطأ غير متوقع. جرّب تاني.');
-    console.error(e);
+    loginError(e && e.message ? e.message : 'تعذر تسجيل الدخول الآن. حاول مرة أخرى.');
+    document.getElementById('loginPass').value = '';
   }finally{
+    loginSubmitting = false;
     btn.classList.remove('loading');
+    btn.disabled = false;
   }
 }
 
@@ -6480,6 +6498,7 @@ async function bootData(){
 }
 
 function unlockApp(){
+  document.body.classList.remove('login-active');
   document.getElementById('lockScreen').classList.add('hidden');
   document.getElementById('loginPass').value = '';
   document.getElementById('lockErr').textContent = '';
@@ -6518,8 +6537,9 @@ async function lockApp(){
   currentUser = null;
   closeAllOverlays();
   records = []; users = []; activityLog = [];
+  document.body.classList.add('login-active');
   document.getElementById('lockScreen').classList.remove('hidden');
-  document.getElementById('lockSub').textContent = 'سجّل الدخول بالبريد الإلكتروني';
+  document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
   document.getElementById('loginPass').value = '';
   setTimeout(()=>document.getElementById('loginPass').focus(), 100);
 }
@@ -6896,6 +6916,7 @@ const DEFAULT_BRAND = {
   icon:'ship',
   iconImg:'',
   loginImg:'',
+  loginImgMode:'reference',
   color:'#1877F2',
   color2:'#69A7F7',      // لون ثانوي احتياطي (غير مستخدم حالياً — لا تدرجات)
   useGradient:false,     // تدرج أم لون واحد
@@ -6941,7 +6962,11 @@ function applyBranding(){
   document.title = branding.systemName;
 
   const lip = document.getElementById('lockImagePanel');
-  if(lip) lip.style.backgroundImage = branding.loginImg ? `url("${branding.loginImg}")` : '';
+  if(lip){
+    const hasCustomLoginImage = branding.loginImgMode === 'custom' && !!branding.loginImg;
+    lip.style.backgroundImage = hasCustomLoginImage ? `url("${branding.loginImg}")` : '';
+    lip.classList.toggle('has-custom-login-image', hasCustomLoginImage);
+  }
 }
 
 // ===== لوحة التحكم: تبويبات =====
@@ -7589,6 +7614,7 @@ document.getElementById('br_loginImgFile').addEventListener('change', async func
   if(!f) return;
   try{
     branding.loginImg = await fileToScaledDataURL(f, 1600, {format:'jpeg', quality:0.85});
+    branding.loginImgMode = 'custom';
     renderImgPrev('br_loginImgPrev', branding.loginImg, 'loginImg');
     applyBranding();
     await saveBranding();
@@ -7596,11 +7622,13 @@ document.getElementById('br_loginImgFile').addEventListener('change', async func
   }catch(e){ alert('تعذّر قراءة الصورة.'); }
   this.value='';
 });
-document.getElementById('br_loginImgPrev').addEventListener('click', e=>{
+document.getElementById('br_loginImgPrev').addEventListener('click', async e=>{
   if(!(e.target.classList && e.target.classList.contains('rm'))) return;
   branding.loginImg = '';
+  branding.loginImgMode = 'reference';
   renderImgPrev('br_loginImgPrev', '', 'loginImg');
   applyBranding();
+  await saveBranding();
 });
 function fillBrandForm(){
   document.getElementById('br_systemName').value = branding.systemName;
@@ -7613,7 +7641,7 @@ function fillBrandForm(){
   document.getElementById('br_kpi4').value = branding.kpi4 || '#2E7D32';
   renderIconPicker();
   renderImgPrev('br_iconPrev', branding.iconImg, 'iconImg');
-  renderImgPrev('br_loginImgPrev', branding.loginImg, 'loginImg');
+  renderImgPrev('br_loginImgPrev', branding.loginImgMode === 'custom' ? branding.loginImg : '', 'loginImg');
 }
 document.getElementById('brandSaveBtn').addEventListener('click', async ()=>{
   branding.systemName = document.getElementById('br_systemName').value.trim() || DEFAULT_BRAND.systemName;

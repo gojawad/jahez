@@ -18,7 +18,7 @@ COPY api ./api
 COPY experiments ./experiments
 COPY invoice-template-preview ./invoice-template-preview
 COPY index.html public-shipment.html ./
-COPY *.js *.css *.png *.pdf ./
+COPY *.js *.css *.png *.jpeg *.pdf ./
 
 ARG BUILD_SHA=unknown
 ARG DEPLOYED_AT=unknown
