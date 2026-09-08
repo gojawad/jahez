@@ -671,7 +671,7 @@
       </div>
       <h2 class="shipment-card-product" title="${escapeHtml(record.itemDesc || '(بدون وصف)')}">${escapeHtml(record.itemDesc || '(بدون وصف)')}</h2>
       <p class="shipment-card-company" title="${escapeHtml(companyName)}">${escapeHtml(companyName)}</p>
-      <strong class="shipment-card-reference">${escapeHtml(reference)}</strong>
+      <strong class="shipment-card-reference" title="${escapeHtml(reference)}">${escapeHtml(reference)}</strong>
       <div class="shipment-card-meta">
         <span>${icon('calendarIcon', 11)} ${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')}</span>
         ${quantity ? `<span>${icon('box', 11)} ${escapeHtml(quantity)}</span>` : ''}
@@ -690,8 +690,8 @@
     const type = shipmentType(record);
     return `<div class="shipment-table-row" data-shipment-id="${escapeHtml(record.id)}" tabindex="0" role="button">
       <span class="shipment-card-sequence">${String(sequence).padStart(2, '0')}</span>
-      <span class="shipment-table-main"><b>${escapeHtml(record.itemDesc || '(بدون وصف)')}</b><small>${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}</small></span>
-      <span class="shipment-table-meta"><b>${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small></span>
+      <span class="shipment-table-main"><b title="${escapeHtml(record.itemDesc || '(بدون وصف)')}">${escapeHtml(record.itemDesc || '(بدون وصف)')}</b><small title="${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}">${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}</small></span>
+      <span class="shipment-table-meta"><b title="${escapeHtml(reference)}">${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small></span>
       <span class="shipment-table-docs">${documentBadges(record)} ${statusBadge(recStatus(record))}</span>
       <strong class="shipment-table-amount">${escapeHtml(record.totalAmount || '—')}</strong>
       <button class="shipment-table-action" type="button" data-shipment-open>فتح</button>

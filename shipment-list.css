@@ -372,6 +372,8 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
 .shipment-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   gap: 12px;
   direction: ltr;
 }
@@ -390,6 +392,7 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
   direction: ltr;
+  height: 100%;
 }
 
 .shipment-stat-icon {
@@ -447,8 +450,13 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
 .shipment-filter-row {
   display: grid;
   grid-template-columns: minmax(168px, .8fr) repeat(3, minmax(150px, .75fr)) minmax(260px, 1.4fr);
+  align-items: stretch;
   gap: 10px;
   padding: 13px 14px;
+}
+
+.shipment-filter-row > * {
+  min-width: 0;
 }
 
 .shipment-filter-control,
@@ -521,10 +529,17 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
 .shipment-control-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   min-height: 58px;
   padding: 8px 14px;
   border-top: 1px solid rgba(105, 153, 204, .14);
+}
+
+.shipment-tab-slot {
+  display: flex;
+  flex: 1 1 330px;
+  min-width: 260px;
 }
 
 #viewRecords.shipment-glass-page .ship-tabs {
@@ -571,6 +586,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 
 .shipment-view-switch {
   display: inline-flex;
+  flex: 0 0 auto;
   gap: 5px;
   margin-inline-start: auto;
   padding: 4px;
@@ -603,9 +619,11 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 .shipment-sort-group {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 7px;
   color: var(--sp-muted);
   font-size: 10.5px;
+  white-space: nowrap;
 }
 
 .shipment-compact-select {
@@ -617,6 +635,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 .shipment-advanced-slot {
   position: relative;
   z-index: 35;
+  flex: 0 0 auto;
 }
 
 .shipment-advanced-filter {
@@ -816,6 +835,8 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-view.sp-view-cards #draftsBody {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   gap: 12px;
   direction: ltr;
 }
@@ -825,7 +846,8 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 242px;
+  min-height: 258px;
+  height: 100%;
   padding: 14px;
   overflow: visible;
   border: 1px solid var(--sp-border);
@@ -986,17 +1008,23 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+  direction: ltr;
+  text-align: left;
 }
 
 .shipment-card-company {
-  min-height: 17px;
+  display: -webkit-box;
+  min-height: 29px;
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--sp-text-2);
   font-size: 10px;
   font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  direction: ltr;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .shipment-card-reference {
@@ -1006,7 +1034,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   color: var(--sp-text);
   font: 700 11px 'IBM Plex Mono', monospace;
   direction: ltr;
-  text-align: right;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1014,12 +1042,15 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 .shipment-card-meta {
   display: flex;
   align-items: center;
+  align-content: flex-start;
+  flex-wrap: wrap;
   gap: 6px;
   min-height: 24px;
   margin: 7px 0 8px;
-  overflow: hidden;
   color: var(--sp-text-2);
   font-size: 9.5px;
+  direction: ltr;
+  text-align: left;
 }
 
 .shipment-card-meta span {
@@ -1041,9 +1072,11 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 .shipment-card-docs {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 5px;
   min-height: 24px;
   margin-bottom: 10px;
+  direction: rtl;
 }
 
 .shipment-doc-badge {
@@ -1092,7 +1125,11 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 
 /* Table mode uses the same records and page query. */
 #viewRecords.shipment-glass-page.sp-view-table .ledger {
+  --sp-table-columns: 60px minmax(280px, 1.35fr) minmax(260px, 1fr) minmax(300px, 1.2fr) minmax(160px, .65fr) minmax(120px, .5fr);
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior-inline: contain;
   border: 1px solid var(--sp-border);
   border-radius: var(--sp-radius-card);
   background: rgba(248, 252, 255, .56);
@@ -1103,30 +1140,31 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 
 #viewRecords.shipment-glass-page.sp-view-table .ledger-row.head {
   display: grid;
-  grid-template-columns: 50px minmax(210px, 1.4fr) minmax(160px, 1fr) minmax(210px, 1.2fr) 135px 70px;
-  min-width: 960px;
-  padding: 12px 15px;
+  grid-template-columns: var(--sp-table-columns);
+  align-items: center;
+  gap: 14px;
+  min-width: 1280px;
+  padding: 13px 16px;
   border-bottom: 1px solid rgba(89, 138, 188, .18);
   background: rgba(217, 235, 251, .58);
   color: var(--sp-text-2);
 }
 
-#viewRecords.shipment-glass-page.sp-view-table .ledger-row.head > div:nth-child(2)::after {
-  content: ' / المرجع';
-}
-
-#viewRecords.shipment-glass-page.sp-view-table .ledger-row.head > div:nth-child(3)::after {
-  content: ' والحالة';
+#viewRecords.shipment-glass-page.sp-view-table .ledger-row.head > div {
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 #viewRecords.shipment-glass-page.sp-view-table .shipment-table-row {
   display: grid;
-  grid-template-columns: 50px minmax(210px, 1.4fr) minmax(160px, 1fr) minmax(210px, 1.2fr) 135px 70px;
+  grid-template-columns: var(--sp-table-columns);
   align-items: center;
-  gap: 10px;
-  min-width: 960px;
-  min-height: 74px;
-  padding: 10px 15px;
+  gap: 14px;
+  min-width: 1280px;
+  min-height: 94px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(89, 138, 188, .12);
   background: rgba(255, 255, 255, .25);
   cursor: pointer;
@@ -1136,14 +1174,36 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   background: rgba(233, 245, 255, .68);
 }
 
+.shipment-table-main,
+.shipment-table-meta,
+.shipment-table-docs {
+  min-width: 0;
+}
+
+.shipment-table-main,
+.shipment-table-meta {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  direction: ltr;
+  text-align: left;
+}
+
 .shipment-table-main b,
-.shipment-table-main small,
 .shipment-table-meta b,
 .shipment-table-meta small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shipment-table-main small {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .shipment-table-main b {
@@ -1161,24 +1221,35 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   color: var(--sp-text-2);
   font: 700 10px 'IBM Plex Mono', monospace;
   direction: ltr;
-  text-align: right;
+  text-align: left;
 }
 
 .shipment-table-docs {
   display: flex;
+  align-items: center;
+  align-content: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
+  direction: rtl;
 }
 
 .shipment-table-amount {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   color: var(--sp-text);
   font: 700 11px 'IBM Plex Mono', monospace;
   direction: ltr;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shipment-table-action {
-  min-height: 30px;
+  width: 100%;
+  min-width: 96px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid rgba(69, 140, 217, .24);
   border-radius: 9px;
   background: rgba(236, 247, 255, .68);
@@ -1196,7 +1267,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   display: grid;
   grid-template-columns: minmax(170px, 1fr) auto minmax(220px, 1fr);
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   min-height: 66px;
   margin-top: 14px;
   padding: 10px 14px;
@@ -1216,6 +1287,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 .shipment-page-summary {
   color: var(--sp-text-2);
   font-size: 10.5px;
+  line-height: 1.7;
 }
 
 .shipment-pagination-buttons {
@@ -1224,6 +1296,8 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   justify-content: center;
   gap: 5px;
   direction: ltr;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .shipment-page-button {
@@ -1266,6 +1340,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   gap: 7px;
   color: var(--sp-muted);
   font-size: 10px;
+  white-space: nowrap;
 }
 
 .shipment-jump input {
@@ -1284,7 +1359,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   cursor: pointer;
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1480px) {
   .shipment-page-hero { grid-template-columns: minmax(250px, 1fr) minmax(500px, 1.75fr); }
   .shipment-stat-grid { gap: 8px; }
   .shipment-stat { grid-template-columns: 36px 1fr; gap: 7px; padding: 10px; }
@@ -1302,7 +1377,8 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   .shipment-page-hero { grid-template-columns: 1fr; }
   .shipment-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .shipment-search-control { grid-column: span 2; }
-  .shipment-control-row { align-items: flex-start; flex-wrap: wrap; }
+  .shipment-control-row { align-items: flex-start; }
+  .shipment-tab-slot { flex-basis: 100%; }
   .shipment-view-switch { margin-inline-start: 0; }
   .shipment-sort-group:first-of-type { margin-inline-start: auto; }
   #viewRecords.shipment-glass-page.sp-view-cards #listBody,
