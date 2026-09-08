@@ -29,6 +29,8 @@ async function main() {
     const results = [];
     let appHtml = '';
     let companyWizard = '';
+    let shipmentListCss = '';
+    let shipmentListJs = '';
     const check = async (name, fn) => { await fn(); results.push(name); console.log('✔', name); };
 
     await check('healthz reports build sha', async () => {
@@ -187,11 +189,33 @@ async function main() {
       assert.ok(!permitSource.includes('localStorage'));
     });
     await check('static assets served with correct MIME', async () => {
-      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
+      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['shipment-list.js', 'text/javascript'], ['shipment-list.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
         assert.strictEqual(r.status, 200, file);
         assert.match(r.headers.get('content-type'), new RegExp(type), file);
+        if (file === 'shipment-list.css') shipmentListCss = await r.text();
+        if (file === 'shipment-list.js') shipmentListJs = await r.text();
       }
+    });
+    await check('shipment list glass UI is isolated and server-paginated', async () => {
+      assert.ok(appHtml.includes('shipment-list.css?v=20260908-glass-pagination-1'));
+      assert.ok(appHtml.includes('shipment-list.js?v=20260908-glass-pagination-1'));
+      assert.ok(shipmentListCss.includes('#viewRecords.shipment-glass-page'));
+      assert.ok(shipmentListCss.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'));
+      assert.ok(shipmentListCss.includes('@media (max-width: 1160px)'));
+      assert.ok(shipmentListCss.includes('@media (max-width: 600px)'));
+      assert.ok(shipmentListJs.includes("const STORAGE_KEY = 'jahezShipmentListView'"));
+      assert.ok(shipmentListJs.includes("select(ROW_SELECT, {count:'exact'})"));
+      assert.ok(shipmentListJs.includes('.range(from, to)'));
+      assert.ok(shipmentListJs.includes('scheduleQuery(380)'));
+      assert.ok(shipmentListJs.includes('<option value="100">100</option>'));
+      assert.ok(shipmentListJs.includes("state.viewMode === 'table'"));
+      assert.ok(shipmentListJs.includes('shipment-empty-state'));
+      assert.ok(shipmentListJs.includes('shipment-error-state'));
+      assert.ok(shipmentListJs.includes('shipment-skeleton-grid'));
+      assert.ok(!/\.from\('shipments'\)\.(insert|update|delete|upsert)/.test(shipmentListJs));
+      const storageKeys = [...shipmentListJs.matchAll(/localStorage\.(?:getItem|setItem)\(([^,)]+)/g)].map(match => match[1].trim());
+      assert.deepStrictEqual([...new Set(storageKeys)], ['STORAGE_KEY']);
     });
     await check('Jahez Glass skin is isolated from generated documents', async () => {
       assert.ok(appHtml.includes('jahez-glass.css?v=20260908-glass-4'));
