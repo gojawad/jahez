@@ -17884,6 +17884,7 @@ function chooseDocLang(r, onChoose){
 async function persistDocLangSilently(r, lang){
   if(r.docLang === lang) return;
   r.docLang = lang;
+  if(r.permitInvoice) return;
   try{
     const row = recordToRow(r);
     await sb.from('shipments').update({data: row.data}).eq('id', r.id);
@@ -18905,7 +18906,8 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 })();
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-2"></script>
+<script src="baldna-commodity-translations.js?v=20260908-1"></script>
+<script src="import-permit.js?v=20260908-3"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260907-contract-stationery"></script>
 <script src="shipment-detail.js"></script>

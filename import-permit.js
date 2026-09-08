@@ -2,7 +2,13 @@
   'use strict';
 
   const MAX_ITEMS = 10;
-  const catalog = Array.isArray(window.BALDNA_COMMODITY_CATALOG) ? window.BALDNA_COMMODITY_CATALOG : [];
+  const commodityTranslations = window.BALDNA_COMMODITY_TRANSLATIONS || {};
+  const catalog = Array.isArray(window.BALDNA_COMMODITY_CATALOG)
+    ? window.BALDNA_COMMODITY_CATALOG.map(item => ({
+        ...item,
+        nameEn: commodityTranslations[String(item.id)] || item.name
+      }))
+    : [];
   const catalogById = new Map(catalog.map(item => [String(item.id), item]));
   let rowSequence = 0;
   let savedRecords = [];
@@ -276,6 +282,7 @@
         return {
           commodityId: commodity?.id || '',
           description: commodity?.name || '',
+          descriptionEn: commodity?.nameEn || commodity?.name || '',
           category: commodity?.category || '',
           hsCode: commodity?.hsCode || '',
           unit: commodity?.unit || '',
@@ -337,14 +344,15 @@
     }
   }
 
-  function portalRecord(){
+  function portalRecord(lang){
+    const printLanguage = lang === 'en' ? 'en' : 'ar';
     const companyEntry = baharCompanyEntry();
     const currency = byId('permit_currency').value;
     const bank = bankBook.find(entry => entry.id === byId('permit_bankPick').value);
     const lines = [...byId('importPermitItems').children].map(row => {
       const commodity = selectedCommodity(row);
       return {
-        description: commodity.name,
+        description: printLanguage === 'en' ? commodity.nameEn : commodity.name,
         quantity: numeric(row.querySelector('.permit-item-qty').value),
         unit: commodity.unit,
         hsCode: commodity.hsCode,
@@ -536,6 +544,8 @@
       if(!saved) return;
     }
     const record = portalRecord();
-    openPrintWindow(buildSheet(record, 'proforma', 'en'));
+    chooseDocLang(record, lang => {
+      openPrintWindow(buildSheet(portalRecord(lang), 'proforma', lang));
+    });
   });
 })();

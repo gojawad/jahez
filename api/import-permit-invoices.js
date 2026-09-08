@@ -84,6 +84,7 @@ function normalizePayload(input) {
   const items = Array.isArray(data.items) ? data.items.slice(0, MAX_ITEMS).map(item => ({
     commodityId: cleanText(item.commodityId, 30),
     description: cleanText(item.description, 250),
+    descriptionEn: cleanText(item.descriptionEn, 250),
     category: cleanText(item.category, 180),
     hsCode: cleanText(item.hsCode, 12),
     unit: cleanText(item.unit, 8),

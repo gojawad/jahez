@@ -134,9 +134,14 @@ async function main() {
     await check('import-permit proforma portal is standalone and Baldna-restricted', async () => {
       const permitSource = fs.readFileSync(path.join(__dirname, '..', 'import-permit.js'), 'utf8');
       const catalogSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodities.js'), 'utf8');
+      const translationSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodity-translations.js'), 'utf8');
       const catalogJson = catalogSource.slice(catalogSource.indexOf('Object.freeze(') + 'Object.freeze('.length, catalogSource.lastIndexOf(');'));
       const catalog = JSON.parse(catalogJson);
+      const translationJson = translationSource.slice(translationSource.indexOf('Object.freeze(') + 'Object.freeze('.length, translationSource.lastIndexOf(');'));
+      const translations = JSON.parse(translationJson);
       assert.strictEqual(catalog.length, 429);
+      assert.strictEqual(Object.keys(translations).length, 429);
+      assert.ok(catalog.every(item => translations[item.id] && !/[\u0600-\u06ff]/.test(translations[item.id])));
       assert.ok(catalog.every(item => item.id && item.category && item.name && /^\d{6,10}$/.test(item.hsCode) && item.unit));
       assert.deepStrictEqual([...new Set(catalog.map(item => item.unit))].sort(), ['DZN','GRM','KGM','MTK','MTQ','PCE']);
       assert.ok(appHtml.includes('id="bsgtImportPermitBtn"'));
@@ -145,7 +150,11 @@ async function main() {
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
       assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
       assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase()"));
-      assert.ok(permitSource.includes("openPrintWindow(buildSheet(record, 'proforma', 'en'))"));
+      assert.ok(permitSource.includes('chooseDocLang(record, lang =>'));
+      assert.ok(permitSource.includes("buildSheet(portalRecord(lang), 'proforma', lang)"));
+      assert.ok(permitSource.includes("description: printLanguage === 'en' ? commodity.nameEn : commodity.name"));
+      assert.ok(permitSource.includes('descriptionEn: commodity?.nameEn'));
+      assert.ok(appHtml.includes('if(r.permitInvoice) return;'));
       assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
       assert.ok(permitSource.includes('saveCurrentRecord'));
@@ -156,7 +165,7 @@ async function main() {
       assert.ok(!permitSource.includes('localStorage'));
     });
     await check('static assets served with correct MIME', async () => {
-      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
+      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
         assert.strictEqual(r.status, 200, file);
         assert.match(r.headers.get('content-type'), new RegExp(type), file);
@@ -247,13 +256,14 @@ async function main() {
         proformaNo:'PI-001', proformaDate:'2026-09-08', consignee:'Buyer', consigneeAddress:'Address',
         portDischarge:'Port Sudan', countryOrigin:'China', currency:'AED', incoterm:'CFR',
         paymentTerm:'D/A 90 DAYS', bankId:'bank-1', weight:'100 KG',
-        items:[{commodityId:'10',description:'GOODS',category:'CATEGORY',hsCode:'630392',unit:'PCE',quantity:5,amount:100}]
+        items:[{commodityId:'10',description:'سلعة',descriptionEn:'GOODS',category:'CATEGORY',hsCode:'630392',unit:'PCE',quantity:5,amount:100}]
       };
       try {
         const first = await call('POST', {data});
         const second = await call('POST', {data:{...data, proformaNo:'PI-002'}});
         assert.strictEqual(first.statusCode, 200);
         assert.strictEqual(first.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0001`);
+        assert.strictEqual(first.body.record.data.items[0].descriptionEn, 'GOODS');
         assert.strictEqual(second.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0002`);
         const updated = await call('POST', {id:first.body.record.id, data:{...data, proformaNo:'PI-001-A'}});
         assert.strictEqual(updated.body.record.reference, first.body.record.reference);
