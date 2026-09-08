@@ -17620,10 +17620,11 @@ function bsgtPdfRows(record){
   return Array.from({length:15}, (_, index) => {
     const suffix = index ? String(index + 1) : '';
     const key = name => index ? `item${suffix}${name}` : name;
+    const firstItemKey = name => `item${name}`;
     return {
       description: record[key('Desc')] || (index === 0 ? record.itemDesc || '' : ''),
       quantity: record[key('Qty')] || (index === 0 ? record.qty || '' : ''),
-      packaging: record[key('Unit')] || (index === 0 ? record.qtyUnit || '' : ''),
+      packaging: record[key('Unit')] || (index === 0 ? record[firstItemKey('Unit')] || record.qtyUnit || '' : ''),
       hsCode: record[key('HsCode')] || (index === 0 ? record.hsCode || '' : ''),
       price: record[key('Price')] || (index === 0 ? record.item1Price || record.unitPrice || '' : ''),
       amount: record[key('Amount')] || (index === 0 ? record.item1Amount || record.totalAmount || '' : '')

@@ -166,6 +166,7 @@ async function main() {
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
       assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
       assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase()"));
+      assert.ok(appHtml.includes("record[firstItemKey('Unit')] || record.qtyUnit"));
       assert.ok(permitSource.includes('chooseDocLang(record, lang =>'));
       assert.ok(permitSource.includes("buildSheet(portalRecord(lang), 'proforma', lang)"));
       assert.ok(permitSource.includes("item.descriptionEn || commodity?.nameEn || item.description"));
