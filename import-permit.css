@@ -45,6 +45,17 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 @keyframes import-permit-route-spin { to { transform: rotate(360deg); } }
 
 .import-permit-overlay {
+  --permit-primary: var(--jahez-primary, #1877f2);
+  --permit-primary-hover: var(--jahez-primary-hover, #1462c6);
+  --permit-navy: var(--jahez-sidebar, #072d55);
+  --permit-text: var(--text-primary, #102943);
+  --permit-text-secondary: var(--text-secondary, #405c77);
+  --permit-text-muted: var(--text-muted, #71879d);
+  --permit-panel: var(--glass-bg-medium, rgba(255, 255, 255, .66));
+  --permit-panel-strong: var(--glass-bg-strong, rgba(255, 255, 255, .86));
+  --permit-control: var(--glass-bg-solid, rgba(250, 253, 255, .96));
+  --permit-border: var(--glass-border, rgba(255, 255, 255, .72));
+  --permit-border-blue: var(--glass-border-blue, rgba(130, 170, 216, .28));
   position: fixed !important;
   inset: 0 !important;
   z-index: 10020 !important;
@@ -53,7 +64,7 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
   height: 100dvh;
   padding: 0 !important;
   overflow: hidden;
-  background: #eef5fb;
+  background: transparent;
   font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif;
 }
 
@@ -63,51 +74,65 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 .import-permit-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
   width: 100%;
   height: 100%;
-  color: #102a49;
-  background:
-    radial-gradient(circle at 8% 12%, rgba(42, 145, 211, .12), transparent 25rem),
-    linear-gradient(145deg, #eef6fc 0%, #f8fbfe 46%, #edf4fa 100%);
+  padding: 14px 16px;
+  color: var(--permit-text);
+  background: transparent;
 }
 
 .import-permit-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  min-height: 104px;
-  padding: 18px clamp(22px, 3vw, 52px);
-  border-bottom: 1px solid rgba(115, 153, 191, .25);
-  background: rgba(255, 255, 255, .9);
-  box-shadow: 0 8px 30px rgba(37, 75, 111, .06);
+  gap: 20px;
+  min-height: 92px;
+  padding: 14px 18px;
+  overflow: hidden;
+  border: 1px solid var(--permit-border);
+  border-radius: var(--radius-lg, 18px);
+  background:
+    radial-gradient(circle at 78% 45%, rgba(77, 181, 242, .14), transparent 18rem),
+    var(--permit-panel);
+  box-shadow: var(--shadow-glass-md, 0 12px 34px rgba(15, 45, 80, .09));
+  backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(125%);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(125%);
 }
 
 .import-permit-header h2 {
-  margin: 3px 0 2px;
-  font-size: clamp(22px, 2vw, 31px);
-  line-height: 1.35;
+  margin: 4px 0 1px;
+  color: var(--permit-navy);
+  font-size: clamp(20px, 1.65vw, 27px);
+  line-height: 1.3;
 }
 
 .import-permit-header p {
   margin: 0;
-  color: #70839a;
-  font-size: 12px;
+  color: var(--permit-text-secondary);
+  font-size: 10.5px;
 }
 
 .import-permit-kicker {
   display: inline-flex;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  color: #9c2026;
-  background: #fff0f0;
-  font-size: 10px;
+  color: #b72630;
+  background: rgba(255, 231, 233, .78);
+  font-size: 9px;
   font-weight: 800;
 }
 
 .import-permit-header .close-x {
   position: static;
   flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-color: var(--permit-border);
+  border-radius: 13px;
+  color: var(--permit-navy);
+  background: rgba(255, 255, 255, .54);
+  box-shadow: var(--shadow-glass-sm, 0 4px 15px rgba(18, 49, 83, .055));
 }
 
 .import-permit-header-buttons {
@@ -120,14 +145,15 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  border: 1px solid #d5e3ef;
+  border: 1px solid var(--permit-border);
   border-radius: 13px;
-  background: #eef5fb;
+  background: rgba(255, 255, 255, .42);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .72);
 }
 
 .import-permit-view-tabs button {
-  min-height: 36px;
-  padding: 7px 17px;
+  min-height: 38px;
+  padding: 7px 18px;
   border: 0;
   border-radius: 9px;
   color: #59718a;
@@ -140,40 +166,45 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 
 .import-permit-view-tabs button.active {
   color: #fff;
-  background: linear-gradient(135deg, #1d68ad, #124a80);
-  box-shadow: 0 5px 13px rgba(23, 85, 140, .2);
+  background: linear-gradient(135deg, var(--permit-primary), var(--permit-primary-hover));
+  box-shadow: 0 7px 16px rgba(14, 103, 216, .22);
 }
 
 .import-permit-body {
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 12px;
   overflow: auto;
-  padding: 22px clamp(22px, 3vw, 52px) 28px;
+  min-width: 0;
+  padding: 0 2px;
+  scrollbar-gutter: stable;
 }
 
 .import-permit-card {
-  border: 1px solid rgba(122, 158, 194, .24);
-  border-radius: 18px;
-  padding: clamp(17px, 2vw, 25px);
-  background: rgba(255, 255, 255, .92);
-  box-shadow: 0 12px 34px rgba(33, 71, 108, .07);
+  min-width: 0;
+  border: 1px solid var(--permit-border);
+  border-radius: var(--radius-lg, 18px);
+  padding: 15px 17px;
+  background: var(--permit-panel);
+  box-shadow: var(--shadow-glass-sm, 0 4px 15px rgba(18, 49, 83, .055));
+  backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(120%);
 }
 
 .import-permit-card-accent {
   background:
-    linear-gradient(90deg, rgba(134, 25, 31, .025), transparent 38%),
-    rgba(255, 255, 255, .94);
+    linear-gradient(90deg, rgba(24, 119, 242, .035), transparent 40%),
+    var(--permit-panel);
 }
 
 .import-permit-card-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 19px;
-  padding-bottom: 13px;
-  border-bottom: 1px solid #e7eef5;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(113, 153, 194, .18);
 }
 
 .import-permit-card-heading > div {
@@ -185,11 +216,11 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 .import-permit-card-heading span {
   display: grid;
   place-items: center;
-  width: 31px;
-  height: 31px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
   color: #fff;
-  background: #153f6e;
+  background: linear-gradient(145deg, var(--permit-navy), #0d518e);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   font-weight: 700;
@@ -197,33 +228,93 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 
 .import-permit-card-heading h3 {
   margin: 0;
-  font-size: 15px;
+  color: var(--permit-navy);
+  font-size: 14px;
 }
 
 .import-permit-card-heading small {
-  color: #788aa0;
-  font-size: 10px;
+  color: var(--permit-text-muted);
+  font-size: 9.5px;
 }
 
 .import-permit-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px 12px;
+}
+
+.import-permit-overlay .field {
+  min-width: 0;
+  gap: 5px;
+  padding: 0;
+}
+
+.import-permit-overlay .field label {
+  overflow: hidden;
+  color: var(--permit-text);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-permit-overlay .field input,
+.import-permit-overlay .field select,
+.import-permit-overlay .field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 9px 12px;
+  border: 1px solid rgba(126, 165, 204, .35);
+  border-radius: var(--radius-sm, 9px);
+  color: var(--permit-text);
+  background: var(--permit-control);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .82);
+  font-size: 12px;
+}
+
+.import-permit-overlay .field input:focus,
+.import-permit-overlay .field select:focus,
+.import-permit-overlay .field textarea:focus {
+  border-color: var(--permit-primary);
+  box-shadow: 0 0 0 3px rgba(24, 119, 242, .13);
+}
+
+.import-permit-overlay .btn {
+  min-height: 40px;
+  padding: 8px 17px;
+  border-width: 1px;
+  border-radius: 11px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.import-permit-overlay .btn-primary {
+  border-color: var(--permit-primary);
+  background: linear-gradient(135deg, var(--permit-primary), var(--permit-primary-hover));
+  box-shadow: 0 8px 18px rgba(14, 103, 216, .2);
+}
+
+.import-permit-overlay .btn-ghost {
+  border-color: rgba(69, 126, 184, .28);
+  color: var(--permit-primary-hover);
+  background: rgba(255, 255, 255, .62);
 }
 
 .import-permit-items {
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .import-permit-item {
   display: grid;
   grid-template-columns: minmax(240px, 2.2fr) minmax(100px, .7fr) minmax(90px, .62fr) minmax(115px, .75fr) minmax(125px, .85fr) minmax(125px, .85fr) 40px;
-  gap: 9px;
+  gap: 8px;
   align-items: end;
-  padding: 12px;
-  border: 1px solid #dce7f1;
-  border-radius: 13px;
-  background: #f9fcff;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(126, 165, 204, .24);
+  border-radius: 12px;
+  background: rgba(249, 252, 255, .62);
 }
 
 .import-permit-item .field { min-width: 0; }
@@ -231,7 +322,7 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 .import-permit-item input { width: 100%; }
 .import-permit-item input[readonly] {
   color: #3c5876;
-  background: #edf4fa;
+  background: rgba(234, 243, 251, .9);
   cursor: default;
 }
 
@@ -256,10 +347,10 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 .import-permit-items-footer {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-top: 13px;
-  padding-top: 13px;
-  border-top: 1px solid #e7eef5;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(113, 153, 194, .18);
   color: #71849b;
   font-size: 10px;
 }
@@ -304,11 +395,11 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
   display: grid;
   align-content: center;
   gap: 5px;
-  min-height: 94px;
-  padding: 15px 17px;
-  border: 1px solid #dce7f1;
-  border-radius: 13px;
-  background: linear-gradient(145deg, #153f6e, #0f3158);
+  min-height: 76px;
+  padding: 12px 15px;
+  border: 1px solid rgba(155, 206, 250, .25);
+  border-radius: 12px;
+  background: linear-gradient(145deg, var(--permit-navy), #0c4d87);
   color: #fff;
 }
 
@@ -324,8 +415,8 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
 .import-permit-current-ref-inline {
   grid-template-columns: auto minmax(170px, auto) 1fr;
   align-items: center;
-  min-height: 64px;
-  margin-bottom: 18px;
+  min-height: 50px;
+  margin-bottom: 11px;
 }
 
 .import-permit-current-ref-inline span { text-align: start; }
@@ -342,10 +433,10 @@ html.import-permit-register-route .import-permit-route-loader.hidden { display: 
   gap: 5px;
   min-width: 0;
   padding: 12px 13px;
-  border: 1px solid #dce7f1;
+  border: 1px solid var(--permit-border-blue);
   border-radius: 13px;
   color: #183b61;
-  background: #fbfdff;
+  background: rgba(251, 253, 255, .7);
   font: inherit;
   text-align: right;
   cursor: pointer;
@@ -415,9 +506,9 @@ div.import-permit-record-main { cursor: default; }
   align-items: end;
   margin-bottom: 10px;
   padding: 12px;
-  border: 1px solid #dfe9f2;
+  border: 1px solid var(--permit-border-blue);
   border-radius: 14px;
-  background: #f8fbfe;
+  background: rgba(248, 251, 254, .6);
 }
 
 .import-permit-filters .field { min-width: 0; }
@@ -435,9 +526,9 @@ div.import-permit-record-main { cursor: default; }
 .import-permit-table-wrap {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid #dce7f1;
+  border: 1px solid var(--permit-border-blue);
   border-radius: 14px;
-  background: rgba(255, 255, 255, .92);
+  background: rgba(255, 255, 255, .66);
 }
 
 .import-permit-table {
@@ -594,12 +685,15 @@ div.import-permit-record-main { cursor: default; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  min-height: 82px;
-  padding: 14px clamp(22px, 3vw, 52px);
-  border-top: 1px solid rgba(115, 153, 191, .24);
-  background: rgba(255, 255, 255, .95);
-  box-shadow: 0 -12px 32px rgba(33, 71, 108, .07);
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--permit-border);
+  border-radius: var(--radius-md, 13px);
+  background: var(--permit-panel-strong);
+  box-shadow: var(--shadow-glass-md, 0 12px 34px rgba(15, 45, 80, .09));
+  backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-md, 16px)) saturate(120%);
 }
 
 .import-permit-actions > div:first-child {
@@ -611,6 +705,39 @@ div.import-permit-record-main { cursor: default; }
 .import-permit-actions > div:first-child span { color: #788aa0; font-size: 9px; }
 .import-permit-actions > div:last-child { display: flex; gap: 9px; }
 
+/* Leave the authenticated app shell visible and use only its workspace. */
+@media (min-width: 901px) {
+  html:has(body #lockScreen.hidden) > .import-permit-overlay.open {
+    inset: 80px 230px 0 0 !important;
+    width: auto;
+    height: auto;
+  }
+
+  html:has(body #lockScreen.hidden):has(body #viewRecords.active.shipment-glass-ready) > .import-permit-overlay.open {
+    inset: 76px 194px 0 0 !important;
+  }
+}
+
+html:has(> .import-permit-overlay.open) body > .wrap,
+html:has(> .import-permit-overlay.open) body > .o-control-panel {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 1450px) {
+  .import-permit-item {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .import-permit-item .permit-commodity { grid-column: span 5; }
+  .import-permit-item .field:nth-child(2) { grid-column: span 2; }
+  .import-permit-item .permit-unit { grid-column: span 2; }
+  .import-permit-item .field:nth-child(4) { grid-column: span 2; }
+  .import-permit-item .field:nth-child(5),
+  .import-permit-item .field:nth-child(6) { grid-column: span 6; }
+  .import-permit-item-remove { grid-column: span 1; }
+}
+
 @media (max-width: 1180px) {
   .import-permit-records { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #importPermitArchivedRecords { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -618,20 +745,27 @@ div.import-permit-record-main { cursor: default; }
   .import-permit-filter-search { grid-column: span 2; }
   .import-permit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .import-permit-item {
-    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(95px, .8fr)) minmax(115px, .9fr) 40px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .import-permit-item .permit-unit { display: none; }
+  .import-permit-item .permit-commodity { grid-column: 1 / -1; }
+  .import-permit-item .field:nth-child(2),
+  .import-permit-item .permit-unit,
+  .import-permit-item .field:nth-child(4),
+  .import-permit-item .field:nth-child(5),
+  .import-permit-item .field:nth-child(6) { grid-column: span 1; }
+  .import-permit-item-remove { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (max-width: 760px) {
-  .import-permit-header { min-height: 88px; padding: 14px 16px; }
+  .import-permit-shell { gap: 9px; padding: 9px; }
+  .import-permit-header { min-height: 82px; padding: 12px; }
   .import-permit-header-buttons .btn { display: inline-flex; }
   .import-permit-header { align-items: flex-start; }
-  .import-permit-header-buttons { align-items: flex-start; }
+  .import-permit-header-buttons { align-items: flex-start; gap: 6px; }
   .import-permit-view-tabs button { padding-inline: 10px; }
   .import-permit-header p, .import-permit-card-heading small { display: none; }
-  .import-permit-body { padding: 12px; }
-  .import-permit-card { padding: 14px; border-radius: 14px; }
+  .import-permit-body { padding: 0; }
+  .import-permit-card { padding: 12px; border-radius: 14px; }
   .import-permit-grid { grid-template-columns: 1fr; }
   .import-permit-register { grid-template-columns: 1fr; }
   .import-permit-register .import-permit-card-heading { grid-column: auto; }
@@ -645,13 +779,38 @@ div.import-permit-record-main { cursor: default; }
   .import-permit-grid .span2 { grid-column: auto; }
   .import-permit-item { grid-template-columns: 1fr 1fr; }
   .import-permit-item .permit-commodity { grid-column: 1 / -1; }
-  .import-permit-item .permit-unit { display: block; }
+  .import-permit-item .permit-unit { display: flex; }
   .import-permit-item-remove { grid-column: 1 / -1; width: 100%; }
   .import-permit-items-footer { flex-wrap: wrap; }
   .import-permit-items-footer strong { width: 100%; margin: 0; }
-  .import-permit-actions { align-items: stretch; padding: 10px 12px; }
+  .import-permit-actions { align-items: stretch; padding: 9px; }
   .import-permit-actions > div:first-child { display: none; }
   .import-permit-actions > div:last-child { width: 100%; }
   .import-permit-actions .btn { flex: 1; }
   .import-permit-pagination { flex-wrap: wrap; }
+}
+
+@media (max-width: 560px) {
+  .import-permit-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .import-permit-header-buttons {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .import-permit-view-tabs { flex: 1; }
+  .import-permit-view-tabs button { flex: 1; }
+  .import-permit-item { grid-template-columns: 1fr; }
+  .import-permit-item .permit-commodity,
+  .import-permit-item .field:nth-child(2),
+  .import-permit-item .permit-unit,
+  .import-permit-item .field:nth-child(4),
+  .import-permit-item .field:nth-child(5),
+  .import-permit-item .field:nth-child(6),
+  .import-permit-item-remove { grid-column: 1; }
+  .import-permit-actions > div:last-child { display: grid; grid-template-columns: 1fr 1fr; }
+  .import-permit-actions .btn:last-child { grid-column: 1 / -1; }
 }
