@@ -183,8 +183,8 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .o-na
   border-bottom: 1px solid rgba(103, 151, 199, .18);
   background: rgba(237, 247, 255, .48);
   box-shadow: 0 8px 25px rgba(39, 82, 130, .06), inset 0 1px rgba(255, 255, 255, .8);
-  backdrop-filter: blur(22px) saturate(130%);
-  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   direction: ltr;
 }
 
@@ -542,6 +542,16 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
   min-width: 260px;
 }
 
+body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-view .shipment-tab-slot .ship-tabs {
+  position: static;
+  z-index: auto;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  gap: 7px;
+  justify-content: flex-start;
+}
+
 #viewRecords.shipment-glass-page .ship-tabs {
   display: flex;
   gap: 7px;
@@ -636,6 +646,32 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   position: relative;
   z-index: 35;
   flex: 0 0 auto;
+}
+
+.shipment-portal-slot {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-view .shipment-portal-slot .btn {
+  min-height: 38px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid rgba(105, 153, 204, .23);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .53);
+  color: var(--sp-text-2);
+  box-shadow: var(--sp-highlight);
+  font-size: 11px;
+}
+
+body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-view .shipment-portal-slot #bsgtImportPermitBtn {
+  border-color: rgba(8, 108, 240, .32);
+  background: var(--sp-primary-soft);
+  color: var(--sp-primary);
 }
 
 .shipment-advanced-filter {

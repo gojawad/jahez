@@ -94,6 +94,7 @@
         <div class="shipment-control-row">
           <div class="shipment-tab-slot"></div>
           <div class="shipment-advanced-slot"></div>
+          <div class="shipment-portal-slot" aria-label="بوابات BSGT"></div>
           <div class="shipment-view-switch" role="group" aria-label="طريقة العرض">
             <button class="shipment-view-button" id="shipmentCardsView" type="button">${icon('dashboard', 16)} بطاقات</button>
             <button class="shipment-view-button" id="shipmentTableView" type="button">${icon('list', 16)} جدول</button>
@@ -117,6 +118,14 @@
         if(node.nodeType === Node.TEXT_NODE && node.textContent.trim()) node.textContent = 'فلاتر إضافية ';
       });
       advancedSlot.appendChild(advanced);
+    }
+
+    const portalSlot = view.querySelector('.shipment-portal-slot');
+    if(portalSlot){
+      ['bsgtImportPermitBtn', 'bsgtCollectionLabBtn'].forEach(id=>{
+        const button = document.getElementById(id);
+        if(button) portalSlot.appendChild(button);
+      });
     }
 
     const firstPane = document.getElementById('shipPaneLand');
@@ -394,6 +403,10 @@
       : 'إدارة ومتابعة جميع الشحنات الصادرة من النظام';
     ui.create.querySelector('.shipment-create-label').textContent = isBsgt ? 'إنشاء شحنة BSGT' : 'إنشاء شحنة جديدة';
     ui.create.hidden = !canEdit();
+    const permitButton = document.getElementById('bsgtImportPermitBtn');
+    const collectionButton = document.getElementById('bsgtCollectionLabBtn');
+    if(permitButton) permitButton.style.display = isBsgt && (canEdit() || isBsgtPortalUser()) ? 'inline-flex' : 'none';
+    if(collectionButton) collectionButton.style.display = isBsgt ? 'inline-flex' : 'none';
     updateLocalStats();
     void loadServerStats();
   }
