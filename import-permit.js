@@ -19,6 +19,7 @@
   let archivedListLoaded = false;
   let formDirty = false;
   let aedConversionEnabled = true;
+  const standaloneRegister = new URLSearchParams(location.search).get('portal') === 'import-permit-records';
 
   const byId = id => document.getElementById(id);
   const numeric = value => {
@@ -388,23 +389,28 @@
     }
   }
 
-  function portalRecord(lang){
+  function portalRecordFromData(data, reference, lang){
     const printLanguage = lang === 'en' ? 'en' : 'ar';
     const companyEntry = baharCompanyEntry();
-    const sourceCurrency = byId('permit_currency').value;
-    const shouldConvert = aedConversionEnabled && sourceCurrency !== 'AED';
-    const rate = shouldConvert ? conversionRate() : 1;
+    const sourceCurrency = data.currency || 'AED';
+    const shouldConvert = data.convertToAed === true && sourceCurrency !== 'AED';
+    const savedRate = numeric(data.aedRate);
+    const rate = shouldConvert && savedRate > 0 ? savedRate : 1;
     const currency = shouldConvert ? 'AED' : sourceCurrency;
-    const bank = bankBook.find(entry => entry.id === byId('permit_bankPick').value);
-    const lines = [...byId('importPermitItems').children].map(row => {
-      const commodity = selectedCommodity(row);
+    const bank = bankBook.find(entry => entry.id === data.bankId);
+    const lines = (data.items || []).map(item => {
+      const commodity = catalogById.get(String(item.commodityId || ''));
+      const quantity = numeric(item.quantity);
+      const amount = numeric(item.amount);
       return {
-        description: printLanguage === 'en' ? commodity.nameEn : commodity.name,
-        quantity: numeric(row.querySelector('.permit-item-qty').value),
-        unit: commodity.unit,
-        hsCode: commodity.hsCode,
-        amount: numeric(row.querySelector('.permit-item-amount').value) * rate,
-        price: numeric(row.querySelector('.permit-item-price').value) * rate
+        description: printLanguage === 'en'
+          ? (item.descriptionEn || commodity?.nameEn || item.description)
+          : (item.description || commodity?.name || item.descriptionEn),
+        quantity,
+        unit: item.unit || commodity?.unit || '',
+        hsCode: item.hsCode || commodity?.hsCode || '',
+        amount: amount * rate,
+        price: (quantity > 0 ? amount / quantity : 0) * rate
       };
     });
     const currencyValue = value => `${currency} ${money(value)}`;
@@ -415,25 +421,25 @@
       permitInvoiceCurrency: currency,
       permitInvoiceSourceCurrency: sourceCurrency,
       permitInvoiceAedRate: rate,
-      permitInvoiceReference: currentReference,
-      proformaNo: byId('permit_proformaNo').value.trim(),
-      proformaDate: byId('permit_proformaDate').value,
-      consignee: byId('permit_consignee').value,
-      consigneeAddress: byId('permit_consigneeAddress').value,
-      portDischarge: byId('permit_portDischarge').value,
-      countryOrigin: byId('permit_countryOrigin').value,
-      countryOfOrigin: byId('permit_countryOrigin').value,
-      incoterm: byId('permit_incoterm').value,
-      paymentTerm: byId('permit_paymentTerm').value,
+      permitInvoiceReference: reference,
+      proformaNo: data.proformaNo,
+      proformaDate: data.proformaDate,
+      consignee: data.consignee,
+      consigneeAddress: data.consigneeAddress,
+      portDischarge: data.portDischarge,
+      countryOrigin: data.countryOrigin,
+      countryOfOrigin: data.countryOrigin,
+      incoterm: data.incoterm,
+      paymentTerm: data.paymentTerm,
       bankId: bank?.id || '',
       bankDetails: bank?.body || '',
       currency,
-      grossWeight: byId('permit_weight').value.trim(),
+      grossWeight: String(data.weight || '').trim(),
       totalQty: groupedQuantity(lines),
       qtyUnit: '',
       totalAmount: currencyValue(grandTotal),
       bsgtAutoAed: false,
-      bsgtShowWeight: !!byId('permit_weight').value.trim()
+      bsgtShowWeight: !!String(data.weight || '').trim()
     };
     lines.forEach((line, index) => {
       const suffix = index ? String(index + 1) : '';
@@ -454,6 +460,10 @@
     return record;
   }
 
+  function portalRecord(lang){
+    return portalRecordFromData(formPayload(), currentReference, lang);
+  }
+
   function setCurrentRecord(record){
     currentRecordId = record?.id || '';
     currentReference = record?.reference || '';
@@ -472,6 +482,46 @@
       : 'مسودة جديدة لم تُحفظ بعد.';
   }
 
+  function fillRecordFilterOptions(){
+    const select = byId('importPermitFilterClient');
+    const current = select.value;
+    const clients = [...new Set(savedRecords.map(record => String(record.data?.consignee || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'ar'));
+    select.innerHTML = '<option value="">كل العملاء</option>' + clients.map(client => `<option value="${escapeText(client)}">${escapeText(client)}</option>`).join('');
+    if(clients.includes(current)) select.value = current;
+  }
+
+  function filteredSavedRecords(){
+    const query = String(byId('importPermitFilterSearch').value || '').trim().toLowerCase();
+    const client = byId('importPermitFilterClient').value;
+    const currency = byId('importPermitFilterCurrency').value;
+    const from = byId('importPermitFilterFrom').value;
+    const to = byId('importPermitFilterTo').value;
+    const sort = byId('importPermitFilterSort').value;
+    const filtered = savedRecords.filter(record => {
+      const data = record.data || {};
+      const searchable = [
+        record.reference,
+        data.proformaNo,
+        data.consignee,
+        data.consigneeAddress,
+        ...(data.items || []).flatMap(item => [item.description, item.descriptionEn, item.hsCode])
+      ].join(' ').toLowerCase();
+      return (!query || searchable.includes(query))
+        && (!client || data.consignee === client)
+        && (!currency || data.currency === currency)
+        && (!from || String(data.proformaDate || '') >= from)
+        && (!to || String(data.proformaDate || '') <= to);
+    });
+    filtered.sort((a, b) => {
+      if(sort === 'date-desc') return String(b.data?.proformaDate || '').localeCompare(String(a.data?.proformaDate || ''));
+      if(sort === 'date-asc') return String(a.data?.proformaDate || '').localeCompare(String(b.data?.proformaDate || ''));
+      if(sort === 'reference-asc') return String(a.reference || '').localeCompare(String(b.reference || ''), undefined, {numeric:true});
+      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    });
+    return filtered;
+  }
+
   function renderSavedRecords(){
     const host = byId('importPermitRecords');
     if(!host) return;
@@ -481,22 +531,36 @@
     }
     if(!savedRecords.length){
       host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير محفوظة بعد.</div>';
+      byId('importPermitResultsSummary').textContent = 'لا توجد فواتير محفوظة بعد.';
       return;
     }
-    host.innerHTML = savedRecords.map(record => {
+    fillRecordFilterOptions();
+    const records = filteredSavedRecords();
+    byId('importPermitResultsSummary').textContent = `عرض ${records.length.toLocaleString('ar-AE')} من ${savedRecords.length.toLocaleString('ar-AE')} فاتورة`;
+    if(!records.length){
+      host.innerHTML = '<div class="import-permit-records-empty">لا توجد فواتير مطابقة للفلاتر الحالية.</div>';
+      return;
+    }
+    host.innerHTML = records.map(record => {
       const active = record.id === currentRecordId ? ' active' : '';
+      const items = record.data?.items || [];
+      const total = items.reduce((sum, item) => sum + (numeric(item.amount) || 0), 0);
       return `<article class="import-permit-record${active}">
         <button type="button" class="import-permit-record-main" data-record-open="${escapeText(record.id)}">
           <b>${escapeText(record.reference)}</b>
           <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
+          <div class="import-permit-record-meta"><em>${escapeText(record.data?.proformaDate || 'بدون تاريخ')}</em><em>${escapeText(record.data?.currency || 'AED')} ${escapeText(money(total))}</em><em>${items.length.toLocaleString('ar-AE')} بند</em></div>
           <small>${escapeText(formatSavedDate(record.updatedAt))}</small>
         </button>
         <div class="import-permit-record-actions">
-          <button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}">فتح</button>
-          <button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}">أرشفة</button>
+          <button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}" data-ic="edit">فتح</button>
+          <button type="button" class="btn btn-ghost btn-small" data-record-preview="${escapeText(record.id)}" data-ic="eye">معاينة</button>
+          <button type="button" class="btn btn-primary btn-small" data-record-print="${escapeText(record.id)}" data-ic="printer">طباعة</button>
+          <button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}" data-ic="archive">أرشفة</button>
         </div>
       </article>`;
     }).join('');
+    if(typeof hydrateIcons === 'function') hydrateIcons(host);
   }
 
   function renderArchivedRecords(){
@@ -517,6 +581,38 @@
       </div>
       <div class="import-permit-record-actions"><button type="button" class="btn btn-primary btn-small" data-record-restore="${escapeText(record.id)}">استرجاع إلى السجل</button></div>
     </article>`).join('');
+  }
+
+  function previewSavedRecord(record){
+    const body = buildSavedRecordSheet(record, 'ar');
+    if(!body) return;
+    const html = buildStandaloneDocHtml(body, `معاينة ${record.reference}`);
+    const url = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
+    const previewLayer = byId('pdfPreviewOverlay');
+    if(previewLayer.parentElement !== document.documentElement) document.documentElement.appendChild(previewLayer);
+    previewLayer.classList.add('import-permit-preview-layer');
+    openPdfPreview(url, `معاينة ${record.reference}`);
+    setTimeout(() => { try{ URL.revokeObjectURL(url); }catch(error){} }, 60000);
+  }
+
+  function printSavedRecord(record){
+    const languageLayer = byId('docLangOverlay');
+    if(languageLayer.parentElement !== document.documentElement) document.documentElement.appendChild(languageLayer);
+    languageLayer.classList.add('import-permit-preview-layer');
+    chooseDocLang({...record.data, permitInvoice:true}, lang => {
+      const body = buildSavedRecordSheet(record, lang);
+      if(body) openPrintWindow(body);
+    });
+  }
+
+  function buildSavedRecordSheet(record, lang){
+    try{
+      return buildSheet(portalRecordFromData(record.data || {}, record.reference || '', lang), 'proforma', lang);
+    }catch(error){
+      console.error('import permit saved invoice render', error);
+      toast('تعذر تجهيز الفاتورة للمعاينة', 'err');
+      return '';
+    }
   }
 
   async function changeArchiveState(id, archived){
@@ -575,6 +671,23 @@
 
   function closePortal(){ hidePortal('importPermitOverlay'); }
 
+  function openRecordsInNewTab(){
+    const url = new URL(location.href);
+    url.searchParams.set('portal', 'import-permit-records');
+    url.hash = 'v=bsgt';
+    const opened = window.open(url.href, 'jahezImportPermitRecords');
+    if(!opened) toast('اسمح للنوافذ المنبثقة لفتح سجل الفواتير في تبويب مستقل.', 'err');
+    else try{ opened.focus(); }catch(error){}
+  }
+
+  function closeRecordsPortal(){
+    if(standaloneRegister && window.opener && !window.opener.closed){
+      window.close();
+      return;
+    }
+    hidePortal('importPermitRecordsOverlay');
+  }
+
   function portalIsReady(){
     if(!canUsePortal()){
       toast('ليست لديك صلاحية إنشاء الفاتورة', 'err');
@@ -599,6 +712,8 @@
     hidePortal('importPermitArchiveOverlay');
     showPortal('importPermitOverlay');
   };
+
+  window.openImportPermitRecords = openRecordsInNewTab;
 
   async function openRecordsPortal(){
     if(!portalIsReady()) return;
@@ -626,9 +741,9 @@
   }
 
   byId('importPermitCloseX').addEventListener('click', closePortal);
-  byId('importPermitRecordsCloseX').addEventListener('click', () => hidePortal('importPermitRecordsOverlay'));
+  byId('importPermitRecordsCloseX').addEventListener('click', closeRecordsPortal);
   byId('importPermitArchiveCloseX').addEventListener('click', () => hidePortal('importPermitArchiveOverlay'));
-  byId('importPermitOpenRecordsBtn').addEventListener('click', openRecordsPortal);
+  byId('importPermitOpenRecordsBtn').addEventListener('click', openRecordsInNewTab);
   byId('importPermitOpenArchiveBtn').addEventListener('click', openArchivePortal);
   byId('importPermitBackToRecordsBtn').addEventListener('click', openRecordsPortal);
   byId('importPermitResetBtn').addEventListener('click', resetPortal);
@@ -640,8 +755,20 @@
   byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord);
   byId('importPermitRecords').addEventListener('click', event => {
     const openButton = event.target.closest('[data-record-open]');
+    const previewButton = event.target.closest('[data-record-preview]');
+    const printButton = event.target.closest('[data-record-print]');
     const archiveButton = event.target.closest('[data-record-archive]');
     if(archiveButton) return changeArchiveState(archiveButton.dataset.recordArchive, true);
+    if(previewButton){
+      const record = savedRecords.find(item => item.id === previewButton.dataset.recordPreview);
+      if(record) previewSavedRecord(record);
+      return;
+    }
+    if(printButton){
+      const record = savedRecords.find(item => item.id === printButton.dataset.recordPrint);
+      if(record) printSavedRecord(record);
+      return;
+    }
     if(!openButton) return;
     const record = savedRecords.find(item => item.id === openButton.dataset.recordOpen);
     if(record){
@@ -653,6 +780,18 @@
   byId('importPermitArchivedRecords').addEventListener('click', event => {
     const button = event.target.closest('[data-record-restore]');
     if(button) changeArchiveState(button.dataset.recordRestore, false);
+  });
+  ['importPermitFilterSearch','importPermitFilterClient','importPermitFilterCurrency','importPermitFilterFrom','importPermitFilterTo','importPermitFilterSort'].forEach(id => {
+    byId(id).addEventListener(id === 'importPermitFilterSearch' ? 'input' : 'change', renderSavedRecords);
+  });
+  byId('importPermitFilterResetBtn').addEventListener('click', () => {
+    byId('importPermitFilterSearch').value = '';
+    byId('importPermitFilterClient').value = '';
+    byId('importPermitFilterCurrency').value = '';
+    byId('importPermitFilterFrom').value = '';
+    byId('importPermitFilterTo').value = '';
+    byId('importPermitFilterSort').value = 'updated-desc';
+    renderSavedRecords();
   });
   byId('importPermitAddItemBtn').addEventListener('click', () => { addItem(); markFormDirty(); });
   byId('permit_currency').addEventListener('change', updateAedConversionUi);
@@ -705,8 +844,20 @@
       if(!saved) return;
     }
     const record = portalRecord();
+    const languageLayer = byId('docLangOverlay');
+    if(languageLayer.parentElement !== document.documentElement) document.documentElement.appendChild(languageLayer);
+    languageLayer.classList.add('import-permit-preview-layer');
     chooseDocLang(record, lang => {
       openPrintWindow(buildSheet(portalRecord(lang), 'proforma', lang));
     });
   });
+
+  if(standaloneRegister){
+    const waitForSession = setInterval(() => {
+      if(!canUsePortal() || !catalog.length || !baharCompanyEntry()) return;
+      clearInterval(waitForSession);
+      openRecordsPortal();
+    }, 300);
+    setTimeout(() => clearInterval(waitForSession), 300000);
+  }
 })();
