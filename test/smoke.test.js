@@ -237,8 +237,9 @@ async function main() {
       }
     });
     await check('shipment list glass UI is isolated and server-paginated', async () => {
-      assert.ok(appHtml.includes('shipment-list.css?v=20260908-bsgt-polish-1'));
-      assert.ok(appHtml.includes('shipment-list.js?v=20260908-bsgt-polish-1'));
+      assert.ok(appHtml.includes('shipment-list.css?v=20260908-bsgt-polish-2'));
+      assert.ok(appHtml.includes('shipment-list.js?v=20260908-bsgt-polish-2'));
+      assert.ok(shipmentListCss.includes('sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody)'));
       assert.ok(shipmentListCss.includes('#viewRecords.shipment-glass-page'));
       assert.ok(shipmentListCss.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'));
       assert.ok(shipmentListCss.includes('@media (max-width: 1160px)'));

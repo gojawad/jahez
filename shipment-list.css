@@ -1138,6 +1138,15 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   -webkit-backdrop-filter: blur(18px);
 }
 
+/* Override the legacy BSGT card grid when the user switches to table mode. */
+#viewRecords.shipment-glass-page.sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody) {
+  display: block;
+  width: 100%;
+  min-width: 1280px;
+  gap: 0;
+  direction: rtl;
+}
+
 #viewRecords.shipment-glass-page.sp-view-table .ledger-row.head {
   display: grid;
   grid-template-columns: var(--sp-table-columns);
