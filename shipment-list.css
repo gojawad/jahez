@@ -1304,6 +1304,30 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   text-align: left;
 }
 
+.shipment-table-identifiers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--sp-text-2);
+  font-size: 8.5px;
+  direction: rtl;
+}
+
+.shipment-table-identifiers > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.shipment-table-identifiers b {
+  display: inline;
+  color: var(--sp-text);
+  font: 700 8.5px 'IBM Plex Mono', monospace;
+  direction: ltr;
+}
+
 .shipment-table-docs {
   display: flex;
   align-items: center;

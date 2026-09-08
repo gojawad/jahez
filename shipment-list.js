@@ -707,10 +707,15 @@
     const reference = record.operationNo || record.taskRef || record.invoiceNo || record.proformaNo || '—';
     const type = shipmentType(record);
     const collectionBadge = collectionStatusBadge(record, recStatus(record));
+    const invoiceNumber = record.invoiceNo || record.proformaNo || '';
+    const documentNumbers = [
+      invoiceNumber ? `<span title="رقم الفاتورة">${icon('invoice', 10)} فاتورة: <b>${escapeHtml(invoiceNumber)}</b></span>` : '',
+      record.billNo ? `<span title="رقم البوليصة">${icon('ship', 10)} بوليصة: <b>${escapeHtml(record.billNo)}</b></span>` : ''
+    ].filter(Boolean).join('');
     return `<div class="shipment-table-row" data-shipment-id="${escapeHtml(record.id)}" tabindex="0" role="button">
       <span class="shipment-card-sequence">${String(sequence).padStart(2, '0')}</span>
       <span class="shipment-table-main"><b title="${escapeHtml(record.itemDesc || '(بدون وصف)')}">${escapeHtml(record.itemDesc || '(بدون وصف)')}</b><small title="${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}">${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}</small></span>
-      <span class="shipment-table-meta"><b title="${escapeHtml(reference)}">${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small></span>
+      <span class="shipment-table-meta"><b title="${escapeHtml(reference)}">${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small>${documentNumbers ? `<span class="shipment-table-identifiers">${documentNumbers}</span>` : ''}</span>
       <span class="shipment-table-docs">${documentBadges(record)} ${statusBadge(recStatus(record))} ${collectionBadge}</span>
       <strong class="shipment-table-amount">${escapeHtml(record.totalAmount || '—')}</strong>
       <button class="shipment-table-action" type="button" data-shipment-open>فتح</button>
