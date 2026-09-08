@@ -672,10 +672,13 @@
     const companyName = record.consignee || record.exporter || 'لم يحدد العميل';
     const quantity = quantityText(record);
     const type = shipmentType(record);
+    const invoiceNumber = record.invoiceNo || record.proformaNo || '';
+    const collectionBadge = collectionStatusBadge(record, status);
     return `<article class="shipment-result-card" data-shipment-id="${escapeHtml(record.id)}" tabindex="0" role="button" aria-label="فتح تفاصيل ${escapeHtml(reference)}">
       <div class="shipment-card-top">
         <span class="shipment-card-sequence">${String(sequence).padStart(2, '0')}</span>
         ${statusBadge(status)}
+        ${collectionBadge}
         <span class="shipment-card-icon">${icon(getShipmentIcon(record.itemDesc || '', record), 21)}</span>
         <span class="shipment-card-menu">
           <button class="shipment-card-menu-button" type="button" data-shipment-menu aria-label="المزيد">⋮</button>
@@ -689,6 +692,8 @@
         <span>${icon('calendarIcon', 11)} ${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')}</span>
         ${quantity ? `<span>${icon('box', 11)} ${escapeHtml(quantity)}</span>` : ''}
         <span>${icon(type.icon, 11)} ${type.label}</span>
+        ${invoiceNumber ? `<span class="shipment-card-document-number" title="رقم الفاتورة">${icon('invoice', 11)} ${escapeHtml(invoiceNumber)}</span>` : ''}
+        ${record.billNo ? `<span class="shipment-card-document-number" title="رقم البوليصة">${icon('ship', 11)} ${escapeHtml(record.billNo)}</span>` : ''}
       </div>
       <div class="shipment-card-docs">${documentBadges(record)}</div>
       <footer class="shipment-card-footer">
@@ -701,11 +706,12 @@
   function shipmentTableRow(record, sequence){
     const reference = record.operationNo || record.taskRef || record.invoiceNo || record.proformaNo || '—';
     const type = shipmentType(record);
+    const collectionBadge = collectionStatusBadge(record, recStatus(record));
     return `<div class="shipment-table-row" data-shipment-id="${escapeHtml(record.id)}" tabindex="0" role="button">
       <span class="shipment-card-sequence">${String(sequence).padStart(2, '0')}</span>
       <span class="shipment-table-main"><b title="${escapeHtml(record.itemDesc || '(بدون وصف)')}">${escapeHtml(record.itemDesc || '(بدون وصف)')}</b><small title="${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}">${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}</small></span>
       <span class="shipment-table-meta"><b title="${escapeHtml(reference)}">${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small></span>
-      <span class="shipment-table-docs">${documentBadges(record)} ${statusBadge(recStatus(record))}</span>
+      <span class="shipment-table-docs">${documentBadges(record)} ${statusBadge(recStatus(record))} ${collectionBadge}</span>
       <strong class="shipment-table-amount">${escapeHtml(record.totalAmount || '—')}</strong>
       <button class="shipment-table-action" type="button" data-shipment-open>فتح</button>
     </div>`;
@@ -729,6 +735,15 @@
     const labels = {sent:'صادرة', review:'تحت المراجعة', rework:'معادة للتعديل', draft:'مسودة'};
     const icons = {sent:'checkCircle', review:'history', rework:'warning', draft:'doc'};
     return `<span class="shipment-status-badge ${status}">${icon(icons[status] || 'checkCircle', 11)} ${labels[status] || STATUS_AR[status] || 'صادرة'}</span>`;
+  }
+
+  function collectionStatusBadge(record, status){
+    if(scopeKey() !== 'bsgt' || status === 'draft' || typeof bsgtCollectionStatus !== 'function') return '';
+    const collectionStatus = bsgtCollectionStatus(record);
+    if(!collectionStatus) return '';
+    const kind = collectionStatus.kind || 'pending';
+    const label = collectionStatus.label || '';
+    return `<span class="shipment-collection-status ${escapeHtml(kind)}" title="${escapeHtml(label)}">${icon(collectionStatus.icon || 'history', 11)} ${escapeHtml(label)}</span>`;
   }
 
   function documentBadges(record){

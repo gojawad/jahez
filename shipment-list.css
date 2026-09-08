@@ -34,8 +34,8 @@
 }
 
 body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) {
-  padding-right: 0;
-  padding-left: 194px;
+  padding-right: 194px;
+  padding-left: 0;
   zoom: 100%;
   background:
     radial-gradient(circle at 82% 14%, rgba(69, 187, 245, .24), transparent 28rem),
@@ -66,17 +66,17 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .o-to
 }
 
 body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .app-sidebar {
-  right: auto;
-  left: 0;
+  right: 0;
+  left: auto;
   width: 194px;
   padding: 18px 11px 15px;
   overflow: hidden;
   border: 1px solid rgba(179, 220, 255, .28);
-  border-radius: 0 22px 22px 0;
+  border-radius: 22px 0 0 22px;
   background:
     radial-gradient(circle at 42% 4%, rgba(77, 165, 245, .3), transparent 13rem),
     linear-gradient(165deg, rgba(9, 55, 101, .97), rgba(3, 30, 61, .99));
-  box-shadow: 16px 0 45px rgba(10, 47, 89, .16), inset -1px 0 rgba(255, 255, 255, .08);
+  box-shadow: -16px 0 45px rgba(10, 47, 89, .16), inset 1px 0 rgba(255, 255, 255, .08);
 }
 
 body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .app-sidebar .o-brand {
@@ -966,6 +966,35 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   color: #627992;
 }
 
+.shipment-collection-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 25px;
+  padding: 2px 8px;
+  border: 1px solid rgba(218, 152, 49, .31);
+  border-radius: 999px;
+  background: var(--sp-warning-soft);
+  color: var(--sp-warning);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  direction: rtl;
+}
+
+.shipment-collection-status.pending {
+  border-color: rgba(117, 140, 164, .26);
+  background: rgba(237, 243, 249, .84);
+  color: #627992;
+}
+
+.shipment-collection-status.collected {
+  border-color: rgba(67, 188, 125, .3);
+  background: var(--sp-success-soft);
+  color: var(--sp-success);
+}
+
 .shipment-card-icon {
   display: grid;
   place-items: center;
@@ -1095,6 +1124,12 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   gap: 3px;
   min-width: 0;
   white-space: nowrap;
+}
+
+.shipment-card-meta .shipment-card-document-number {
+  color: var(--sp-text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
 }
 
 .shipment-card-meta span + span::before {
@@ -1437,14 +1472,15 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 
 @media (max-width: 860px) {
   body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) {
+    padding-right: 0;
     padding-left: 0;
     zoom: 100%;
   }
   body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .app-sidebar {
-    right: auto;
-    left: 0;
-    border-radius: 0 20px 20px 0;
-    transform: translateX(-105%);
+    right: 0;
+    left: auto;
+    border-radius: 20px 0 0 20px;
+    transform: translateX(105%);
   }
   body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .app-sidebar.is-open {
     transform: translateX(0);

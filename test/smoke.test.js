@@ -238,12 +238,14 @@ async function main() {
       }
     });
     await check('shipment list glass UI is isolated and server-paginated', async () => {
-      assert.ok(appHtml.includes('shipment-list.css?v=20260908-bsgt-shell-fix-1'));
-      assert.ok(appHtml.includes('shipment-list.js?v=20260908-bsgt-shell-fix-1'));
+      assert.ok(appHtml.includes('shipment-list.css?v=20260908-bsgt-card-meta-1'));
+      assert.ok(appHtml.includes('shipment-list.js?v=20260908-bsgt-card-meta-1'));
       assert.ok(shipmentListCss.includes('sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody)'));
       assert.ok(shipmentListCss.includes('backdrop-filter: none'));
       assert.ok(shipmentListCss.includes('#viewRecords.shipment-glass-page'));
       assert.ok(shipmentListCss.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'));
+      assert.ok(shipmentListCss.includes('padding-right: 194px'));
+      assert.ok(shipmentListCss.includes('.shipment-collection-status.collected'));
       assert.ok(shipmentListCss.includes('@media (max-width: 1160px)'));
       assert.ok(shipmentListCss.includes('@media (max-width: 600px)'));
       assert.ok(shipmentListJs.includes("const STORAGE_KEY = 'jahezShipmentListView'"));
@@ -255,6 +257,9 @@ async function main() {
       assert.ok(shipmentListJs.includes('shipment-empty-state'));
       assert.ok(shipmentListJs.includes('shipment-portal-slot'));
       assert.ok(shipmentListJs.includes("['bsgtImportPermitBtn', 'bsgtCollectionLabBtn']"));
+      assert.ok(shipmentListJs.includes('record.invoiceNo || record.proformaNo'));
+      assert.ok(shipmentListJs.includes('record.billNo'));
+      assert.ok(shipmentListJs.includes("typeof bsgtCollectionStatus !== 'function'"));
       assert.ok(shipmentListJs.includes('shipment-error-state'));
       assert.ok(shipmentListJs.includes('shipment-skeleton-grid'));
       assert.ok(!/\.from\('shipments'\)\.(insert|update|delete|upsert)/.test(shipmentListJs));
