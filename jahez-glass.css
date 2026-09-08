@@ -176,8 +176,6 @@ body::after {
   background: rgba(248, 252, 255, .69);
   border-bottom: 1px solid rgba(139, 174, 207, .24);
   box-shadow: 0 8px 28px rgba(27, 61, 95, .055), inset 0 1px rgba(255, 255, 255, .92);
-  backdrop-filter: blur(var(--backdrop-blur-md)) saturate(135%);
-  -webkit-backdrop-filter: blur(var(--backdrop-blur-md)) saturate(135%);
 }
 
 .app-page-title { color: var(--text-primary); }
@@ -883,7 +881,6 @@ body::after {
 @media (max-width: 760px) {
   body::before,
   body::after { opacity: .62; }
-  .o-navbar,
   .o-control-panel { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   .detail-card { border-radius: var(--radius-lg); }
 }

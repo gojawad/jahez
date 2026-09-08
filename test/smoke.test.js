@@ -137,17 +137,20 @@ async function main() {
       }
     });
     await check('Jahez Glass skin is isolated from generated documents', async () => {
-      assert.ok(appHtml.includes('jahez-glass.css?v=20260908-glass-1'));
+      assert.ok(appHtml.includes('jahez-glass.css?v=20260908-glass-2'));
       const glass = await (await fetch(`${BASE}/jahez-glass.css`)).text();
       assert.ok(glass.includes('--glass-bg-strong'));
       assert.ok(glass.includes('.app-sidebar'));
       assert.ok(glass.includes('.lab-header'));
       assert.ok(glass.includes('@media print'));
+      const navbarRule = glass.match(/\.o-navbar\s*\{([^}]*)\}/);
+      assert.ok(navbarRule);
+      assert.ok(!navbarRule[1].includes('backdrop-filter'));
       assert.ok(!glass.includes('.doc-sheet'));
       assert.ok(!glass.includes('.bahar-contract'));
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
-      assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-1'));
+      assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-2'));
     });
     await check('server files and SQL are not exposed', async () => {
       for (const p of ['/server.js', '/package.json', '/.env', '/.git/config', '/supabase/1.sql', '/api/microsoft.js', '/../etc/passwd', '/%2e%2e/etc/passwd']) {
