@@ -2455,7 +2455,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="import-permit.css?v=20260908-glass-1">
   <link rel="stylesheet" href="shipment-list.css?v=20260908-bsgt-table-meta-1">
   <link rel="stylesheet" href="landing.css?v=20260909-landing-1">
-  <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-3">
+  <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-4">
 </head>
 <body class="landing-active">
 
@@ -7284,7 +7284,9 @@ function applyBranding(){
       && branding.loginImgVersion === currentLoginHeroVersion
       && branding.loginImgCurrent === true
       && !!branding.loginImg;
-    lip.style.backgroundImage = hasCustomLoginImage ? `url("${branding.loginImg}")` : '';
+    lip.style.backgroundImage = '';
+    if(hasCustomLoginImage) lip.style.setProperty('--login-hero-image', `url("${branding.loginImg}")`);
+    else lip.style.removeProperty('--login-hero-image');
     lip.classList.toggle('has-custom-login-image', hasCustomLoginImage);
   }
 }

@@ -154,8 +154,10 @@ async function main() {
           viewportWidth:innerWidth,
           heroCount:document.querySelectorAll('#lockScreen .lock-image-panel').length,
           heroDisplay:getComputedStyle(hero).display,
-          heroImage:getComputedStyle(hero).backgroundImage,
-          heroBackgroundSize:getComputedStyle(hero).backgroundSize,
+          heroImage:getComputedStyle(hero, '::after').backgroundImage,
+          heroBackgroundSize:getComputedStyle(hero, '::after').backgroundSize,
+          heroFillImage:getComputedStyle(hero, '::before').backgroundImage,
+          heroFillSize:getComputedStyle(hero, '::before').backgroundSize,
           lock:rect('#lockScreen'),
           panel:rect('#lockScreen .lock-form-panel'),
           card:rect('#loginForm'),
@@ -183,7 +185,9 @@ async function main() {
       }else{
         assert.notStrictEqual(metrics.heroDisplay, 'none', 'desktop hero must remain visible');
         assert.ok(metrics.heroImage.includes('jahez-login-bsgt.png'), `desktop must use the new BSGT hero image, received ${metrics.heroImage.slice(0, 120)}`);
-        assert.strictEqual(metrics.heroBackgroundSize, 'contain', 'desktop login hero must not upscale and crop the approved image');
+        assert.ok(metrics.heroBackgroundSize.endsWith('contain'), 'desktop login hero must keep the approved image sharp and uncropped');
+        assert.ok(metrics.heroFillImage.includes('jahez-login-bsgt.png'), 'desktop login hero must fill its side edges from the approved image');
+        assert.strictEqual(metrics.heroFillSize, 'cover', 'only the soft background layer may cover the login panel');
         assert.ok(metrics.panel.width > 0 && metrics.panel.width < metrics.viewportWidth, 'desktop login panel must keep split layout');
       }
 

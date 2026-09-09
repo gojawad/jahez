@@ -27,6 +27,7 @@ body.login-active {
 #lockScreen.hidden { display: none; }
 
 #lockScreen .lock-image-panel {
+  --login-hero-image: url("jahez-login-bsgt.png");
   position: relative;
   z-index: 0;
   order: 1;
@@ -34,26 +35,36 @@ body.login-active {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background-color: #fff;
-  background-image: url("jahez-login-bsgt.png");
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #f4f6f8;
 }
 
-#lockScreen .lock-image-panel.has-custom-login-image {
-  background-size: contain;
+#lockScreen .lock-image-panel::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--login-hero-image);
+  background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(18px) saturate(.72);
+  opacity: .42;
 }
 
 #lockScreen .lock-image-panel::after {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
-  background:
+  background-image:
     linear-gradient(90deg, rgba(255,255,255,.2), transparent 18%),
-    linear-gradient(180deg, rgba(255,255,255,.02), transparent 58%, rgba(255,255,255,.1));
+    linear-gradient(180deg, rgba(255,255,255,.02), transparent 58%, rgba(255,255,255,.1)),
+    var(--login-hero-image);
+  background-size: 100% 100%, 100% 100%, contain;
+  background-position: center, center, center;
+  background-repeat: no-repeat;
 }
 
 #lockScreen .lock-form-panel {
