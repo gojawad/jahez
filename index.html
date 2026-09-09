@@ -5261,7 +5261,7 @@ SWIFT: NBEGEGCX"></textarea>
           </div>
           <small style="color:var(--muted);" id="bsgt_aedToggleHint">التحويل التلقائي لدرهم: مفعّل</small>
         </div>
-        <div class="field"><label>سعر الوحدة (يُحسب تلقائياً)</label><input type="text" id="bsgt_unitPrice" placeholder="يُحسب من المبلغ ÷ الكمية" readonly style="background:var(--panel-2,#f3f5f8);color:var(--muted)"></div>
+        <div class="field"><label>سعر الوحدة (يُحسب تلقائياً)</label><div style="display:flex;gap:8px;align-items:center"><input type="text" id="bsgt_unitPrice" placeholder="يُحسب من المبلغ ÷ الكمية" readonly style="flex:1;background:var(--panel-2,#f3f5f8);color:var(--muted)"><button type="button" class="btn btn-primary btn-small" id="bsgt_unitPriceToggle" title="إظهار أو إخفاء تفاصيل أسعار الأصناف من الفاتورة النهائية فقط — الفاتورة المبدئية لا تتأثر" style="white-space:nowrap;padding:8px 12px;">ظاهر في النهائية ✓</button></div><small id="bsgt_unitPriceToggleHint" style="color:var(--muted);">يؤثر على الفاتورة النهائية فقط</small></div>
         <div class="field"><label>مبلغ الصنف الأول</label><input type="text" id="bsgt_totalAmount" placeholder="مثال: 44040.00"></div>
         <div class="field">
           <label>الوزن (Weight)</label>
@@ -13857,6 +13857,17 @@ function setBsgtWeightToggle(on){
 }
 document.getElementById('bsgt_weightToggle').addEventListener('click', ()=> setBsgtWeightToggle(!bsgtShowWeight));
 
+// سعر الوحدة يظل موجوداً في المبدئية دائماً، ويمكن إخفاؤه لكل فاتورة نهائية على حدة.
+let bsgtShowFinalUnitPrice = true;
+function setBsgtUnitPriceToggle(on){
+  bsgtShowFinalUnitPrice = on;
+  document.getElementById('bsgt_unitPriceToggle').classList.toggle('btn-primary', on);
+  document.getElementById('bsgt_unitPriceToggle').classList.toggle('btn-ghost', !on);
+  document.getElementById('bsgt_unitPriceToggle').textContent = on ? 'ظاهر في النهائية ✓' : 'مخفي من النهائية';
+  document.getElementById('bsgt_unitPriceToggleHint').textContent = on ? 'يؤثر على الفاتورة النهائية فقط' : 'تفاصيل أسعار الأصناف مخفية — يظهر الإجمالي فقط أسفل الفاتورة';
+}
+document.getElementById('bsgt_unitPriceToggle').addEventListener('click', ()=> setBsgtUnitPriceToggle(!bsgtShowFinalUnitPrice));
+
 // سعر الوحدة يُحسب دائماً من المبلغ الإجمالي ÷ الكمية — حقل للعرض فقط، بدون إدخال يدوي،
 // عشان ما يفضل فاضي لو المستخدم نسي يكتبه (كان هذا سبب اختفائه من الفاتورة سابقاً).
 function recalcBsgtUnitPrice(){
@@ -14109,6 +14120,7 @@ function openBsgtShipForm(id){
   document.getElementById('bsgt_weight').value = r?.grossWeight || '';
   document.getElementById('bsgt_hsCode').value = r?.hsCode || '';
   setBsgtWeightToggle(r ? !!r.bsgtShowWeight : false);
+  setBsgtUnitPriceToggle(r ? r.bsgtShowFinalUnitPrice !== false : true);
   setLookupValue(document.getElementById('bsgt_portDischarge'), r?.portDischarge || '');
   setLookupValue(document.getElementById('bsgt_consignee'), r?.consignee || '');
   setLookupValue(document.getElementById('bsgt_consigneeAddress'), r?.consigneeAddress || '');
@@ -14275,6 +14287,7 @@ async function saveBsgtShipment(){
     grossWeight: document.getElementById('bsgt_weight').value,
     hsCode: document.getElementById('bsgt_hsCode').value,
     bsgtShowWeight: bsgtShowWeight,
+    bsgtShowFinalUnitPrice: bsgtShowFinalUnitPrice,
     portDischarge: document.getElementById('bsgt_portDischarge').value,
     consignee: document.getElementById('bsgt_consignee').value,
     consigneeAddress: document.getElementById('bsgt_consigneeAddress').value,
@@ -16042,7 +16055,8 @@ function baharSwakenInvoiceSheet(r, kind, lang){
     };
   }).filter((item, index) => index === 0 || item.description || item.quantity || item.packaging);
   const displayRows = Array.from({length:Math.max(5, items.length)}, (_, index) => items[index] || {});
-  const rows = displayRows.map(item => `<tr><td class="desc">${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(item.packaging)}</td><td>${esc(item.hsCode)}</td><td>${esc(r.grossWeight||'—')}</td><td>${esc(item.price)}</td><td>${esc(item.amount)}</td></tr>`).join('');
+  const showUnitPrice = isProforma || r.bsgtShowFinalUnitPrice !== false;
+  const rows = displayRows.map(item => `<tr><td class="desc">${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(item.packaging)}</td><td>${esc(item.hsCode)}</td><td>${esc(r.grossWeight||'—')}</td>${showUnitPrice?`<td>${esc(item.price)}</td><td>${esc(item.amount)}</td>`:''}</tr>`).join('');
   // تصغير تدريجي لجدول البنود مع زيادة عدد الأصناف — يمنع الجدول من الامتداد
   // فوق مكان الختم الثابت (كان بيحصل تداخل مزعج مع القوالب اللي فيها أصناف كتيرة).
   const baharRows = displayRows.length;
@@ -16072,7 +16086,7 @@ function baharSwakenInvoiceSheet(r, kind, lang){
     <main class="bahar-inv-content">
       <div class="bahar-inv-title"><span>${title}</span></div>
       <section class="bahar-inv-meta"><div><b>INVOICE NO &amp; DATE</b><span>${esc(number)} · ${esc(date)}</span></div><div><b>CONSIGNEE</b><span>${esc(r.consignee)}</span></div><div class="wide"><b>ADDRESS</b><span>${esc(r.consigneeAddress || r.portDischarge || '')}</span></div></section>
-      <table class="bahar-inv-items"><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PACKAGING TYPE</th><th>HS CODE</th><th>WEIGHT</th><th>${esc(amountCurrency)} U. PRICE</th><th>${esc(amountCurrency)} AMOUNT</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="bahar-inv-items"><thead><tr><th>DESCRIPTION</th><th>QUANTITY</th><th>PACKAGING TYPE</th><th>HS CODE</th><th>WEIGHT</th>${showUnitPrice?`<th>${esc(amountCurrency)} U. PRICE</th><th>${esc(amountCurrency)} AMOUNT</th>`:''}</tr></thead><tbody>${rows}</tbody></table>
       <section class="bahar-inv-totals"><div><b>TOTAL PACKAGES</b><strong>${esc(totalPackages)} ${esc(r.qtyUnit||'')}</strong></div><div><b>TOTAL AMOUNT</b><strong>${esc(amount)}</strong></div></section>
       ${r.amountInWords ? `<div class="bahar-inv-words">${esc(r.amountInWords)}</div>` : ''}
       <section class="bahar-inv-terms"><div><b>INCOTERM</b><span>${esc(r.incoterm||'')}</span></div><div><b>PORT OF DELIVERY</b><span>${esc(r.portDischarge||'')}</span></div><div><b>COUNTRY OF ORIGIN</b><span>${esc(r.countryOfOrigin||'')}</span></div><div><b>TERM OF PAYMENTS</b><span>${esc(r.paymentTerm||'')}</span></div></section>
@@ -16093,14 +16107,16 @@ function baharSwakenContractSheet(r){
     contractCellPaddingMm:.4, contractRowMinHeightMm:3.2, contractMarginPreset:'narrow',
     contractPageSideMm:12.7, contractTableTopMm:0,
     sellerAddress:'Office 307 Al Faheem Building, Al Wuha (1), Al Khaleej Street (Internal Access), Al Murar, Deira, Dubai, United Arab Emirates',
-    header:'',
+    header:'', contractStamp:'', useContractStamp:false,
     showStamp:true, stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
     showQr:true, qrPosition:{xPercent:72.5,yPercent:80.5,widthPercent:12,rotate:0}
   }, baharContractRuntimeSettings(r));
   // Contract stationery is intentionally independent from the invoice artwork.
   // The user can upload a replaceable full-page stationery image.
   const stationery = settings.header || '';
-  const stamp = settings.stamp || invoiceSettings.stamp || c.stamp || '';
+  const stamp = settings.useContractStamp === true
+    ? (settings.contractStamp || '')
+    : (settings.stamp || invoiceSettings.stamp || c.stamp || '');
   const stampPosition = Object.assign({xPercent:44.5,yPercent:76,widthPercent:14,rotate:0}, settings.stampPosition || {});
   const signature = settings.signature || invoiceSettings.signature || '';
   const signaturePosition = Object.assign({xPercent:10,yPercent:81,widthPercent:23,rotate:0}, settings.signaturePosition || invoiceSettings.signaturePosition || {});
@@ -18042,6 +18058,7 @@ async function drawBsgtPdfPage(doc, record, kind, embeddedFonts){
   let top = background ? 650 : 786;
   const isPacking = kind === 'packing';
   const isProforma = kind === 'proforma';
+  const showUnitPrice = !isPacking && (isProforma || record.bsgtShowFinalUnitPrice !== false);
   const title = isPacking ? 'PACKING LIST' : isProforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE';
   // Omit a fill when a section sits on the company letterhead, preserving the
   // watermark behind the table instead of covering it with a white box.
@@ -18058,8 +18075,8 @@ async function drawBsgtPdfPage(doc, record, kind, embeddedFonts){
   bsgtPdfText(page, 'ADDRESS', left+8, top-39, full-16, {font:bold,size:8,color:accent,maxLines:1});
   bsgtPdfText(page, record.consigneeAddress || record.portDischarge || '', left+8, top-48, full-16, {font,size:7.2,color:ink,maxLines:1}); top -= metaH + 10;
   const rows = bsgtPdfRows(record); const shownRows = Math.max(5, Math.min(9, rows.length));
-  const headers = isPacking ? ['DESCRIPTION','QUANTITY','PKGS TYPE','HS CODE','WEIGHT'] : ['DESCRIPTION','QUANTITY','PKGS TYPE','HS CODE','AED U. PRICE','AED AMOUNT'];
-  const ratios = isPacking ? [.31,.16,.19,.16,.18] : [.28,.13,.16,.12,.16,.15];
+  const headers = isPacking ? ['DESCRIPTION','QUANTITY','PKGS TYPE','HS CODE','WEIGHT'] : (showUnitPrice ? ['DESCRIPTION','QUANTITY','PKGS TYPE','HS CODE','AED U. PRICE','AED AMOUNT'] : ['DESCRIPTION','QUANTITY','PKGS TYPE','HS CODE']);
+  const ratios = isPacking ? [.31,.16,.19,.16,.18] : (showUnitPrice ? [.28,.13,.16,.12,.16,.15] : [.38,.20,.22,.20]);
   const headH = 21, rowH = 20, tableH = headH + shownRows * rowH;
   rect(left, top, full, tableH); rect(left, top, full, headH, transparentCells ? undefined : accent, border);
   let x = left; const columns = ratios.map(ratio => { const width = full * ratio; const column = {x,width}; x += width; return column; });
@@ -18067,7 +18084,7 @@ async function drawBsgtPdfPage(doc, record, kind, embeddedFonts){
   for(let index=1; index<=shownRows; index++) line(left, top-headH-index*rowH, right);
   headers.forEach((header,index) => bsgtPdfText(page, header, columns[index].x+3, top-5, columns[index].width-6, {font:bold,size:6.6,color:transparentCells ? ink : rgb(1,1,1),align:'center',maxLines:1}));
   rows.slice(0,shownRows).forEach((row,rowIndex) => {
-    const values = isPacking ? [row.description,row.quantity,row.packaging,row.hsCode,rowIndex === 0 ? (record.grossWeight || '') : ''] : [row.description,row.quantity,row.packaging,row.hsCode,row.price,row.amount];
+    const values = isPacking ? [row.description,row.quantity,row.packaging,row.hsCode,rowIndex === 0 ? (record.grossWeight || '') : ''] : (showUnitPrice ? [row.description,row.quantity,row.packaging,row.hsCode,row.price,row.amount] : [row.description,row.quantity,row.packaging,row.hsCode]);
     values.forEach((value,index) => bsgtPdfText(page, value || '', columns[index].x+4, top-headH-rowIndex*rowH-5, columns[index].width-8, {font,index,size:index===0 ? 8.5 : 8,color:ink,align:index===0?'left':'center',maxLines:1}));
   });
   top -= tableH + 9;
@@ -19359,7 +19376,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
 <script src="import-permit.js?v=20260908-7"></script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260907-contract-stationery"></script>
+<script src="company-wizard.js?v=20260909-document-controls"></script>
 <script src="shipment-detail.js"></script>
 <script src="shipment-list.js?v=20260908-bsgt-table-meta-1"></script>
 </body>

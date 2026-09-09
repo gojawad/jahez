@@ -340,7 +340,7 @@
         ${fileControl('signature', 'صورة التوقيع', 'image/png,image/jpeg,image/webp', settings.signature, 'يفضل PNG بخلفية شفافة. الصورة اختيارية.')}
         ${transformControls('signature', 'تحريك وتعديل التوقيع', signaturePosition)}
         <div class="bs-actions"><button type="button" class="btn btn-primary bs-save">حفظ إعدادات المعاينة</button><button type="button" class="btn btn-gold bs-save-refresh">حفظ وتحديث كل حزم QR</button><button type="button" class="btn btn-ghost bs-preview">معاينة الطباعة</button></div>
-      </div><aside class="bs-live"><div class="bs-live-head"><div><strong>المعاينة الحية</strong><small>نموذج A4 حقيقي</small></div><div class="bs-zoom"><button type="button" data-zoom=".62">Fit</button><button type="button" data-zoom=".75">75%</button><button type="button" data-zoom="1">100%</button></div></div><div class="bs-page-stage"><iframe class="bs-live-frame" title="المعاينة الحية لفاتورة بحر سواكن" src="/invoice-template-preview/bahar-swaken/?embed=editor&v=20260906-qr2"></iframe></div></aside></div>`;
+      </div><aside class="bs-live"><div class="bs-live-head"><div><strong>المعاينة الحية</strong><small>نموذج A4 حقيقي</small></div><div class="bs-zoom"><button type="button" data-zoom=".62">Fit</button><button type="button" data-zoom=".75">75%</button><button type="button" data-zoom="1">100%</button></div></div><div class="bs-page-stage"><iframe class="bs-live-frame" title="المعاينة الحية لفاتورة بحر سواكن" src="/invoice-template-preview/bahar-swaken/?embed=editor&v=20260909-document-controls"></iframe></div></aside></div>`;
     const one = selector => simple.querySelector(selector);
     one('.bs-name').value = settings.name;
     one('.bs-qr-caption-ar').value = settings.qrCaptionAr ?? invoicePreviewDefaults().qrCaptionAr;
@@ -637,6 +637,8 @@
     contractTableTopMm:0,
     sellerAddress:CONTRACT_ADDRESS,
     header:'',
+    contractStamp:'',
+    useContractStamp:false,
     showStamp:true,
     stampPosition:{xPercent:44.5,yPercent:76,widthPercent:14,rotate:0},
     showQr:true,
@@ -684,6 +686,9 @@
     next.contractMarginPreset = overlay.querySelector('.bce-margin').value;
     next.sellerAddress = overlay.querySelector('.bce-address').value.trim() || CONTRACT_ADDRESS;
     next.header = overlay.querySelector('.bce-header-file').dataset.value || '';
+    const stampCard = overlay.querySelector('.bce-stamp-file');
+    next.contractStamp = stampCard.dataset.value || '';
+    next.useContractStamp = stampCard.dataset.override === 'true';
     next.showStamp = overlay.querySelector('.bce-show-stamp').checked;
     next.showQr = overlay.querySelector('.bce-show-qr').checked;
     next.showQrCaption = overlay.querySelector('.bce-show-qr-caption').checked;
@@ -798,6 +803,8 @@
     root.innerHTML = `<style>
       .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-section-note{margin:-6px 0 10px;color:#728195;font-size:12px;line-height:1.6}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-file-box{padding:12px;border:1px dashed #cbd9e7;border-radius:12px;background:#f8fbfe}.bce-file-thumb{height:92px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;color:#8796a7;font-size:12px}.bce-file-thumb img{max-width:100%;max-height:100%;object-fit:contain}.bce-file-actions{display:flex;gap:8px;margin-top:10px}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
     </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>خلفية ورقة العقد وعناصره مستقلة عن الفاتورة ومحفوظة على الموقع.</p><section class="bce-section"><h4>خلفية وترويسة صفحة العقد</h4><p class="bce-section-note">ارفع صورة ورقة بحر سواكن الكاملة A4، بما فيها الترويسة والعلامة المائية والتذييل، بنفس آلية خلفية جدول الفاتورة.</p><div class="bce-file-box bce-header-file"><div class="bce-file-thumb">${draft.header?`<img src="${safe(draft.header)}" alt="خلفية ورقة العقد">`:'<span>لا توجد خلفية — صفحة العقد بيضاء</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-header-pick">رفع / استبدال الخلفية</button><button type="button" class="btn btn-ghost btn-small bce-header-remove">إزالة</button><input type="file" class="bce-header-input" accept="image/png,image/jpeg,image/webp" hidden></div></div></section><div class="bce-grid" style="margin-top:18px"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section><div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
+    const contractElements = root.querySelector('.bce-show-stamp').closest('.bce-section');
+    contractElements.querySelector('.bce-transform').insertAdjacentHTML('beforebegin', `<div class="bce-file-box bce-stamp-file" style="margin-top:12px"><div class="bce-file-thumb">${draft.useContractStamp?(draft.contractStamp?`<img src="${safe(draft.contractStamp)}" alt="ختم العقد">`:'<span>ختم العقد مخفي — ارفع صورة جديدة لإظهاره</span>'):'<span>يستخدم ختم الفاتورة الحالي</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-stamp-pick">إضافة / استبدال ختم العقد</button><button type="button" class="btn btn-ghost btn-small bce-stamp-remove">إزالة من العقد</button><button type="button" class="btn btn-ghost btn-small bce-stamp-shared">استخدام ختم الفاتورة</button><input type="file" class="bce-stamp-input" accept="image/png,image/jpeg,image/webp" hidden></div></div>`);
     root.querySelector('.bce-margin').value = draft.contractMarginPreset;
     const headerCard = root.querySelector('.bce-header-file');
     const headerInput = root.querySelector('.bce-header-input');
@@ -818,6 +825,37 @@
       headerCard.dataset.value = '';
       headerInput.value = '';
       headerCard.querySelector('.bce-file-thumb').innerHTML = '<span>لا توجد خلفية — صفحة العقد بيضاء</span>';
+      schedulePreview();
+    });
+    const stampCard = root.querySelector('.bce-stamp-file');
+    const stampInput = root.querySelector('.bce-stamp-input');
+    stampCard.dataset.value = draft.contractStamp || '';
+    stampCard.dataset.override = draft.useContractStamp ? 'true' : 'false';
+    root.querySelector('.bce-stamp-pick').addEventListener('click', () => stampInput.click());
+    stampInput.addEventListener('change', () => {
+      const file = stampInput.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        stampCard.dataset.value = String(reader.result || '');
+        stampCard.dataset.override = 'true';
+        stampCard.querySelector('.bce-file-thumb').innerHTML = `<img src="${reader.result}" alt="ختم العقد">`;
+        schedulePreview();
+      };
+      reader.readAsDataURL(file);
+    });
+    root.querySelector('.bce-stamp-remove').addEventListener('click', () => {
+      stampCard.dataset.value = '';
+      stampCard.dataset.override = 'true';
+      stampInput.value = '';
+      stampCard.querySelector('.bce-file-thumb').innerHTML = '<span>ختم العقد مخفي — ارفع صورة جديدة لإظهاره</span>';
+      schedulePreview();
+    });
+    root.querySelector('.bce-stamp-shared').addEventListener('click', () => {
+      stampCard.dataset.value = '';
+      stampCard.dataset.override = 'false';
+      stampInput.value = '';
+      stampCard.querySelector('.bce-file-thumb').innerHTML = '<span>يستخدم ختم الفاتورة الحالي</span>';
       schedulePreview();
     });
     root.querySelectorAll('input,select,textarea').forEach(input => input.addEventListener('input', schedulePreview));
@@ -1073,7 +1111,7 @@
         return {
           description: record.itemDesc || '',
           quantity: record.qty || '',
-          packaging: record.qtyUnit || '',
+          packaging: record.itemUnit || record.qtyUnit || '',
           hsCode: record.hsCode || '',
           price: toAedText(record.item1Price || record.unitPrice || '', record.bsgtAutoAed !== false),
           amount: toAedText(record.item1Amount || record.totalAmount || '', record.bsgtAutoAed !== false)
@@ -1145,7 +1183,8 @@
     // WEIGHT column always shows in the packing list (its whole purpose), but in the
     // proforma/invoice it's opt-in per shipment via the entry form's "إظهار في الفاتورة" toggle.
     const showWeight = isPack || !!record.bsgtShowWeight;
-    const itemRows = visibleRows.map((row, index) => `<tr><td class="bs-product-value desc">${safe(row.description)}</td><td class="bs-product-value">${safe(row.quantity)}</td><td class="bs-product-value">${safe(row.packaging)}</td><td class="bs-product-value">${safe(row.hsCode)}</td>${showWeight ? `<td class="bs-product-value">${index === 0 ? safe(record.grossWeight || '—') : ''}</td>` : ''}${isPack ? '' : `<td class="bs-product-value">${safe(row.price)}</td><td class="bs-product-value">${safe(row.amount)}</td>`}</tr>`).join('');
+    const showUnitPrice = !isPack && (proforma || record.bsgtShowFinalUnitPrice !== false);
+    const itemRows = visibleRows.map((row, index) => `<tr><td class="bs-product-value desc">${safe(row.description)}</td><td class="bs-product-value">${safe(row.quantity)}</td><td class="bs-product-value">${safe(row.packaging)}</td><td class="bs-product-value">${safe(row.hsCode)}</td>${showWeight ? `<td class="bs-product-value">${index === 0 ? safe(record.grossWeight || '—') : ''}</td>` : ''}${isPack || !showUnitPrice ? '' : `<td class="bs-product-value">${safe(row.price)}</td><td class="bs-product-value">${safe(row.amount)}</td>`}</tr>`).join('');
     let bankRaw = (record.bankDetails || '').trim();
     if (!bankRaw) {
       const legacy = [];
@@ -1167,7 +1206,7 @@
           ${background ? '' : `<header class="brand"><div><b>${safe(currentCompany.nameEn || 'BAHAR SWAKEN GENERAL TRADING L.L.C')}</b><small>${safe(currentCompany.nameAr || '')}</small></div>${currentCompany.logo ? `<img src="${currentCompany.logo}" alt="">` : ''}</header>`}
           <div class="bs-invoice-title">${isPack ? 'PACKING LIST' : (proforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE')}</div>
           <section class="meta"><div><b class="bs-field-label">CONSIGNEE</b><span class="bs-field-value">${safe(record.consignee)}</span></div><div><b class="bs-field-label">INVOICE NO &amp; DATE</b><span class="bs-field-value">${safe(proforma ? record.proformaNo : record.invoiceNo)} · ${safe(date)}</span></div><div class="wide"><b class="bs-field-label">ADDRESS</b><span class="bs-field-value bs-address-value">${safe(record.consigneeAddress || record.portDischarge || '')}</span></div></section>
-          <table><thead><tr><th class="bs-product-header">DESCRIPTION</th><th class="bs-product-header">QUANTITY</th><th class="bs-product-header">PKGS TYPE</th><th class="bs-product-header">HS CODE</th>${showWeight ? '<th class="bs-product-header">WEIGHT</th>' : ''}${isPack ? '' : '<th class="bs-product-header">AED U. PRICE</th><th class="bs-product-header">AED AMOUNT</th>'}</tr></thead><tbody>${itemRows}</tbody></table>
+          <table><thead><tr><th class="bs-product-header">DESCRIPTION</th><th class="bs-product-header">QUANTITY</th><th class="bs-product-header">PKGS TYPE</th><th class="bs-product-header">HS CODE</th>${showWeight ? '<th class="bs-product-header">WEIGHT</th>' : ''}${isPack || !showUnitPrice ? '' : '<th class="bs-product-header">AED U. PRICE</th><th class="bs-product-header">AED AMOUNT</th>'}</tr></thead><tbody>${itemRows}</tbody></table>
           <section class="totals" style="${isPack ? 'grid-template-columns:1fr' : ''}"><div><b class="bs-bottom-label">TOTAL PACKAGES</b><strong class="bs-total-cartons">${safe(record.totalQty || record.qty || '')} ${safe(record.qtyUnit || '')}</strong></div>${isPack ? '' : `<div><b class="bs-bottom-label">TOTAL AMOUNT</b><strong class="bs-total-amount">${safe(toAedText(record.totalAmount, record.bsgtAutoAed !== false) || rows[0]?.amount || '')}</strong></div>`}</section>
           ${(!isPack && (record.amountInWords || amountInWordsLine(toAedText(record.totalAmount, record.bsgtAutoAed !== false) || rows[0]?.amount))) ? `<div class="bs-words">${safe(record.amountInWords || amountInWordsLine(toAedText(record.totalAmount, record.bsgtAutoAed !== false) || rows[0]?.amount))}</div>` : ''}
           ${isPack ? '' : `<section class="terms"><div><b class="bs-bottom-label">INCOTERM</b><span class="bs-bottom-value">${safe(record.incoterm || '')}</span></div><div><b class="bs-bottom-label">PORT OF DELIVERY</b><span class="bs-bottom-value">${safe(record.portDischarge || '')}</span></div><div><b class="bs-bottom-label">COUNTRY OF ORIGIN</b><span class="bs-bottom-value">${safe(record.countryOrigin || '')}</span></div><div><b class="bs-bottom-label">TERM OF PAYMENTS</b><span class="bs-bottom-value">${safe(record.paymentTerm || '')}</span></div></section>`}
