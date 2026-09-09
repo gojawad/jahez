@@ -13,6 +13,12 @@ const collectionTextLayerStorageKey = 'bsCollectionTextLayers';
 const remittingSubmissionStorageKey = 'bsCollectionRemittingSubmissions';
 const sectionCollapseStorageKey = 'bsCollectionSectionCollapsed';
 const stampTransformStorageKey = 'bsCollectionStampTransformA4';
+const collectionDocumentEditorMetaStorageKey = 'bsCollectionDocumentEditorMetaV1';
+const collectionDocumentLabels = {
+  letter:{title:'خطاب التحصيل',subtitle:'Collection Letter',icon:'envelope'},
+  undertaking:{title:'خطاب التعهد',subtitle:'Undertaking Letter',icon:'check-shield'},
+  exchange:{title:'الكمبيالة',subtitle:'Bill of Exchange',icon:'receipt'}
+};
 const portalSectionNames = ['picker-section','draft-section','settings-section','preview-section','collection-portal-section'];
 const portalRoleLabels = {admin:'مدير النظام',editor:'محرر',staff:'موظف',viewer:'مشاهد',bsgt_user:'مستخدم BSGT'};
 let textBlockEditMode = false;
@@ -24,6 +30,7 @@ let sharedCollectionBranding = {};
 let layoutHistory = [];
 let layoutRedoHistory = [];
 let restoringLayoutHistory = false;
+const dirtyDocumentLayouts = new Set();
 const layoutHistoryKeys = [collectionTextOffsetStorageKey, collectionTextBlockOffsetStorageKey, collectionTextStyleStorageKey, collectionTextLayerStorageKey, stampTransformStorageKey];
 function layoutSnapshot(){ return Object.fromEntries(layoutHistoryKeys.map(key=>[key,localStorage.getItem(key)])); }
 function updateLayoutHistoryControls(){
@@ -45,6 +52,7 @@ function restoreLayoutSnapshot(snapshot){
   restoringLayoutHistory=true;
   Object.entries(snapshot).forEach(([key,value])=>{ if(value===null) localStorage.removeItem(key); else localStorage.setItem(key,value); });
   restoringLayoutHistory=false;
+  markDocumentLayoutDirty();
   renderPreview();
   updateLayoutHistoryControls();
 }
@@ -57,6 +65,40 @@ function redoLayout(){
   if(!layoutRedoHistory.length) return;
   layoutHistory.push(layoutSnapshot());
   restoreLayoutSnapshot(layoutRedoHistory.pop());
+}
+function documentEditorMeta(){ try { return JSON.parse(localStorage.getItem(collectionDocumentEditorMetaStorageKey)||'{}')||{}; } catch (_) { return {}; } }
+function savedAtLabel(value){
+  if(!value) return 'لم يتم الحفظ يدوياً بعد';
+  try { return `آخر حفظ: ${new Intl.DateTimeFormat('ar-AE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))}`; }
+  catch (_) { return 'تم حفظ إعدادات المستند'; }
+}
+function updateDocumentEditorState(){
+  const info=collectionDocumentLabels[state.preview]||collectionDocumentLabels.letter;
+  if($('activeDocumentTitle')) $('activeDocumentTitle').textContent=info.title;
+  if($('previewFocusTitle')) $('previewFocusTitle').textContent=`معاينة ${info.title}`;
+  const status=$('documentSaveStatus');
+  if(status){
+    const dirty=dirtyDocumentLayouts.has(state.preview);
+    status.textContent=dirty?'توجد تعديلات بعد آخر حفظ':savedAtLabel(documentEditorMeta()[state.preview]?.savedAt);
+    status.classList.toggle('is-dirty',dirty);
+  }
+  document.querySelectorAll('[data-preview]').forEach(button=>button.classList.toggle('active',button.dataset.preview===state.preview));
+}
+function markDocumentLayoutDirty(){ dirtyDocumentLayouts.add(state.preview); updateDocumentEditorState(); }
+function saveCurrentDocumentLayout(){
+  const meta=documentEditorMeta();
+  meta[state.preview]={savedAt:new Date().toISOString()};
+  try { localStorage.setItem(collectionDocumentEditorMetaStorageKey,JSON.stringify(meta)); }
+  catch (_) { alert('تعذّر حفظ إعدادات المستند على هذا الجهاز.'); return; }
+  dirtyDocumentLayouts.delete(state.preview);
+  updateDocumentEditorState();
+  const button=$('saveDocumentLayoutBtn');
+  if(button){
+    const original=button.innerHTML;
+    button.innerHTML='<i class="bx bx-check"></i> تم حفظ المستند';
+    button.classList.add('is-saved');
+    setTimeout(()=>{ button.innerHTML=original; button.classList.remove('is-saved'); },1600);
+  }
 }
 const collectionListFields = {
   remittingBank:{label:'البنك المُرسِل',defaults:['Abu Dhabi Islamic Bank']}, remittingBankLetterAddress:{label:'عنوان بنك الإرسال للخطاب',defaults:['Abu Dhabi, UAE']}, remittingBankAddress:{label:'عنوان بنك الإرسال للتعهد',defaults:['BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.']}, remittingBankAccountNo:{label:'رقم حساب بنك الإرسال',defaults:['19567664']}, collectingBankProfile:{label:'بنك التحصيل وعنوانه',paired:true,defaults:[{bank:'SAUDI SUDANESE BANK',address:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN'}]},
@@ -182,18 +224,21 @@ function openPortalSection(sectionName){
   document.querySelector(`.${sectionName}`)?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function collectionTextOffsets(){ try { return JSON.parse(localStorage.getItem(collectionTextOffsetStorageKey)||'{}')||{}; } catch (_) { return {}; } }
-function textOffsetForPreview(){ return Object.assign({x:0,y:0}, collectionTextOffsets()[state.preview]||{}); }
+function textOffsetForPreview(){ return Object.assign({x:0,y:0,scale:100}, collectionTextOffsets()[state.preview]||{}); }
 function updateTextOffsetControls(){
   const x=$('textOffsetX'), y=$('textOffsetY'); if(!x||!y) return;
   const offset=textOffsetForPreview(); x.value=offset.x; y.value=offset.y;
   $('textOffsetXValue').textContent=`${offset.x} mm`;
   $('textOffsetYValue').textContent=`${offset.y} mm`;
+  if($('documentTextScale')) $('documentTextScale').value=offset.scale;
+  if($('documentTextScaleValue')) $('documentTextScaleValue').textContent=`${offset.scale}%`;
 }
 function saveTextOffset(axis, value){
   recordLayoutHistory();
-  const offsets=collectionTextOffsets(), current=Object.assign({x:0,y:0},offsets[state.preview]||{});
+  const offsets=collectionTextOffsets(), current=Object.assign({x:0,y:0,scale:100},offsets[state.preview]||{});
   current[axis]=Number(value)||0; offsets[state.preview]=current;
   try { localStorage.setItem(collectionTextOffsetStorageKey,JSON.stringify(offsets)); } catch (_) {}
+  markDocumentLayoutDirty();
   renderPreview();
 }
 function collectionTextBlockOffsets(){ try { return JSON.parse(localStorage.getItem(collectionTextBlockOffsetStorageKey)||'{}')||{}; } catch (_) { return {}; } }
@@ -202,6 +247,7 @@ function saveTextBlockOffset(preview, index, offset){
   recordLayoutHistory();
   const offsets=collectionTextBlockOffsets(); offsets[preview]=offsets[preview]||{}; offsets[preview][index]=offset;
   try { localStorage.setItem(collectionTextBlockOffsetStorageKey,JSON.stringify(offsets)); } catch (_) {}
+  markDocumentLayoutDirty();
 }
 function collectionTextStyles(){ try { return JSON.parse(localStorage.getItem(collectionTextStyleStorageKey)||'{}')||{}; } catch (_) { return {}; } }
 function collectionTextLayers(){ try { return JSON.parse(localStorage.getItem(collectionTextLayerStorageKey)||'{}')||{}; } catch (_) { return {}; } }
@@ -210,28 +256,22 @@ function saveTextLayer(preview,index,layer){
   recordLayoutHistory();
   const layers=collectionTextLayers(); layers[preview]=layers[preview]||{}; layers[preview][index]=layer;
   try { localStorage.setItem(collectionTextLayerStorageKey,JSON.stringify(layers)); } catch (_) {}
+  markDocumentLayoutDirty();
 }
 function textLayerLabel(block,index){
   const label=block.matches('table')?'جدول':block.matches('h1,h2,h3')?'عنوان':(block.innerText||block.textContent||'نص').replace(/\s+/g,' ').trim();
   return `${index+1}. ${label.slice(0,42)||'طبقة نص'}`;
 }
 function ensureTextLayerControls(){
-  const textControls=document.querySelector('.text-position-controls > div');
-  if(textControls&&!$('selectParagraphForArrowsBtn')){
-    textControls.insertAdjacentHTML('beforeend','<div class="layout-history-actions"><button id="undoLayoutBtn" class="text-btn" type="button" title="Ctrl+Z"><i class="bx bx-undo"></i> تراجع</button><button id="redoLayoutBtn" class="text-btn" type="button" title="Ctrl+Y"><i class="bx bx-redo"></i> إعادة</button></div><button id="selectParagraphForArrowsBtn" class="text-btn" type="button"><i class="bx bx-arrow-to-top"></i> تحريك الفقرة بالأسهم</button><button id="resetCurrentPreviewBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> إرجاع هذه الصفحة للافتراضي</button>');
-    $('undoLayoutBtn').addEventListener('click',undoLayout);
-    $('redoLayoutBtn').addEventListener('click',redoLayout);
-    $('selectParagraphForArrowsBtn').addEventListener('click',()=>{
-      if(!selectedTextBlock||selectedTextBlock.preview!==state.preview){ alert('اختر الفقرة أولاً من الورقة أو من طبقات النص.'); return; }
-      selectedTextStyle={preview:state.preview,id:`block-${selectedTextBlock.index}`};
-      textBlockEditMode=true;
-      renderPreview();
-    });
-    $('resetCurrentPreviewBtn').addEventListener('click',resetCurrentPreviewLayout);
-    updateLayoutHistoryControls();
-  }
-  if($('textLayersPanel')) return;
-  document.querySelector('.preview-actions')?.insertAdjacentHTML('afterbegin',`<details class="text-review-controls"><summary><i class="bx bx-git-compare"></i> النص الأصلي / المعاينة</summary><div id="textComparePanel" class="text-compare-panel"><p>اختر طبقة لعرض المقارنة.</p></div></details><details class="text-layer-controls"><summary><i class="bx bx-layer"></i> طبقات النص</summary><div id="textLayersPanel" class="text-layers-panel"><p>اختر شحنات لإظهار الطبقات.</p></div></details>`);
+  $('undoLayoutBtn')?.addEventListener('click',undoLayout);
+  $('redoLayoutBtn')?.addEventListener('click',redoLayout);
+  $('selectParagraphForArrowsBtn')?.addEventListener('click',()=>{
+    if(!selectedTextBlock||selectedTextBlock.preview!==state.preview){ alert('اختر الفقرة أولاً من الورقة أو من طبقات النص.'); return; }
+    selectedTextStyle={preview:state.preview,id:`block-${selectedTextBlock.index}`};
+    textBlockEditMode=true;
+    renderPreview();
+  });
+  $('resetCurrentPreviewBtn')?.addEventListener('click',resetCurrentPreviewLayout);
   $('textLayersPanel')?.addEventListener('click',event=>{
     if(portalRole!=='admin') return;
     const button=event.target.closest('button[data-layer-action]'); if(!button) return;
@@ -250,6 +290,7 @@ function ensureTextLayerControls(){
     }
     renderPreview();
   });
+  updateLayoutHistoryControls();
 }
 function renderTextLayers(content){
   const panel=$('textLayersPanel'); if(!panel) return;
@@ -268,31 +309,96 @@ function renderTextCompare(content){
   if(!block){ panel.innerHTML='<p>اختر طبقة من القائمة أو من المستند لعرض النص.</p>'; return; }
   const original=(block.dataset.originalText||block.innerText||'').trim();
   const current=(block.innerText||'').trim();
-  panel.innerHTML=`<div class="text-compare-columns"><section><strong>الأصلي</strong><pre>${esc(original)}</pre></section><section><strong>المعاينة</strong><pre>${esc(current)}</pre></section></div><small>${original===current?'الكلمات متطابقة. التعديل الحالي موضع أو تنسيق فقط.':'هناك اختلاف في النص المعروض.'}</small>`;
+  panel.innerHTML=`<div class="text-compare-columns"><section><strong>الأصلي</strong><pre>${esc(original)}</pre></section><section><strong>المعاينة</strong><pre>${esc(current)}</pre></section></div><small>${original===current?'التعديل الحالي على الموضع أو التنسيق فقط.':'هناك اختلاف في النص المعروض.'}</small>`;
 }
-function textStyleFor(preview, id){ return Object.assign({weight:'',size:0,x:0,y:0},collectionTextStyles()[preview]?.[id]||{}); }
+function textStyleFor(preview, id){
+  return Object.assign({weight:'',size:0,fontSize:0,fontFamily:'',fontStyle:'',textDecoration:'',textAlign:'',lineHeight:0,letterSpacing:null,marginTop:null,marginBottom:null,x:0,y:0},collectionTextStyles()[preview]?.[id]||{});
+}
 function saveTextStyle(preview, id, style){
   recordLayoutHistory();
   const styles=collectionTextStyles(); styles[preview]=styles[preview]||{}; styles[preview][id]=style;
   try { localStorage.setItem(collectionTextStyleStorageKey,JSON.stringify(styles)); } catch (_) {}
+  markDocumentLayoutDirty();
 }
 function applyTextStyle(node){
   const style=textStyleFor(state.preview,node.dataset.textStyleId);
   node.style.fontWeight=style.weight||'';
-  node.style.fontSize=style.size?`calc(1em + ${style.size}px)`:'';
+  node.style.fontSize=style.fontSize?`${style.fontSize}px`:(style.size?`calc(1em + ${style.size}px)`:'');
+  node.style.fontFamily=style.fontFamily||'';
+  node.style.fontStyle=style.fontStyle||'';
+  node.style.textDecoration=style.textDecoration||'';
+  node.style.textAlign=style.textAlign||'';
+  node.style.lineHeight=style.lineHeight||'';
+  node.style.letterSpacing=Number.isFinite(style.letterSpacing)?`${style.letterSpacing}px`:'';
+  node.style.marginTop=Number.isFinite(style.marginTop)?`${style.marginTop}px`:'';
+  node.style.marginBottom=Number.isFinite(style.marginBottom)?`${style.marginBottom}px`:'';
   if(!node.dataset.textBlock){
     node.style.display=style.x||style.y?'inline-block':'';
     node.style.transform=style.x||style.y?`translate(${style.x}px, ${style.y}px)`:'';
   }
 }
+function selectedTextNode(){
+  if(!selectedTextStyle||selectedTextStyle.preview!==state.preview) return null;
+  return [...document.querySelectorAll('#documentPreview [data-text-style-id]')].find(node=>node.dataset.textStyleId===selectedTextStyle.id)||null;
+}
+function selectedTextPosition(){
+  if(!selectedTextStyle||selectedTextStyle.preview!==state.preview) return {x:0,y:0};
+  const blockId=`block-${selectedTextBlock?.index}`;
+  return selectedTextStyle.id===blockId?textBlockOffset(state.preview,selectedTextBlock.index):textStyleFor(state.preview,selectedTextStyle.id);
+}
 function updateTextStyleControls(){
   const enabled=Boolean(selectedTextStyle&&selectedTextStyle.preview===state.preview);
-  ['textStyleNormalBtn','textStyleBoldBtn','textStyleSmallerBtn','textStyleLargerBtn'].forEach(id=>$(id).disabled=!enabled);
+  const controlIds=['textStyleNormalBtn','textStyleBoldBtn','textStyleItalicBtn','textStyleUnderlineBtn','textStyleSmallerBtn','textStyleLargerBtn','textFontFamily','textFontSize','textFontWeight','textAlignment','textLineHeight','textLetterSpacing','textMarginTop','textMarginBottom','selectedTextX','selectedTextY'];
+  controlIds.forEach(id=>{ if($(id)) $(id).disabled=!enabled; });
+  const hint=$('editorSelectionHint');
+  if(!enabled){
+    if(hint) hint.textContent='فعّل التحديد ثم اختر فقرة من الورقة';
+    ['textFontFamily','textFontSize','textFontWeight','textAlignment','textLineHeight','textLetterSpacing','textMarginTop','textMarginBottom','selectedTextX','selectedTextY'].forEach(id=>{ if($(id)) $(id).value=''; });
+    return;
+  }
+  const style=textStyleFor(state.preview,selectedTextStyle.id), node=selectedTextNode(), position=selectedTextPosition();
+  if(hint){
+    const block=node?.closest('[data-text-block]');
+    hint.textContent=block?textLayerLabel(block,Number(block.dataset.textBlock)):'تم اختيار النص';
+  }
+  $('textFontFamily').value=style.fontFamily||'';
+  $('textFontSize').value=style.fontSize||'';
+  $('textFontSize').placeholder=node?`${Math.round(parseFloat(getComputedStyle(node).fontSize)*10)/10} px`:'px';
+  $('textFontWeight').value=style.weight||'';
+  $('textAlignment').value=style.textAlign||'';
+  $('textLineHeight').value=style.lineHeight||'';
+  $('textLetterSpacing').value=Number.isFinite(style.letterSpacing)?style.letterSpacing:'';
+  $('textMarginTop').value=Number.isFinite(style.marginTop)?style.marginTop:'';
+  $('textMarginBottom').value=Number.isFinite(style.marginBottom)?style.marginBottom:'';
+  $('selectedTextX').value=Math.round((Number(position.x)||0)*10)/10;
+  $('selectedTextY').value=Math.round((Number(position.y)||0)*10)/10;
+  $('textStyleBoldBtn').classList.toggle('is-active',style.weight==='700');
+  $('textStyleItalicBtn').classList.toggle('is-active',style.fontStyle==='italic');
+  $('textStyleUnderlineBtn').classList.toggle('is-active',style.textDecoration==='underline');
 }
 function setSelectedTextStyle(change){
   if(!selectedTextStyle||selectedTextStyle.preview!==state.preview) return;
   const style=Object.assign(textStyleFor(selectedTextStyle.preview,selectedTextStyle.id),change);
   saveTextStyle(selectedTextStyle.preview,selectedTextStyle.id,style);
+  renderPreview();
+}
+function resetSelectedTextFormatting(){
+  if(!selectedTextStyle||selectedTextStyle.preview!==state.preview) return;
+  recordLayoutHistory();
+  const styles=collectionTextStyles();
+  if(styles[state.preview]) delete styles[state.preview][selectedTextStyle.id];
+  try { localStorage.setItem(collectionTextStyleStorageKey,JSON.stringify(styles)); } catch (_) {}
+  markDocumentLayoutDirty();
+  renderPreview();
+}
+function setSelectedPosition(axis,value){
+  if(!selectedTextStyle||!selectedTextBlock||selectedTextStyle.preview!==state.preview) return;
+  const numeric=Number(value)||0;
+  if(selectedTextStyle.id===`block-${selectedTextBlock.index}`){
+    const offset=textBlockOffset(state.preview,selectedTextBlock.index); offset[axis]=numeric; saveTextBlockOffset(state.preview,selectedTextBlock.index,offset);
+  }else{
+    const style=textStyleFor(state.preview,selectedTextStyle.id); style[axis]=numeric; saveTextStyle(state.preview,selectedTextStyle.id,style);
+  }
   renderPreview();
 }
 function updateTextBlockControls(){
@@ -400,16 +506,17 @@ function keepTextBlocksVisible(content){
   const pxPerMm=(paperRect.width||1)/210;
   const safeTop=content.getBoundingClientRect().top+49*pxPerMm;
   const safeBottom=content.getBoundingClientRect().bottom-28*pxPerMm;
-  content.querySelectorAll('[data-text-block]').forEach(block=>{
+  const overflow=[...content.querySelectorAll('[data-text-block]')].some(block=>{
     const rect=block.getBoundingClientRect();
-    let correction=0;
-    if(rect.top<safeTop) correction=safeTop-rect.top;
-    else if(rect.bottom>safeBottom) correction=safeBottom-rect.bottom;
-    if(correction){
-      const offset=textBlockOffset(state.preview,Number(block.dataset.textBlock));
-      block.style.transform=`translate(${offset.x}px, ${offset.y+correction}px)`;
-    }
+    return rect.top<safeTop-1||rect.bottom>safeBottom+1||rect.left<paperRect.left-1||rect.right>paperRect.right+1;
   });
+  paper.classList.toggle('has-layout-overflow',overflow);
+  const notice=$('documentOverflowNotice');
+  if(notice) notice.hidden=!overflow;
+}
+function scheduleTextOverflowCheck(content){
+  keepTextBlocksVisible(content);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>keepTextBlocksVisible(content)));
 }
 function populateCollectionSelects(){
   Object.keys(collectionListFields).forEach(key=>{
@@ -696,7 +803,7 @@ $('collectionListValues').addEventListener('click',event=>{
   }else if(state.settings[key]===value) state.settings[key]=key==='draweeAddress'?'':(collectionLists[key][0]||'');
   saveCollectionLists(); populateCollectionSelects(); renderCollectionListManager(); renderPreview(); renderDebug();
 });
-$('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;document.querySelectorAll('[data-preview]').forEach(b=>b.classList.toggle('active',b===button));renderPreview();});
+$('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;selectedTextBlock=null;selectedTextStyle=null;textBlockEditMode=false;renderPreview();});
 $('groupByConsignee').addEventListener('click',()=>{const groups={};selectedShipments().forEach(r=>(groups[r.consignee||'غير محدد']??=[]).push(r));$('consigneeGroups').hidden=false;$('consigneeGroups').innerHTML=Object.entries(groups).map(([name,rows])=>`<b>${esc(name)}</b>: ${rows.map(r=>esc(r.shipmentNo)).join('، ')}`).join('<br>');});
 $('resetBtn').addEventListener('click',()=>{state.selected.clear();state.overrides={};$('settingsForm').reset();Object.assign(state.settings,{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING L.L.C',authorizedPerson:'JAWAD ELMASRI',title:'Manager',draweeAddress:''});populateCollectionSelects();Object.entries(state.settings).forEach(([key,value])=>{const input=$('settingsForm').elements[key];if(input)input.value=value;});renderAll();});
 $('printBtn').addEventListener('click',()=>window.print());
@@ -711,13 +818,18 @@ document.querySelectorAll('[data-collapse-section]').forEach(button=>button.addE
 }));
 document.querySelectorAll('[data-step-section]').forEach(card=>card.addEventListener('click',()=>openPortalSection(card.dataset.stepSection)));
 $('printAllBtn').addEventListener('click', printAllCollectionDocuments);
-$('resetStampBtn').addEventListener('click',()=>{ recordLayoutHistory(); try { localStorage.removeItem('bsCollectionStampOffset'); localStorage.removeItem(stampTransformStorageKey); } catch (_) {} renderPreview(); });
+$('saveDocumentLayoutBtn').addEventListener('click',saveCurrentDocumentLayout);
+$('previewFocusBtn').addEventListener('click',()=>{ document.querySelector('.preview-section')?.classList.add('is-preview-focus'); updateDocumentEditorState(); });
+$('closePreviewFocusBtn').addEventListener('click',()=>document.querySelector('.preview-section')?.classList.remove('is-preview-focus'));
+$('resetStampBtn').addEventListener('click',()=>{ recordLayoutHistory(); try { localStorage.removeItem('bsCollectionStampOffset'); localStorage.removeItem(stampTransformStorageKey); } catch (_) {} markDocumentLayoutDirty(); renderPreview(); });
 $('textOffsetX').addEventListener('input',event=>saveTextOffset('x',event.target.value));
 $('textOffsetY').addEventListener('input',event=>saveTextOffset('y',event.target.value));
+$('documentTextScale').addEventListener('input',event=>saveTextOffset('scale',event.target.value));
 $('resetTextOffsetBtn').addEventListener('click',()=>{
   recordLayoutHistory();
   const offsets=collectionTextOffsets(); delete offsets[state.preview];
   try { localStorage.setItem(collectionTextOffsetStorageKey,JSON.stringify(offsets)); } catch (_) {}
+  markDocumentLayoutDirty();
   renderPreview();
 });
 function resetCurrentPreviewLayout(){
@@ -738,26 +850,38 @@ function resetCurrentPreviewLayout(){
     if(stamp.positions) delete stamp.positions[state.preview];
     localStorage.setItem(stampTransformStorageKey,JSON.stringify(stamp));
   } catch (_) {}
+  markDocumentLayoutDirty();
   selectedTextBlock=null;
   selectedTextStyle=null;
   textBlockEditMode=false;
   renderPreview();
 }
 $('toggleTextBlockModeBtn').addEventListener('click',()=>{ if(portalRole==='admin'){ textBlockEditMode=!textBlockEditMode; renderPreview(); } });
-$('textStyleNormalBtn').addEventListener('click',()=>setSelectedTextStyle({weight:'',size:0}));
-$('textStyleBoldBtn').addEventListener('click',()=>setSelectedTextStyle({weight:'700'}));
+$('textStyleNormalBtn').addEventListener('click',resetSelectedTextFormatting);
+$('textStyleBoldBtn').addEventListener('click',()=>{ if(!selectedTextStyle)return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id); setSelectedTextStyle({weight:style.weight==='700'?'':'700'}); });
+$('textStyleItalicBtn').addEventListener('click',()=>{ if(!selectedTextStyle)return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id); setSelectedTextStyle({fontStyle:style.fontStyle==='italic'?'':'italic'}); });
+$('textStyleUnderlineBtn').addEventListener('click',()=>{ if(!selectedTextStyle)return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id); setSelectedTextStyle({textDecoration:style.textDecoration==='underline'?'':'underline'}); });
 $('textStyleSmallerBtn').addEventListener('click',()=>{
-  if(!selectedTextStyle) return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id); setSelectedTextStyle({size:Math.max(-5,style.size-1)});
+  if(!selectedTextStyle) return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id), node=selectedTextNode(); const current=style.fontSize||parseFloat(getComputedStyle(node).fontSize)||12; setSelectedTextStyle({fontSize:Math.max(6,current-.5),size:0});
 });
 $('textStyleLargerBtn').addEventListener('click',()=>{
-  if(!selectedTextStyle) return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id); setSelectedTextStyle({size:Math.min(8,style.size+1)});
+  if(!selectedTextStyle) return; const style=textStyleFor(selectedTextStyle.preview,selectedTextStyle.id), node=selectedTextNode(); const current=style.fontSize||parseFloat(getComputedStyle(node).fontSize)||12; setSelectedTextStyle({fontSize:Math.min(32,current+.5),size:0});
 });
+[['textFontFamily','fontFamily'],['textFontWeight','weight'],['textAlignment','textAlign']].forEach(([id,key])=>$(id).addEventListener('change',event=>setSelectedTextStyle({[key]:event.target.value})));
+[['textFontSize','fontSize'],['textLineHeight','lineHeight'],['textLetterSpacing','letterSpacing'],['textMarginTop','marginTop'],['textMarginBottom','marginBottom']].forEach(([id,key])=>$(id).addEventListener('change',event=>setSelectedTextStyle({[key]:event.target.value===''?(key==='letterSpacing'||key.startsWith('margin')?null:0):Number(event.target.value),...(key==='fontSize'?{size:0}:{})})));
+document.querySelectorAll('.editor-control-grid input').forEach(input=>input.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); input.blur(); } }));
+$('selectedTextX').addEventListener('change',event=>setSelectedPosition('x',event.target.value));
+$('selectedTextY').addEventListener('change',event=>setSelectedPosition('y',event.target.value));
 $('resetSelectedTextBlockBtn').addEventListener('click',()=>{
   if(!selectedTextBlock) return;
   recordLayoutHistory();
   const offsets=collectionTextBlockOffsets();
   if(offsets[selectedTextBlock.preview]) delete offsets[selectedTextBlock.preview][selectedTextBlock.index];
   try { localStorage.setItem(collectionTextBlockOffsetStorageKey,JSON.stringify(offsets)); } catch (_) {}
+  const styles=collectionTextStyles();
+  if(styles[selectedTextBlock.preview]) Object.keys(styles[selectedTextBlock.preview]).filter(id=>id===`block-${selectedTextBlock.index}`||id.startsWith(`block-${selectedTextBlock.index}-text-`)).forEach(id=>delete styles[selectedTextBlock.preview][id]);
+  try { localStorage.setItem(collectionTextStyleStorageKey,JSON.stringify(styles)); } catch (_) {}
+  markDocumentLayoutDirty();
   renderPreview();
 });
 document.addEventListener('keydown',event=>{
@@ -802,7 +926,7 @@ function printAllCollectionDocuments(){
   const popup = window.open('', '_blank');
   if(!popup){ alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.'); return; }
   popup.opener = null;
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>BSGT Collection Documents</title><link rel="stylesheet" href="/experiments/bs-collection/collection-lab.css?v=20260905-6"><link rel="stylesheet" href="/experiments/bs-collection/collection-lists.css?v=20260905-6"><style>${brandCss}.print-page{break-after:page;page-break-after:always}.print-page:last-child{break-after:auto;page-break-after:auto}@media screen{body{background:#eaf0f6}.print-page{padding:12mm 0}}</style></head><body>${previews.map(page=>`<section class="print-page">${page}</section>`).join('')}</body></html>`);
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>BSGT Collection Documents</title><link rel="stylesheet" href="/experiments/bs-collection/collection-lab.css?v=20260905-6"><link rel="stylesheet" href="/experiments/bs-collection/collection-lists.css?v=20260909-editor-1"><style>${brandCss}.print-page{break-after:page;page-break-after:always}.print-page:last-child{break-after:auto;page-break-after:auto}@media screen{body{background:#eaf0f6}.print-page{padding:12mm 0}}</style></head><body>${previews.map(page=>`<section class="print-page">${page}</section>`).join('')}</body></html>`);
   popup.document.close();
   popup.onload = ()=>setTimeout(()=>popup.print(), 450);
 }
@@ -818,8 +942,10 @@ function referenceDocumentsEnclosed(){
 function renderPreview(){
   const {rows,currencies,consignees,totals}=detected();
   const s=state.settings;
-  if(!rows.length){ $('documentPreview').innerHTML='<div class="empty-state">اختر شحنات أولاً لعرض مستندات التحصيل.</div>'; return; }
-  if(currencies.length!==1){ $('documentPreview').innerHTML='<div class="empty-state">لا يمكن إنشاء معاينة موحدة لمستند تحصيل متعدد العملات. اختر شحنات بعملة واحدة.</div>'; return; }
+  updateDocumentEditorState();
+  const overflowNotice=$('documentOverflowNotice'); if(overflowNotice) overflowNotice.hidden=true;
+  if(!rows.length){ $('documentPreview').innerHTML='<div class="empty-state">اختر شحنات أولاً لعرض مستندات التحصيل.</div>'; renderTextLayers($('documentPreview')); updateTextStyleControls(); return; }
+  if(currencies.length!==1){ $('documentPreview').innerHTML='<div class="empty-state">لا يمكن إنشاء معاينة موحدة لمستند تحصيل متعدد العملات. اختر شحنات بعملة واحدة.</div>'; renderTextLayers($('documentPreview')); updateTextStyleControls(); return; }
   const collection=collectionTotal(rows), currency=collection.currency, total=collection.number, amount=formatMoney(currency,total), words=`${currency} ${amountWords(total)} ONLY`;
   const drawee=consignees.join(' / ')||'-';
   const draweeAddress=s.draweeAddress||rows[0].consigneeAddress||'-';
@@ -893,9 +1019,18 @@ function applyCollectionBranding(){
   paper.insertAdjacentHTML('beforeend','<div class="text-move-guides" aria-hidden="true"><span class="guide-v"></span><span class="guide-h"></span></div>');
   paper.insertAdjacentHTML('beforeend', stampOverlay);
   prepareTextBlocks(content);
+  applyDocumentTextScale(content);
   fitCollectionContent(content);
-  keepTextBlocksVisible(content);
+  scheduleTextOverflowCheck(content);
   wireCollectionStampDrag(paper);
+}
+
+function applyDocumentTextScale(content){
+  const scale=Math.max(70,Math.min(115,Number(textOffsetForPreview().scale)||100))/100;
+  if(scale===1) return;
+  const nodes=[...content.querySelectorAll('[data-text-block], [data-text-block] *')];
+  const sizes=nodes.map(node=>parseFloat(getComputedStyle(node).fontSize));
+  nodes.forEach((node,index)=>{ if(Number.isFinite(sizes[index])) node.style.fontSize=`${sizes[index]*scale}px`; });
 }
 
 function fitCollectionContent(content){
@@ -955,7 +1090,7 @@ function wireCollectionStampDrag(paper){
       }
       apply();
     };
-    const finish = ()=>{ try { localStorage.setItem(stampTransformStorageKey, JSON.stringify(saved)); } catch (_) {} ; stamp.removeEventListener('pointermove', move); stamp.removeEventListener('pointerup', finish); stamp.removeEventListener('pointercancel', finish); };
+    const finish = ()=>{ try { localStorage.setItem(stampTransformStorageKey, JSON.stringify(saved)); } catch (_) {} markDocumentLayoutDirty(); stamp.removeEventListener('pointermove', move); stamp.removeEventListener('pointerup', finish); stamp.removeEventListener('pointercancel', finish); };
     stamp.addEventListener('pointermove', move);
     stamp.addEventListener('pointerup', finish);
     stamp.addEventListener('pointercancel', finish);
@@ -963,4 +1098,5 @@ function wireCollectionStampDrag(paper){
 }
 
 window.addEventListener('beforeprint',()=>document.querySelectorAll('.collection-page-content').forEach(fitCollectionContent));
+window.addEventListener('resize',()=>{ const content=document.querySelector('#documentPreview .collection-page-content'); if(content) scheduleTextOverflowCheck(content); });
 init();

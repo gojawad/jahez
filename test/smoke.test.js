@@ -330,6 +330,17 @@ async function main() {
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-4'));
+      assert.ok(collectionHtml.includes('id="documentEditorShell"'));
+      assert.ok(collectionHtml.includes('id="saveDocumentLayoutBtn"'));
+      assert.strictEqual((collectionHtml.match(/data-preview="(?:letter|undertaking|exchange)"/g) || []).length, 3);
+      const collectionJs = await (await fetch(`${BASE}/experiments/bs-collection/collection-lab.js`)).text();
+      assert.ok(collectionJs.includes("const collectionDocumentEditorMetaStorageKey = 'bsCollectionDocumentEditorMetaV1'"));
+      assert.ok(collectionJs.includes('function saveCurrentDocumentLayout()'));
+      assert.ok(collectionJs.includes("paper.classList.toggle('has-layout-overflow',overflow)"));
+      assert.ok(!collectionJs.includes('offset.y+correction'));
+      const collectionListsCss = await (await fetch(`${BASE}/experiments/bs-collection/collection-lists.css`)).text();
+      assert.ok(collectionListsCss.includes('.document-editor-shell'));
+      assert.ok(collectionListsCss.includes('.preview-section.is-preview-focus'));
     });
     await check('server files and SQL are not exposed', async () => {
       for (const p of ['/server.js', '/package.json', '/.env', '/.git/config', '/supabase/1.sql', '/api/microsoft.js', '/../etc/passwd', '/%2e%2e/etc/passwd']) {

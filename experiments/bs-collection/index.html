@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="collection-lab.css?v=20260905-6">
-  <link rel="stylesheet" href="collection-lists.css?v=20260905-6">
+  <link rel="stylesheet" href="collection-lists.css?v=20260909-editor-1">
   <link rel="stylesheet" href="../../jahez-glass.css?v=20260908-glass-4">
 </head>
 <body>
@@ -82,8 +82,85 @@
 
     <section class="lab-section preview-section">
       <div class="section-heading"><div class="collapsible-heading-title preview-heading-title"><span>04</span><h2>معاينة مستندات الإرسال</h2><button id="togglePreviewSectionBtn" class="section-collapse-btn preview-collapse-btn" type="button" data-collapse-section="preview-section" aria-expanded="true" title="طي المعاينة"><i class="bx bx-chevron-up"></i><span>طي المعاينة</span></button></div><p>تتحدث فوراً من مسودة الإرسال المحلية.</p></div>
-      <div class="preview-tools"><div class="preview-tabs" id="previewTabs"><button class="active" data-preview="letter">Collection Letter</button><button data-preview="undertaking">Undertaking Letter</button><button data-preview="exchange">Bill of Exchange</button></div><div class="preview-actions"><details class="text-position-controls"><summary><i class="bx bx-move"></i> ضبط موضع النص</summary><div><label>يمين / يسار <input id="textOffsetX" type="range" min="-25" max="25" value="0" step="1"><output id="textOffsetXValue">0 mm</output></label><label>أعلى / أسفل <input id="textOffsetY" type="range" min="-25" max="25" value="0" step="1"><output id="textOffsetYValue">0 mm</output></label><button id="toggleTextBlockModeBtn" class="text-btn" type="button"><i class="bx bx-target-lock"></i> تحريك النص أو الفقرة</button><button id="resetSelectedTextBlockBtn" class="text-btn" type="button" hidden><i class="bx bx-reset"></i> استرجاع الفقرة المحددة</button><div class="text-format-actions"><span>تنسيق المحدد</span><button id="textStyleNormalBtn" type="button" title="نص عادي">A</button><button id="textStyleBoldBtn" type="button" title="نص عريض"><b>B</b></button><button id="textStyleSmallerBtn" type="button" title="تصغير النص">A−</button><button id="textStyleLargerBtn" type="button" title="تكبير النص">A+</button></div><small>فعّل الخيار، اسحب النص نفسه لتحريكه وحده أو اسحب مساحة الفقرة لتحريكها. الأسهم تعمل للمحدد، ومع Shift للحركة الأكبر.</small><button id="resetTextOffsetBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع النص</button></div></details><span class="stamp-hint">اسحب الختم داخل المعاينة لتحريكه</span><button id="resetStampBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع الختم</button><button id="printAllBtn" class="btn btn-primary" type="button"><i class="bx bx-printer"></i> طباعة الحزمة كاملة (3 مستندات)</button></div></div>
-      <div id="documentPreview" class="document-preview"><div class="empty-state">اختر شحنات لعرض المستند التجريبي.</div></div>
+      <div class="document-editor-heading">
+        <div class="preview-tabs document-portals" id="previewTabs">
+          <button class="active" data-preview="letter" type="button"><i class="bx bx-envelope"></i><span><strong>خطاب التحصيل</strong><small>Collection Letter</small></span></button>
+          <button data-preview="undertaking" type="button"><i class="bx bx-check-shield"></i><span><strong>خطاب التعهد</strong><small>Undertaking Letter</small></span></button>
+          <button data-preview="exchange" type="button"><i class="bx bx-receipt"></i><span><strong>الكمبيالة</strong><small>Bill of Exchange</small></span></button>
+        </div>
+        <div class="preview-actions">
+          <button id="previewFocusBtn" class="text-btn" type="button"><i class="bx bx-fullscreen"></i> معاينة التعديلات</button>
+          <button id="saveDocumentLayoutBtn" class="btn btn-primary" type="button"><i class="bx bx-save"></i> حفظ إعدادات المستند</button>
+          <button id="printAllBtn" class="btn btn-primary" type="button"><i class="bx bx-printer"></i> طباعة الحزمة كاملة (3 مستندات)</button>
+        </div>
+      </div>
+      <div class="document-editor-shell" id="documentEditorShell">
+        <aside class="document-editor-panel" aria-label="أدوات تنسيق المستند">
+          <header class="editor-panel-header">
+            <span class="editor-document-icon"><i class="bx bx-edit-alt"></i></span>
+            <div><small>محرر المستند الحالي</small><strong id="activeDocumentTitle">خطاب التحصيل</strong><span id="documentSaveStatus">لم يتم الحفظ يدوياً بعد</span></div>
+          </header>
+          <section class="editor-tool-section text-position-controls">
+            <div>
+              <div class="editor-section-title"><span><i class="bx bx-move"></i> موضع صفحة النص</span><small>خاص بهذا المستند فقط</small></div>
+              <label>يمين / يسار <input id="textOffsetX" type="range" min="-25" max="25" value="0" step="0.5"><output id="textOffsetXValue">0 mm</output></label>
+              <label>أعلى / أسفل <input id="textOffsetY" type="range" min="-25" max="25" value="0" step="0.5"><output id="textOffsetYValue">0 mm</output></label>
+              <label>حجم كل النص <input id="documentTextScale" type="range" min="70" max="115" value="100" step="1"><output id="documentTextScaleValue">100%</output></label>
+              <button id="resetTextOffsetBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع الصفحة</button>
+            </div>
+          </section>
+          <section class="editor-tool-section selected-text-tools">
+            <div class="editor-section-title"><span><i class="bx bx-font"></i> تنسيق النص المحدد</span><small id="editorSelectionHint">فعّل التحديد ثم اختر فقرة من الورقة</small></div>
+            <button id="toggleTextBlockModeBtn" class="text-btn editor-mode-btn" type="button"><i class="bx bx-target-lock"></i> تحديد وتحريك النص</button>
+            <div class="editor-control-grid">
+              <label class="span2">نوع الخط<select id="textFontFamily"><option value="">خط القالب الافتراضي</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option></select></label>
+              <label>حجم النص<input id="textFontSize" type="number" min="6" max="32" step="0.5" placeholder="px"></label>
+              <label>سُمك الخط<select id="textFontWeight"><option value="">افتراضي</option><option value="400">عادي</option><option value="600">متوسط</option><option value="700">عريض</option></select></label>
+              <label>المحاذاة<select id="textAlignment"><option value="">افتراضية</option><option value="left">يسار</option><option value="center">وسط</option><option value="right">يمين</option><option value="justify">ضبط كامل</option></select></label>
+              <label>تباعد السطور<input id="textLineHeight" type="number" min="0.7" max="3" step="0.05" placeholder="1.2"></label>
+              <label>تباعد الحروف<input id="textLetterSpacing" type="number" min="-2" max="8" step="0.1" placeholder="px"></label>
+              <label>هامش قبل النص<input id="textMarginTop" type="number" min="-60" max="100" step="1" placeholder="px"></label>
+              <label>هامش بعد النص<input id="textMarginBottom" type="number" min="-60" max="100" step="1" placeholder="px"></label>
+              <label>موضع أفقي<input id="selectedTextX" type="number" min="-300" max="300" step="1" placeholder="px"></label>
+              <label>موضع رأسي<input id="selectedTextY" type="number" min="-300" max="300" step="1" placeholder="px"></label>
+            </div>
+            <div class="text-format-actions">
+              <button id="textStyleNormalBtn" type="button" title="استرجاع تنسيق النص">A</button>
+              <button id="textStyleBoldBtn" type="button" title="نص عريض"><b>B</b></button>
+              <button id="textStyleItalicBtn" type="button" title="نص مائل"><i>I</i></button>
+              <button id="textStyleUnderlineBtn" type="button" title="نص تحته خط"><u>U</u></button>
+              <button id="textStyleSmallerBtn" type="button" title="تصغير النص">A−</button>
+              <button id="textStyleLargerBtn" type="button" title="تكبير النص">A+</button>
+            </div>
+            <small class="editor-help">اسحب الفقرة داخل الورقة أو استخدم الأسهم. اضغط Shift مع الأسهم للحركة الأسرع.</small>
+            <div class="editor-inline-actions">
+              <button id="resetSelectedTextBlockBtn" class="text-btn" type="button" hidden><i class="bx bx-reset"></i> استرجاع المحدد</button>
+              <button id="selectParagraphForArrowsBtn" class="text-btn" type="button"><i class="bx bx-move-horizontal"></i> تحريك الفقرة بالأسهم</button>
+            </div>
+          </section>
+          <section class="editor-tool-section text-layer-controls">
+            <div class="editor-section-title"><span><i class="bx bx-layer"></i> طبقات النص</span><small>اختيار، إخفاء وترتيب الفقرات</small></div>
+            <div id="textLayersPanel" class="text-layers-panel"><p>اختر شحنات لإظهار طبقات النص.</p></div>
+          </section>
+          <details class="editor-tool-section text-review-controls">
+            <summary><i class="bx bx-git-compare"></i> النص الأصلي / المعاينة</summary>
+            <div id="textComparePanel" class="text-compare-panel"><p>اختر فقرة لعرض المقارنة.</p></div>
+          </details>
+          <section class="editor-tool-section editor-stamp-tools">
+            <div class="editor-section-title"><span><i class="bx bx-certification"></i> الختم</span><small class="stamp-hint">اسحبه داخل الورقة لتغيير موضعه</small></div>
+            <button id="resetStampBtn" class="text-btn" type="button"><i class="bx bx-reset"></i> استرجاع موضع الختم</button>
+          </section>
+          <div id="documentOverflowNotice" class="document-overflow-notice" hidden><i class="bx bx-error-circle"></i><span>يوجد نص خارج المساحة الآمنة للورقة. صغّر النص أو حرّكه قبل الطباعة.</span></div>
+          <div class="editor-footer-actions">
+            <div class="layout-history-actions"><button id="undoLayoutBtn" class="text-btn" type="button" title="Ctrl+Z"><i class="bx bx-undo"></i> تراجع</button><button id="redoLayoutBtn" class="text-btn" type="button" title="Ctrl+Y"><i class="bx bx-redo"></i> إعادة</button></div>
+            <button id="resetCurrentPreviewBtn" class="text-btn danger-outline" type="button"><i class="bx bx-reset"></i> استرجاع المستند للافتراضي</button>
+          </div>
+        </aside>
+        <div class="document-preview-stage">
+          <div class="preview-focus-toolbar"><strong id="previewFocusTitle">معاينة خطاب التحصيل</strong><button id="closePreviewFocusBtn" class="text-btn" type="button"><i class="bx bx-x"></i> العودة للمحرر</button></div>
+          <div id="documentPreview" class="document-preview"><div class="empty-state">اختر شحنات لعرض المستند التجريبي.</div></div>
+        </div>
+      </div>
     </section>
 
     <section class="lab-section collection-portal-section">
@@ -95,6 +172,6 @@
     <details class="debug-panel"><summary><i class="bx bx-code-alt"></i> بيانات التجربة</summary><pre id="debugOutput"></pre></details>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="collection-lab.js?v=20260905-7"></script>
+  <script src="collection-lab.js?v=20260909-editor-1"></script>
 </body>
 </html>
