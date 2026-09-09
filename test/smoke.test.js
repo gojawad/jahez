@@ -70,6 +70,25 @@ async function main() {
       assert.strictEqual(heroResponse.status, 200);
       assert.match(heroResponse.headers.get('content-type'), /image\/png/);
     });
+    await check('public landing is isolated and opens the existing login', async () => {
+      const landingSource = appHtml.slice(appHtml.indexOf('<div id="landingPage"'), appHtml.indexOf('<div id="lockScreen"'));
+      assert.ok(appHtml.includes('landing.css?v=20260909-landing-1'));
+      assert.ok(appHtml.includes('id="landingPage"'));
+      assert.ok(appHtml.includes('id="landingLoginBtn"'));
+      assert.ok(appHtml.includes('data-open-login'));
+      assert.ok(appHtml.includes('await initLock();'));
+      assert.ok(appHtml.includes('if(isPublicLandingRequest()) showLanding();'));
+      assert.ok(appHtml.includes('document.getElementById(\'landingPage\').hidden = true'));
+      assert.ok(!/12,500|1,200|99\.9%/.test(landingSource), 'unverified statistics must not be published');
+      const landingResponse = await fetch(`${BASE}/landing.css`);
+      assert.strictEqual(landingResponse.status, 200);
+      const landingCss = await landingResponse.text();
+      assert.ok(landingCss.includes('body.landing-active'));
+      assert.ok(landingCss.includes('grid-template-columns: minmax(0, 45fr) minmax(0, 55fr)'));
+      assert.ok(landingCss.includes('@media (max-width: 767px)'));
+      assert.ok(landingCss.includes('height: clamp(260px, 78vw, 320px)'));
+      assert.ok(!landingCss.includes('transform: scale('));
+    });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
       assert.ok(appHtml.includes('function isBsgtRecord(r)'));
@@ -250,7 +269,7 @@ async function main() {
       assert.strictEqual(JSON.stringify(records), original, 'history queries must not mutate stored records');
     });
     await check('static assets served with correct MIME', async () => {
-      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['shipment-list.js', 'text/javascript'], ['shipment-list.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
+      for (const [file, type] of [['wizard.js', 'text/javascript'], ['wizard.css', 'text/css'], ['jahez-glass.css', 'text/css'], ['landing.css', 'text/css'], ['shipment-list.js', 'text/javascript'], ['shipment-list.css', 'text/css'], ['import-permit.js', 'text/javascript'], ['baldna-commodities.js', 'text/javascript'], ['baldna-commodity-translations.js', 'text/javascript'], ['import-permit.css', 'text/css'], ['dashboard-team.png', 'image/png'], ['dubai-certificate-template.pdf', 'application/pdf'], ['public-shipment.html', 'text/html']]) {
         const r = await fetch(`${BASE}/${file}`);
         assert.strictEqual(r.status, 200, file);
         assert.match(r.headers.get('content-type'), new RegExp(type), file);

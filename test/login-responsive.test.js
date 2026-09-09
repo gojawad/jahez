@@ -13,6 +13,7 @@ const TURNSTILE_FUNCTION = 'https://vthcmqqiexaedukduquv.supabase.co/functions/v
 const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
 const OUTPUT = path.join(__dirname, 'output');
 const VIEWPORTS = [
+  {width:360, height:800},
   {width:390, height:844},
   {width:393, height:852},
   {width:430, height:932},
@@ -81,6 +82,54 @@ async function main() {
         });
       });
       await page.goto(APP_ORIGIN, {waitUntil:'networkidle'});
+      await page.locator('#landingPage').waitFor({state:'visible'});
+      const landingMetrics = await page.evaluate(()=>{
+        const landing = document.getElementById('landingPage');
+        const image = document.querySelector('.landing-visual img');
+        const nav = document.querySelector('.landing-nav');
+        const menu = document.getElementById('landingMenuButton');
+        const actions = [...document.querySelectorAll('.landing-hero-actions .landing-action')];
+        const imageBox = image.getBoundingClientRect();
+        return {
+          bodyClass:document.body.className,
+          loginHidden:document.getElementById('lockScreen').classList.contains('hidden'),
+          horizontalOverflow:landing.scrollWidth - landing.clientWidth,
+          imageCount:document.querySelectorAll('.landing-visual img').length,
+          imageSrc:image.getAttribute('src'),
+          imageDisplay:getComputedStyle(image).display,
+          imageWidth:imageBox.width,
+          imageHeight:imageBox.height,
+          navDisplay:getComputedStyle(nav).display,
+          menuDisplay:getComputedStyle(menu).display,
+          actionWidths:actions.map(action=>action.getBoundingClientRect().width),
+          actionContainerWidth:document.querySelector('.landing-hero-actions').getBoundingClientRect().width,
+          registrationDisabled:[...document.querySelectorAll('#landingPage button[title*="مدير النظام"]')].every(button=>button.disabled),
+          hasFakeStatistics:/12,500|1,200|99\.9%/.test(landing.textContent)
+        };
+      });
+
+      assert.ok(landingMetrics.bodyClass.includes('landing-active'), `${viewport.width}px must start on the public landing page`);
+      assert.strictEqual(landingMetrics.loginHidden, true, `${viewport.width}px login must stay hidden until requested`);
+      assert.ok(landingMetrics.horizontalOverflow <= 0, `${viewport.width}px landing page has horizontal overflow`);
+      assert.strictEqual(landingMetrics.imageCount, 1, `${viewport.width}px must render one logistics image`);
+      assert.strictEqual(landingMetrics.imageSrc, 'jahez-login-bsgt.png', `${viewport.width}px must use the approved BSGT image`);
+      assert.notStrictEqual(landingMetrics.imageDisplay, 'none', `${viewport.width}px landing image must remain visible`);
+      assert.ok(landingMetrics.imageWidth > 0 && landingMetrics.imageHeight > 0, `${viewport.width}px landing image must have usable dimensions`);
+      assert.strictEqual(landingMetrics.registrationDisabled, true, 'registration must not link to a fake flow');
+      assert.strictEqual(landingMetrics.hasFakeStatistics, false, 'unverified production statistics must stay hidden');
+      if(viewport.width <= 767){
+        assert.strictEqual(landingMetrics.navDisplay, 'none', `${viewport.width}px desktop navigation must be collapsed`);
+        assert.notStrictEqual(landingMetrics.menuDisplay, 'none', `${viewport.width}px mobile menu button must be visible`);
+        assert.ok(landingMetrics.actionWidths.every(width=>Math.abs(width - landingMetrics.actionContainerWidth) <= 1), `${viewport.width}px landing actions must be full width`);
+        assert.ok(landingMetrics.imageHeight >= 240 && landingMetrics.imageHeight <= 321, `${viewport.width}px mobile image height must stay in the approved range`);
+      }
+      if(viewport.width >= 1024){
+        assert.notStrictEqual(landingMetrics.navDisplay, 'none', `${viewport.width}px desktop navigation must be visible`);
+        assert.strictEqual(landingMetrics.menuDisplay, 'none', `${viewport.width}px desktop menu button must be hidden`);
+      }
+      await page.screenshot({path:path.join(OUTPUT, `landing-${viewport.width}.png`), fullPage:false});
+
+      await page.locator('#landingLoginBtn').click();
       await page.locator('#lockScreen').waitFor({state:'visible'});
       try{
         await page.locator('#turnstileWidget input[name="cf-turnstile-response"]').waitFor({state:'attached', timeout:15000});
@@ -93,6 +142,7 @@ async function main() {
         }));
         throw new Error(`Turnstile widget did not render at ${viewport.width}px: ${JSON.stringify({state, diagnostics})}`);
       }
+      await page.waitForTimeout(650);
       const metrics = await page.evaluate(()=>{
         const rect = selector=>{
           const box = document.querySelector(selector).getBoundingClientRect();

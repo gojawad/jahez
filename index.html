@@ -2454,9 +2454,10 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
   <link rel="stylesheet" href="import-permit.css?v=20260908-glass-1">
   <link rel="stylesheet" href="shipment-list.css?v=20260908-bsgt-table-meta-1">
+  <link rel="stylesheet" href="landing.css?v=20260909-landing-1">
   <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-2">
 </head>
-<body class="login-active">
+<body class="landing-active">
 
 <script>
 try{
@@ -2473,9 +2474,118 @@ try{
   </div>
 </div>
 
-<div id="lockScreen">
+<div id="landingPage" aria-label="الصفحة الرئيسية لمنصة جاهز">
+  <header class="landing-header">
+    <div class="landing-shell landing-header-inner">
+      <div class="landing-brand" aria-label="منصة جاهز">
+        <img src="bsqt-qr-logo.png" alt="شعار منصة جاهز">
+        <span class="landing-brand-copy">
+          <strong>منصة <span>جاهز</span></strong>
+          <small>مرتبطة بخدمات BSGT</small>
+        </span>
+      </div>
+
+      <nav class="landing-nav" aria-label="التنقل في الصفحة الرئيسية">
+        <button type="button" class="active" data-landing-target="landingHome">الرئيسية</button>
+        <button type="button" data-landing-target="landingAbout">عن المنصة</button>
+        <button type="button" data-landing-target="landingServices">الخدمات</button>
+        <button type="button" data-landing-target="landingFaq">الأسئلة الشائعة</button>
+        <button type="button" data-landing-target="landingContact">تواصل معنا</button>
+      </nav>
+
+      <div class="landing-header-actions">
+        <button type="button" class="landing-action primary" data-open-login>
+          تسجيل الدخول
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/></svg>
+        </button>
+        <button type="button" class="landing-action" disabled title="إنشاء الحساب متاح عبر مدير النظام">
+          إنشاء حساب جديد
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+        </button>
+        <span class="landing-language" aria-label="اللغة الحالية العربية">
+          العربية
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+        </span>
+      </div>
+
+      <button type="button" class="landing-menu-button" id="landingMenuButton" aria-expanded="false" aria-controls="landingMobileMenu" aria-label="فتح القائمة">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="landing-mobile-menu" id="landingMobileMenu">
+        <button type="button" data-landing-target="landingHome">الرئيسية</button>
+        <button type="button" data-landing-target="landingAbout">عن المنصة</button>
+        <button type="button" data-landing-target="landingServices">الخدمات</button>
+        <button type="button" data-landing-target="landingFaq">الأسئلة الشائعة</button>
+        <button type="button" data-landing-target="landingContact">تواصل معنا</button>
+        <button type="button" class="landing-mobile-login" data-open-login>تسجيل الدخول</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing-hero" id="landingHome">
+      <div class="landing-shell landing-hero-grid">
+        <div class="landing-copy" id="landingAbout">
+          <p class="landing-eyebrow">PEOPLE MOVE THE WORLD<br>TOGETHER WITH BSGT</p>
+          <h1><small>مرحباً بك في</small>منصة <span>جاهز</span></h1>
+          <p class="landing-lead">مرتبطة بخدمات <b>BSGT</b> لتجربة لوجستية متكاملة</p>
+          <p class="landing-description">منصة رقمية متكاملة لإدارة عمليات الشحن والتخليص بكل سهولة وموثوقية، نحو عالم أكثر ارتباطاً.</p>
+          <div class="landing-hero-actions">
+            <button type="button" class="landing-action primary" id="landingLoginBtn" data-open-login>
+              تسجيل الدخول
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/></svg>
+            </button>
+            <button type="button" class="landing-action" disabled title="إنشاء الحساب متاح عبر مدير النظام">
+              إنشاء حساب جديد
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="landing-visual" aria-label="حلول BSGT للنقل والخدمات اللوجستية">
+          <img src="jahez-login-bsgt.png" alt="شاحنة BSGT وخريطة مسارات النقل والميناء" fetchpriority="high" decoding="async">
+        </div>
+
+        <div class="landing-feature-grid" id="landingServices" aria-label="مميزات منصة جاهز">
+          <article class="landing-feature"><span class="landing-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></span><strong>أمان وموثوقية</strong></article>
+          <article class="landing-feature"><span class="landing-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span><strong>إدارة الشحنات</strong></article>
+          <article class="landing-feature"><span class="landing-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 8 4-8 4-8-4 8-4Z"/><path d="m4 10 8 4 8-4M4 14l8 4 8-4"/></svg></span><strong>تكامل مع خدمات BSGT</strong></article>
+          <article class="landing-feature"><span class="landing-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><strong>متابعة مباشرة</strong></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-support" aria-label="معلومات المنصة">
+      <div class="landing-shell landing-support-grid">
+        <article class="landing-info-card">
+          <h2>منصة واحدة لإدارة العمل اللوجستي</h2>
+          <p>تجمع جاهز متابعة العمليات والمستندات والشحنات في تجربة مترابطة تخدم فرق العمل بحسب الصلاحيات المعتمدة.</p>
+        </article>
+        <article class="landing-info-card" id="landingFaq">
+          <h3>الأسئلة الشائعة</h3>
+          <details><summary>هل أستطيع الدخول بحسابي الحالي؟</summary><p>نعم، زر تسجيل الدخول يفتح نموذج الدخول الحالي نفسه دون تغيير.</p></details>
+          <details><summary>كيف أحصل على حساب؟</summary><p>إنشاء الحسابات يتم حالياً عبر مدير النظام وفق صلاحيات المؤسسة.</p></details>
+        </article>
+        <article class="landing-info-card landing-contact-card" id="landingContact">
+          <h3>تواصل معنا</h3>
+          <p>للدعم أو طلب تفعيل حساب، تواصل مع مسؤول المنصة داخل مؤسستك أو فريق خدمات BSGT.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <div class="landing-shell landing-footer-inner">
+      <div class="landing-footer-brand"><img src="bsqt-qr-logo.png" alt="شعار BSGT"><strong>BSGT</strong></div>
+      <div class="landing-footer-copy">جميع الحقوق محفوظة © <span id="landingYear"></span> منصة جاهز<br>Powered by BSGT</div>
+    </div>
+  </footer>
+</div>
+
+<div id="lockScreen" class="hidden">
   <div class="lock-image-panel" id="lockImagePanel" role="img" aria-label="خدمات BSGT اللوجستية"></div>
   <div class="lock-form-panel">
+  <button type="button" class="login-back-to-landing" id="loginBackToLanding" aria-label="العودة إلى الصفحة الرئيسية" title="العودة إلى الصفحة الرئيسية" hidden>×</button>
   <form class="lock-card" id="loginForm" autocomplete="on" novalidate>
     <div class="login-meta">
       <span class="login-lang"><span class="login-lang-mark" aria-hidden="true">AR</span> العربية</span>
@@ -6480,8 +6590,42 @@ async function verifyTurnstile(){
   throw error;
 }
 
+function isPublicLandingRequest(){
+  const url = new URL(location.href);
+  const isRootPath = url.pathname === '/' || /\/index\.html$/i.test(url.pathname);
+  return isRootPath && !url.search && (!url.hash || url.hash === '#');
+}
+
+function closeLandingMenu(){
+  const menu = document.getElementById('landingMobileMenu');
+  const button = document.getElementById('landingMenuButton');
+  if(menu) menu.classList.remove('open');
+  if(button) button.setAttribute('aria-expanded', 'false');
+}
+
+function showLanding(){
+  const landing = document.getElementById('landingPage');
+  const lock = document.getElementById('lockScreen');
+  const back = document.getElementById('loginBackToLanding');
+  document.body.classList.remove('login-active');
+  document.body.classList.add('landing-active');
+  if(landing) landing.hidden = false;
+  if(lock) lock.classList.add('hidden');
+  if(back) back.hidden = true;
+  closeLandingMenu();
+}
+
+async function openLoginFromLanding(){
+  const back = document.getElementById('loginBackToLanding');
+  if(back) back.hidden = false;
+  await initLock();
+}
+
 async function initLock(){
+  document.body.classList.remove('landing-active');
   document.body.classList.add('login-active');
+  document.getElementById('landingPage').hidden = true;
+  document.getElementById('lockScreen').classList.remove('hidden');
   document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
   document.getElementById('lockBtnTxt').textContent = 'تسجيل الدخول';
   try{
@@ -6648,6 +6792,8 @@ async function bootData(){
 
 function unlockApp(){
   document.body.classList.remove('login-active');
+  document.body.classList.remove('landing-active');
+  document.getElementById('landingPage').hidden = true;
   document.getElementById('lockScreen').classList.add('hidden');
   document.getElementById('loginPass').value = '';
   document.getElementById('lockErr').textContent = '';
@@ -6686,13 +6832,31 @@ async function lockApp(){
   currentUser = null;
   closeAllOverlays();
   records = []; users = []; activityLog = [];
-  document.body.classList.add('login-active');
-  document.getElementById('lockScreen').classList.remove('hidden');
   document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
   document.getElementById('loginPass').value = '';
   resetTurnstileWidget('أكمل التحقق الأمني للمتابعة.');
-  setTimeout(()=>document.getElementById('loginPass').focus(), 100);
+  showLanding();
 }
+
+document.getElementById('landingYear').textContent = String(new Date().getFullYear());
+document.querySelectorAll('[data-open-login]').forEach(button=>{
+  button.addEventListener('click', openLoginFromLanding);
+});
+document.getElementById('loginBackToLanding').addEventListener('click', showLanding);
+document.getElementById('landingMenuButton').addEventListener('click', function(){
+  const menu = document.getElementById('landingMobileMenu');
+  const opening = !menu.classList.contains('open');
+  menu.classList.toggle('open', opening);
+  this.setAttribute('aria-expanded', String(opening));
+});
+document.querySelectorAll('[data-landing-target]').forEach(button=>{
+  button.addEventListener('click', ()=>{
+    const target = document.getElementById(button.dataset.landingTarget);
+    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    document.querySelectorAll('.landing-nav [data-landing-target]').forEach(item=>item.classList.toggle('active', item.dataset.landingTarget === button.dataset.landingTarget));
+    closeLandingMenu();
+  });
+});
 
 document.getElementById('loginForm').addEventListener('submit', e=>{
   e.preventDefault();
@@ -19183,7 +19347,8 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
     console.error('session restore failed', e);
     loginError('تعذّر استرجاع الجلسة. سجّل دخول من جديد.');
   }
-  await initLock();
+  if(isPublicLandingRequest()) showLanding();
+  else await initLock();
   switchShipTab('land');
   switchView(isStaffRole() ? 'tasks' : 'dashboard');
 })();
