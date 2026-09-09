@@ -327,13 +327,20 @@ async function main() {
       assert.strictEqual(j.connected, false);
       assert.strictEqual(j.connectUrl, '/api/microsoft?action=connect');
     });
-    await check('/s/<token> QR route answers without a service key', async () => {
+    await check('/s/<token> QR route shows the branded loader before the existing PDF endpoint', async () => {
       const bad = await fetch(`${BASE}/s/short`);
       assert.strictEqual(bad.status, 404);
-      const r = await fetch(`${BASE}/s/abcdefghijklmnopqrstuvwx`);
-      assert.strictEqual(r.status, 503);
-      assert.match(r.headers.get('content-type'), /text\/html/);
-      assert.match(await r.text(), /SUPABASE_SERVICE_ROLE_KEY/);
+      const splash = await fetch(`${BASE}/s/abcdefghijklmnopqrstuvwx`);
+      assert.strictEqual(splash.status, 200);
+      assert.match(splash.headers.get('content-type'), /text\/html/);
+      const splashHtml = await splash.text();
+      assert.match(splashHtml, /جاري تجهيز الملفات/);
+      assert.match(splashHtml, /bsqt-qr-logo\.png/);
+      assert.match(splashHtml, /\/api\/qr-package\?token=/);
+      const pdf = await fetch(`${BASE}/api/qr-package?token=abcdefghijklmnopqrstuvwx`);
+      assert.strictEqual(pdf.status, 503);
+      assert.match(pdf.headers.get('content-type'), /text\/html/);
+      assert.match(await pdf.text(), /SUPABASE_SERVICE_ROLE_KEY/);
       assert.strictEqual((await fetch(`${BASE}/s/`)).status, 404);
     });
     await check('unknown api route is 404', async () => {

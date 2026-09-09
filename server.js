@@ -21,7 +21,7 @@ const API = {
   'import-permit-invoices': require('./api/import-permit-invoices'),
 };
 // /s/<token> — رابط رمز QR القصير المطبوع على الفواتير
-const QR_ROUTE = /^\/s\/([A-Za-z0-9_-]+)\/?$/;
+const QR_ROUTE = /^\/s\/([A-Za-z0-9_-]{20,64})\/?$/;
 
 // الملفات الثابتة المسموح تقديمها فقط (لا SQL ولا ملفات الخادم ولا الملفات المخفية)
 const MIME = {
@@ -151,9 +151,10 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/')) return handleApi(req, res, url);
   const qr = url.pathname.match(QR_ROUTE);
   if (qr) {
-    url.searchParams.set('token', qr[1]);
-    url.pathname = '/api/qr-package';
-    return handleApi(req, res, url);
+    // Keep the public URL unchanged while briefly showing the branded loader.
+    // The loader then opens the existing PDF endpoint with the same token.
+    url.pathname = '/qr-splash.html';
+    return serveStatic(req, res, url);
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.statusCode = 405;

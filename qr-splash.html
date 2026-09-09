@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>جاري تجهيز الملفات | BSGT</title>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#fff;font-family:Tahoma,'IBM Plex Sans Arabic',sans-serif}
+    body{min-height:100vh;min-height:100dvh;overflow:hidden;color:#151515}
+    .splash{position:fixed;inset:0;display:grid;place-items:center;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));background:#fff}
+    .wrap{text-align:center;transform:translateY(-2vh)}
+    .orbit{position:relative;display:grid;place-items:center;width:205px;height:205px;margin:0 auto 26px;border-radius:50%}
+    .orbit::before,.orbit::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+    .orbit::before{inset:0;border:2px solid rgba(203,68,55,.20);border-top-color:#cb4437;animation:spin 2s linear infinite}
+    .orbit::after{inset:10px;border:1px solid rgba(203,68,55,.12);border-bottom-color:#cb4437;animation:spin 3.4s linear infinite reverse}
+    .logo{width:140px;height:140px;object-fit:contain;animation:breathe 1.45s ease-in-out infinite;filter:drop-shadow(0 10px 24px rgba(203,68,55,.10))}
+    .brand{margin-bottom:10px;color:#151515;font-size:26px;font-weight:800;letter-spacing:1.8px;direction:ltr}
+    .status{color:#777;font-size:16px}
+    .dots::after{content:"";animation:dots 1.25s steps(4,end) infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes breathe{0%,100%{transform:scale(.94);opacity:.92}50%{transform:scale(1.04);opacity:1}}
+    @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%,100%{content:"..."}}
+    @media(max-width:480px){.orbit{width:180px;height:180px;margin-bottom:22px}.logo{width:122px;height:122px}.brand{font-size:24px}.status{font-size:15px}}
+    @media(prefers-reduced-motion:reduce){.orbit::before,.orbit::after,.logo,.dots::after{animation-duration:.01ms;animation-iteration-count:1}}
+  </style>
+</head>
+<body>
+  <main class="splash" aria-busy="true" aria-live="polite">
+    <div class="wrap">
+      <div class="orbit"><img class="logo" src="/bsqt-qr-logo.png" alt="شعار BSGT"></div>
+      <div class="brand">BSGT</div>
+      <div class="status">جاري تجهيز الملفات<span class="dots" aria-hidden="true"></span></div>
+    </div>
+  </main>
+  <script>
+    (() => {
+      const match = location.pathname.match(/^\/s\/([A-Za-z0-9_-]{20,64})\/?$/);
+      if (!match) {
+        document.querySelector('.status').textContent = 'رابط التحقق غير صحيح';
+        return;
+      }
+      const destination = `/api/qr-package?token=${encodeURIComponent(match[1])}`;
+      window.setTimeout(() => location.replace(destination), 2300);
+    })();
+  </script>
+</body>
+</html>
