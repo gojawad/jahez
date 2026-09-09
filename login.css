@@ -2,6 +2,7 @@
 body.login-active {
   overflow: hidden;
   zoom: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 #lockScreen {
@@ -15,6 +16,7 @@ body.login-active {
   z-index: 200;
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   isolation: isolate;
   direction: rtl;
@@ -30,11 +32,12 @@ body.login-active {
   order: 1;
   flex: 0 0 55%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background-color: #f7f8fa;
-  background-image: url("jahez-login-bsqt.jpeg");
-  background-size: 100vw 100vh;
-  background-position: right top;
+  background-image: url("jahez-login-bsgt.png");
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
 }
 
@@ -59,6 +62,7 @@ body.login-active {
   order: 2;
   flex: 0 0 45%;
   height: 100vh;
+  height: 100dvh;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -295,6 +299,9 @@ body.login-active {
 }
 
 #lockScreen .login-turnstile {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   margin: 0 0 12px;
   padding: 10px;
@@ -304,7 +311,17 @@ body.login-active {
 }
 
 #lockScreen .login-turnstile[hidden] { display: none; }
-#lockScreen #turnstileWidget { min-height: 65px; display: grid; place-items: center; overflow: hidden; }
+#lockScreen #turnstileWidget {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 65px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+#lockScreen #turnstileWidget > div,
+#lockScreen #turnstileWidget iframe { width: 100% !important; max-width: 100% !important; }
 #lockScreen .login-security-note { margin-top: 5px; color: #7a838c; font-size: 10.5px; text-align: center; }
 #lockScreen .login-turnstile.is-error { border-color: #f1b9bd; background: #fff8f8; color: #a70f20; }
 
@@ -378,7 +395,7 @@ body.login-active {
   text-align: center;
 }
 
-@media (max-height: 790px) and (min-width: 781px) {
+@media (max-height: 950px) and (min-width: 900px) {
   #lockScreen .lock-form-panel { padding-block: 14px; }
   #lockScreen .lock-card { padding-block: 18px 14px; }
   #lockScreen .login-meta { margin-bottom: 8px; }
@@ -395,54 +412,89 @@ body.login-active {
   #lockScreen .lock-note { margin-top: 7px; line-height: 1.35; }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) and (min-width: 900px) {
   #lockScreen .lock-image-panel { flex-basis: 48%; }
   #lockScreen .lock-form-panel { flex-basis: 52%; padding-inline: 24px; }
   #lockScreen .lock-card { padding-inline: 28px; }
 }
 
-@media (max-width: 780px) {
-  body.login-active { overflow: auto; }
+@media (max-width: 899px) {
+  html,
+  body.login-active {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
   #lockScreen {
     position: fixed;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
     background: #fafbfc;
   }
   #lockScreen .lock-form-panel {
-    order: 1;
-    flex: 0 0 auto;
     width: 100%;
-    height: auto;
-    min-height: 100vh;
-    padding: 18px 14px;
+    max-width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: max(24px, env(safe-area-inset-top)) clamp(20px, 4vw, 24px) max(24px, env(safe-area-inset-bottom));
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: none;
   }
   #lockScreen .lock-card {
-    width: min(100%, 560px);
-    padding: 22px 20px 18px;
-    border-radius: 20px;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: auto 0;
+    padding: 18px 0 12px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
   #lockScreen .lock-image-panel {
-    order: 2;
-    flex: 0 0 230px;
-    width: 100%;
-    height: 230px;
-    min-height: 230px;
-    background-size: cover;
-    background-position: right center;
+    display: none !important;
   }
-  #lockScreen .login-brand { margin-bottom: 18px; }
-  #lockScreen .lock-logo { width: 76px; height: 76px; }
-  #lockScreen #lockTitle { font-size: 31px; }
-  #lockScreen .lock-sub { font-size: 12.5px; }
+  #lockScreen .login-meta { margin-bottom: 10px; }
+  #lockScreen .login-brand { margin-bottom: 12px; }
+  #lockScreen .lock-logo { position: static; width: 72px; height: 72px; margin-bottom: 6px; transform: none; }
+  #lockScreen .lock-logo svg { width: 58px; height: 58px; }
+  #lockScreen #lockTitle { font-size: clamp(29px, 8vw, 36px); }
+  #lockScreen .lock-sub { max-width: 360px; margin-top: 4px; font-size: 12.5px; line-height: 1.5; }
+  #lockScreen .login-welcome { margin-bottom: 10px; }
+  #lockScreen .login-welcome h2 { font-size: 18px; }
+  #lockScreen .lg-field { width: 100%; max-width: 100%; min-width: 0; margin-bottom: 10px; }
+  #lockScreen .lg-input-wrap,
+  #lockScreen .lg-input-wrap input,
+  #lockScreen #lockBtn,
+  #lockScreen .login-options,
+  #lockScreen .login-connection { width: 100%; max-width: 100%; min-width: 0; }
+  #lockScreen .lg-input-wrap,
+  #lockScreen #lockBtn { min-height: 48px; }
+  #lockScreen .login-options { margin-bottom: 9px; }
+  #lockScreen .login-turnstile { margin-bottom: 8px; padding: 7px; }
+  #lockScreen .login-connection { margin-top: 9px; padding: 8px 10px; }
+  #lockScreen .lock-note { margin-top: 8px; line-height: 1.4; }
 }
 
 @media (max-width: 390px) {
-  #lockScreen .lock-form-panel { padding: 10px; }
-  #lockScreen .lock-card { padding-inline: 16px; border-radius: 17px; }
+  #lockScreen .lock-form-panel {
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-left: max(20px, env(safe-area-inset-left));
+  }
   #lockScreen .login-meta { font-size: 11.5px; }
-  #lockScreen #turnstileWidget { transform: scale(.88); transform-origin: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

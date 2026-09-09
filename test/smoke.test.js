@@ -49,18 +49,26 @@ async function main() {
       assert.strictEqual(wizardResponse.status, 200);
       companyWizard = await wizardResponse.text();
     });
-    await check('new login presentation loads without optional security dependencies', async () => {
-      assert.ok(appHtml.includes('login.css?v=20260908-bsqt-login-1'));
+    await check('login presentation is responsive and Turnstile-protected', async () => {
+      assert.ok(appHtml.includes('login.css?v=20260909-bsgt-login-2'));
       assert.ok(appHtml.includes('مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة'));
-      assert.ok(!appHtml.includes("fetch('/api/login-security'"));
+      assert.ok(appHtml.includes("`${SB_URL}/functions/v1/verify-turnstile`"));
+      assert.ok(appHtml.includes('await verifyTurnstile();'));
+      const loginSubmit = appHtml.indexOf('async function handleLockSubmit');
+      assert.ok(appHtml.indexOf('await verifyTurnstile();', loginSubmit) < appHtml.indexOf('sb.auth.signInWithPassword', loginSubmit));
+      assert.ok(!appHtml.includes('TURNSTILE_SECRET_KEY'));
       const cssResponse = await fetch(`${BASE}/login.css`);
       assert.strictEqual(cssResponse.status, 200);
       const loginCss = await cssResponse.text();
       assert.ok(loginCss.includes('body.login-active'));
-      assert.ok(loginCss.includes('@media (max-width: 780px)'));
-      const heroResponse = await fetch(`${BASE}/jahez-login-bsqt.jpeg`);
+      assert.ok(loginCss.includes('@media (max-width: 899px)'));
+      assert.ok(loginCss.includes('display: none !important'));
+      assert.ok(loginCss.includes('min-height: 100dvh'));
+      assert.ok(loginCss.includes('env(safe-area-inset-top)'));
+      assert.ok(!loginCss.includes('transform: scale('));
+      const heroResponse = await fetch(`${BASE}/jahez-login-bsgt.png`);
       assert.strictEqual(heroResponse.status, 200);
-      assert.match(heroResponse.headers.get('content-type'), /image\/jpeg/);
+      assert.match(heroResponse.headers.get('content-type'), /image\/png/);
     });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));

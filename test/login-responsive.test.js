@@ -1,0 +1,151 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+const { chromium } = require('playwright-core');
+
+const PORT = 4100 + Math.floor(Math.random() * 100);
+const BASE = `http://127.0.0.1:${PORT}`;
+const APP_ORIGIN = `http://jahez.test:${PORT}`;
+const TURNSTILE_FUNCTION = 'https://vthcmqqiexaedukduquv.supabase.co/functions/v1/verify-turnstile';
+const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
+const OUTPUT = path.join(__dirname, 'output');
+const VIEWPORTS = [
+  {width:390, height:844},
+  {width:393, height:852},
+  {width:430, height:932},
+  {width:768, height:1024},
+  {width:1440, height:900}
+];
+
+function chromiumPath() {
+  const candidates = [
+    process.env.CHROMIUM_PATH,
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  ].filter(Boolean);
+  return candidates.find(candidate => fs.existsSync(candidate));
+}
+
+async function waitForServer(proc) {
+  for(let attempt = 0; attempt < 50; attempt++){
+    if(proc.exitCode !== null) throw new Error(`server exited early with code ${proc.exitCode}`);
+    try{ if((await fetch(`${BASE}/healthz`)).ok) return; }catch{}
+    await new Promise(resolve=>setTimeout(resolve, 200));
+  }
+  throw new Error('server did not start');
+}
+
+async function main() {
+  const executablePath = chromiumPath();
+  if(!executablePath) throw new Error('Chrome or Chromium executable was not found.');
+  fs.mkdirSync(OUTPUT, {recursive:true});
+  const server = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env:{...process.env, PORT:String(PORT), BUILD_SHA:'responsive-test'},
+    stdio:['ignore', 'inherit', 'inherit']
+  });
+  let browser;
+  try{
+    await waitForServer(server);
+    browser = await chromium.launch({
+      executablePath,
+      headless:true,
+      args:['--no-sandbox', '--disable-gpu', '--host-resolver-rules=MAP jahez.test 127.0.0.1']
+    });
+    for(const viewport of VIEWPORTS){
+      const context = await browser.newContext({viewport, deviceScaleFactor:1});
+      const page = await context.newPage();
+      const pageErrors = [];
+      const diagnostics = [];
+      page.on('pageerror', error=>pageErrors.push(error.message));
+      page.on('console', message=>{
+        if(['error', 'warning'].includes(message.type())) diagnostics.push(`${message.type()}: ${message.text()}`);
+      });
+      page.on('requestfailed', request=>diagnostics.push(`request failed: ${request.url()} ${request.failure()?.errorText || ''}`));
+      await page.route(`${TURNSTILE_FUNCTION}*`, async route=>{
+        const commonHeaders = {
+          'Access-Control-Allow-Origin':APP_ORIGIN,
+          'Access-Control-Allow-Headers':'apikey, content-type',
+          'Access-Control-Allow-Methods':'GET, POST, OPTIONS'
+        };
+        if(route.request().method() === 'OPTIONS'){
+          await route.fulfill({status:204, headers:commonHeaders, body:''});
+          return;
+        }
+        await route.fulfill({
+          status:200,
+          headers:{...commonHeaders, 'Content-Type':'application/json'},
+          body:JSON.stringify({enabled:true, siteKey:TURNSTILE_TEST_SITE_KEY})
+        });
+      });
+      await page.goto(APP_ORIGIN, {waitUntil:'networkidle'});
+      await page.locator('#lockScreen').waitFor({state:'visible'});
+      try{
+        await page.locator('#turnstileWidget input[name="cf-turnstile-response"]').waitFor({state:'attached', timeout:15000});
+      }catch(error){
+        const state = await page.evaluate(()=>({
+          url:location.href,
+          title:document.title,
+          note:document.getElementById('loginSecurityNote')?.textContent || '',
+          widget:document.getElementById('turnstileWidget')?.innerHTML.slice(0, 300) || ''
+        }));
+        throw new Error(`Turnstile widget did not render at ${viewport.width}px: ${JSON.stringify({state, diagnostics})}`);
+      }
+      const metrics = await page.evaluate(()=>{
+        const rect = selector=>{
+          const box = document.querySelector(selector).getBoundingClientRect();
+          return {top:box.top, bottom:box.bottom, left:box.left, right:box.right, width:box.width, height:box.height};
+        };
+        const hero = document.querySelector('#lockScreen .lock-image-panel');
+        const widget = document.getElementById('turnstileWrap');
+        return {
+          viewportWidth:innerWidth,
+          heroCount:document.querySelectorAll('#lockScreen .lock-image-panel').length,
+          heroDisplay:getComputedStyle(hero).display,
+          heroImage:getComputedStyle(hero).backgroundImage,
+          lock:rect('#lockScreen'),
+          panel:rect('#lockScreen .lock-form-panel'),
+          card:rect('#loginForm'),
+          logo:rect('#lockLogo'),
+          cardTransform:getComputedStyle(document.getElementById('loginForm')).transform,
+          horizontalOverflow:document.documentElement.scrollWidth - innerWidth,
+          widgetOverflow:widget.scrollWidth - widget.clientWidth,
+          widgetRenderedWidth:(document.querySelector('#turnstileWidget iframe') || document.querySelector('#turnstileWidget > div'))?.getBoundingClientRect().width || 0
+        };
+      });
+
+      assert.strictEqual(metrics.heroCount, 1, `${viewport.width}px must not duplicate the hero`);
+      assert.ok(metrics.horizontalOverflow <= 0, `${viewport.width}px has horizontal overflow`);
+      assert.ok(metrics.widgetOverflow <= 0, `${viewport.width}px Turnstile container overflows`);
+      assert.ok(metrics.widgetRenderedWidth > 0 && metrics.widgetRenderedWidth <= metrics.card.width, `${viewport.width}px Turnstile widget must fit the form`);
+      assert.ok(metrics.logo.top >= 0, `${viewport.width}px logo is clipped at the top`);
+      assert.ok(metrics.card.top >= 0 && metrics.card.bottom <= viewport.height + 1, `${viewport.width}px login card must fit the viewport`);
+      assert.deepStrictEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(', ')}`);
+
+      if(viewport.width <= 899){
+        assert.strictEqual(metrics.heroDisplay, 'none', `${viewport.width}px hero must be hidden`);
+        assert.ok(Math.abs(metrics.panel.width - metrics.viewportWidth) <= 1, `${viewport.width}px panel must fill the viewport`);
+        assert.ok(metrics.card.left >= 19 && metrics.card.right <= metrics.viewportWidth - 19, `${viewport.width}px card must respect mobile padding`);
+        assert.ok(['none', 'matrix(1, 0, 0, 1, 0, 0)'].includes(metrics.cardTransform), `${viewport.width}px must not scale the desktop layout`);
+      }else{
+        assert.notStrictEqual(metrics.heroDisplay, 'none', 'desktop hero must remain visible');
+        assert.ok(metrics.heroImage.includes('jahez-login-bsgt.png'), `desktop must use the new BSGT hero image, received ${metrics.heroImage.slice(0, 120)}`);
+        assert.ok(metrics.panel.width > 0 && metrics.panel.width < metrics.viewportWidth, 'desktop login panel must keep split layout');
+      }
+
+      await page.screenshot({path:path.join(OUTPUT, `login-${viewport.width}.png`), fullPage:false});
+      await context.close();
+      console.log(`Login responsive ${viewport.width}px: passed`);
+    }
+  }finally{
+    if(browser) await browser.close();
+    server.kill('SIGTERM');
+  }
+}
+
+main().catch(error=>{
+  console.error(error);
+  process.exit(1);
+});

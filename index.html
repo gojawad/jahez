@@ -2454,7 +2454,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
   <link rel="stylesheet" href="import-permit.css?v=20260908-glass-1">
   <link rel="stylesheet" href="shipment-list.css?v=20260908-bsgt-table-meta-1">
-  <link rel="stylesheet" href="login.css?v=20260908-bsqt-login-1">
+  <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-2">
 </head>
 <body class="login-active">
 
@@ -2523,8 +2523,13 @@ try{
       </label>
     </div>
 
+    <div class="login-turnstile" id="turnstileWrap">
+      <div id="turnstileWidget" aria-label="التحقق الأمني"></div>
+      <div class="login-security-note" id="loginSecurityNote">جاري تجهيز التحقق الأمني...</div>
+    </div>
+
     <div class="lock-err" id="lockErr" role="alert" aria-live="polite"></div>
-    <button class="btn btn-primary" id="lockBtn" type="submit">
+    <button class="btn btn-primary" id="lockBtn" type="submit" disabled>
       <span id="lockBtnTxt">تسجيل الدخول</span>
     </button>
     <div class="login-connection">متصل مع BSGT</div>
@@ -5790,6 +5795,7 @@ try{
 // ===== الاتصال بقاعدة البيانات =====
 const SB_URL = 'https://vthcmqqiexaedukduquv.supabase.co';
 const SB_KEY = 'sb_publishable_kYEMmAQ2KTETIabDTMz2ig_fNB8vo02';
+const TURNSTILE_VERIFY_URL = `${SB_URL}/functions/v1/verify-turnstile`;
 const sb = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     storageKey: 'shipdocs-auth',      // مفتاح خاص يمنع التضارب
@@ -6339,6 +6345,140 @@ function loginError(msg){
 
 let isSetupMode = false;
 let loginSubmitting = false;
+let loginSecurityPromise = null;
+let turnstileWidgetId = null;
+let turnstileToken = '';
+const loginSecurity = {ready:false, enabled:false, developmentBypass:false};
+
+function isLocalLoginEnvironment(){
+  return location.protocol === 'file:' || ['localhost','127.0.0.1','::1'].includes(location.hostname);
+}
+
+function syncLoginButton(){
+  const btn = document.getElementById('lockBtn');
+  if(!btn) return;
+  const unavailable = loginSecurity.ready && !loginSecurity.enabled && !loginSecurity.developmentBypass;
+  btn.disabled = loginSubmitting || !loginSecurity.ready || unavailable;
+}
+
+function setLoginSecurityState(message, isError){
+  const wrap = document.getElementById('turnstileWrap');
+  const note = document.getElementById('loginSecurityNote');
+  if(!wrap || !note) return;
+  wrap.hidden = false;
+  wrap.classList.toggle('is-error', !!isError);
+  note.textContent = message || '';
+}
+
+function loadTurnstileScript(){
+  if(window.turnstile) return Promise.resolve(window.turnstile);
+  return new Promise((resolve, reject)=>{
+    const existing = document.getElementById('turnstileScript');
+    if(existing){
+      existing.addEventListener('load', ()=>resolve(window.turnstile), {once:true});
+      existing.addEventListener('error', reject, {once:true});
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'turnstileScript';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.onload = ()=>resolve(window.turnstile);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function resetTurnstileWidget(message){
+  turnstileToken = '';
+  if(window.turnstile && turnstileWidgetId !== null){
+    try{ window.turnstile.reset(turnstileWidgetId); }catch(e){}
+  }
+  if(loginSecurity.enabled && message) setLoginSecurityState(message, false);
+  syncLoginButton();
+}
+
+async function initTurnstileSecurity(){
+  const wrap = document.getElementById('turnstileWrap');
+  if(isLocalLoginEnvironment()){
+    loginSecurity.developmentBypass = true;
+    loginSecurity.ready = true;
+    if(wrap) wrap.hidden = true;
+    console.warn('Turnstile is bypassed only in the local development environment.');
+    syncLoginButton();
+    return;
+  }
+
+  try{
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+      method:'GET',
+      headers:{Accept:'application/json', apikey:SB_KEY},
+      cache:'no-store'
+    });
+    const config = await response.json().catch(()=>({}));
+    if(!response.ok || config.enabled !== true || !config.siteKey){
+      throw new Error('Turnstile environment variables are missing.');
+    }
+
+    loginSecurity.enabled = true;
+    loginSecurity.ready = true;
+    setLoginSecurityState('أكمل التحقق الأمني للمتابعة.', false);
+    const turnstile = await loadTurnstileScript();
+    if(!turnstile) throw new Error('Turnstile script is unavailable.');
+    turnstileWidgetId = turnstile.render('#turnstileWidget', {
+      sitekey:config.siteKey,
+      action:'login',
+      language:'ar',
+      theme:'light',
+      size:'flexible',
+      callback:token=>{
+        turnstileToken = token || '';
+        setLoginSecurityState('اكتمل التحقق الأمني.', false);
+        syncLoginButton();
+      },
+      'expired-callback':()=>resetTurnstileWidget('انتهت صلاحية التحقق. أكمله مرة أخرى.'),
+      'error-callback':()=>{
+        turnstileToken = '';
+        setLoginSecurityState('تعذر التحقق الأمني. حاول مرة أخرى.', true);
+        syncLoginButton();
+      }
+    });
+  }catch(error){
+    loginSecurity.enabled = false;
+    loginSecurity.ready = true;
+    console.error('Turnstile protection is not configured:', error);
+    setLoginSecurityState('الحماية الأمنية غير مهيأة. تواصل مع مدير النظام.', true);
+  }finally{
+    syncLoginButton();
+  }
+}
+
+async function verifyTurnstile(){
+  if(loginSecurity.developmentBypass && isLocalLoginEnvironment()) return true;
+  if(!turnstileToken){
+    const error = new Error('يرجى إكمال التحقق الأمني أولاً.');
+    error.code = 'turnstile_required';
+    throw error;
+  }
+  const token = turnstileToken;
+  try{
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', Accept:'application/json', apikey:SB_KEY},
+      body:JSON.stringify({token})
+    });
+    const result = await response.json().catch(()=>({}));
+    turnstileToken = '';
+    if(response.ok && result.success === true) return true;
+  }catch(error){
+    console.error('Turnstile verification request failed:', error);
+  }
+  turnstileToken = '';
+  const error = new Error('تعذر التحقق الأمني. حاول مرة أخرى.');
+  error.code = 'turnstile_failed';
+  throw error;
+}
 
 async function initLock(){
   document.body.classList.add('login-active');
@@ -6352,6 +6492,7 @@ async function initLock(){
     }
   }catch(e){}
   applyBranding();
+  if(!loginSecurityPromise) loginSecurityPromise = initTurnstileSecurity();
   setTimeout(()=>document.getElementById('loginUser').focus(), 100);
 }
 
@@ -6364,10 +6505,17 @@ async function handleLockSubmit(){
 
   if(!email){ loginError('اكتب البريد الإلكتروني'); return; }
   if(!pass){ loginError('اكتب كلمة المرور'); return; }
+  if(loginSecurityPromise) await loginSecurityPromise;
+  if(loginSecurity.enabled && !turnstileToken){ loginError('يرجى إكمال التحقق الأمني أولاً.'); return; }
+  if(!loginSecurity.enabled && !loginSecurity.developmentBypass){
+    loginError('الحماية الأمنية غير متاحة الآن.');
+    return;
+  }
   loginSubmitting = true;
   btn.classList.add('loading');
-  btn.disabled = true;
+  syncLoginButton();
   try{
+    await verifyTurnstile();
     const {data, error} = await sb.auth.signInWithPassword({email, password:pass});
     if(error) throw new Error(/Failed to fetch/i.test(error.message || '')
       ? 'تعذر الاتصال بخدمة الدخول الآن.'
@@ -6380,10 +6528,11 @@ async function handleLockSubmit(){
   }catch(e){
     loginError(e && e.message ? e.message : 'تعذر تسجيل الدخول الآن. حاول مرة أخرى.');
     document.getElementById('loginPass').value = '';
+    if(loginSecurity.enabled) resetTurnstileWidget('أكمل التحقق الأمني للمتابعة.');
   }finally{
     loginSubmitting = false;
     btn.classList.remove('loading');
-    btn.disabled = false;
+    syncLoginButton();
   }
 }
 
@@ -6541,6 +6690,7 @@ async function lockApp(){
   document.getElementById('lockScreen').classList.remove('hidden');
   document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
   document.getElementById('loginPass').value = '';
+  resetTurnstileWidget('أكمل التحقق الأمني للمتابعة.');
   setTimeout(()=>document.getElementById('loginPass').focus(), 100);
 }
 
@@ -6917,6 +7067,8 @@ const DEFAULT_BRAND = {
   iconImg:'',
   loginImg:'',
   loginImgMode:'reference',
+  loginImgVersion:'20260909-bsgt-hero-2',
+  loginImgCurrent:false,
   color:'#1877F2',
   color2:'#69A7F7',      // لون ثانوي احتياطي (غير مستخدم حالياً — لا تدرجات)
   useGradient:false,     // تدرج أم لون واحد
@@ -6963,7 +7115,11 @@ function applyBranding(){
 
   const lip = document.getElementById('lockImagePanel');
   if(lip){
-    const hasCustomLoginImage = branding.loginImgMode === 'custom' && !!branding.loginImg;
+    const currentLoginHeroVersion = DEFAULT_BRAND.loginImgVersion;
+    const hasCustomLoginImage = branding.loginImgMode === 'custom'
+      && branding.loginImgVersion === currentLoginHeroVersion
+      && branding.loginImgCurrent === true
+      && !!branding.loginImg;
     lip.style.backgroundImage = hasCustomLoginImage ? `url("${branding.loginImg}")` : '';
     lip.classList.toggle('has-custom-login-image', hasCustomLoginImage);
   }
@@ -7615,6 +7771,8 @@ document.getElementById('br_loginImgFile').addEventListener('change', async func
   try{
     branding.loginImg = await fileToScaledDataURL(f, 1600, {format:'jpeg', quality:0.85});
     branding.loginImgMode = 'custom';
+    branding.loginImgVersion = DEFAULT_BRAND.loginImgVersion;
+    branding.loginImgCurrent = true;
     renderImgPrev('br_loginImgPrev', branding.loginImg, 'loginImg');
     applyBranding();
     await saveBranding();
@@ -7626,6 +7784,8 @@ document.getElementById('br_loginImgPrev').addEventListener('click', async e=>{
   if(!(e.target.classList && e.target.classList.contains('rm'))) return;
   branding.loginImg = '';
   branding.loginImgMode = 'reference';
+  branding.loginImgVersion = DEFAULT_BRAND.loginImgVersion;
+  branding.loginImgCurrent = false;
   renderImgPrev('br_loginImgPrev', '', 'loginImg');
   applyBranding();
   await saveBranding();
@@ -7641,7 +7801,12 @@ function fillBrandForm(){
   document.getElementById('br_kpi4').value = branding.kpi4 || '#2E7D32';
   renderIconPicker();
   renderImgPrev('br_iconPrev', branding.iconImg, 'iconImg');
-  renderImgPrev('br_loginImgPrev', branding.loginImgMode === 'custom' ? branding.loginImg : '', 'loginImg');
+  const currentLoginImage = branding.loginImgMode === 'custom'
+    && branding.loginImgVersion === DEFAULT_BRAND.loginImgVersion
+    && branding.loginImgCurrent === true
+    ? branding.loginImg
+    : '';
+  renderImgPrev('br_loginImgPrev', currentLoginImage, 'loginImg');
 }
 document.getElementById('brandSaveBtn').addEventListener('click', async ()=>{
   branding.systemName = document.getElementById('br_systemName').value.trim() || DEFAULT_BRAND.systemName;
