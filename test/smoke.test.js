@@ -328,6 +328,8 @@ async function main() {
       assert.strictEqual(j.connectUrl, '/api/microsoft?action=connect');
     });
     await check('/s/<token> QR route shows the branded loader before the existing PDF endpoint', async () => {
+      const dockerfile = await fs.promises.readFile(path.join(__dirname, '..', 'Dockerfile'), 'utf8');
+      assert.match(dockerfile, /COPY index\.html public-shipment\.html qr-splash\.html/);
       const bad = await fetch(`${BASE}/s/short`);
       assert.strictEqual(bad.status, 404);
       const splash = await fetch(`${BASE}/s/abcdefghijklmnopqrstuvwx`);
