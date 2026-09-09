@@ -155,6 +155,7 @@ async function main() {
           heroCount:document.querySelectorAll('#lockScreen .lock-image-panel').length,
           heroDisplay:getComputedStyle(hero).display,
           heroImage:getComputedStyle(hero).backgroundImage,
+          heroBackgroundSize:getComputedStyle(hero).backgroundSize,
           lock:rect('#lockScreen'),
           panel:rect('#lockScreen .lock-form-panel'),
           card:rect('#loginForm'),
@@ -182,6 +183,7 @@ async function main() {
       }else{
         assert.notStrictEqual(metrics.heroDisplay, 'none', 'desktop hero must remain visible');
         assert.ok(metrics.heroImage.includes('jahez-login-bsgt.png'), `desktop must use the new BSGT hero image, received ${metrics.heroImage.slice(0, 120)}`);
+        assert.strictEqual(metrics.heroBackgroundSize, 'contain', 'desktop login hero must not upscale and crop the approved image');
         assert.ok(metrics.panel.width > 0 && metrics.panel.width < metrics.viewportWidth, 'desktop login panel must keep split layout');
       }
 

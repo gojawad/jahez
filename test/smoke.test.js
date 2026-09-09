@@ -50,7 +50,7 @@ async function main() {
       companyWizard = await wizardResponse.text();
     });
     await check('login presentation is responsive and Turnstile-protected', async () => {
-      assert.ok(appHtml.includes('login.css?v=20260909-bsgt-login-2'));
+      assert.ok(appHtml.includes('login.css?v=20260909-bsgt-login-3'));
       assert.ok(appHtml.includes('مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة'));
       assert.ok(appHtml.includes("`${SB_URL}/functions/v1/verify-turnstile`"));
       assert.ok(appHtml.includes('await verifyTurnstile();'));
@@ -65,6 +65,7 @@ async function main() {
       assert.ok(loginCss.includes('display: none !important'));
       assert.ok(loginCss.includes('min-height: 100dvh'));
       assert.ok(loginCss.includes('env(safe-area-inset-top)'));
+      assert.ok(loginCss.includes('background-size: contain'));
       assert.ok(!loginCss.includes('transform: scale('));
       const heroResponse = await fetch(`${BASE}/jahez-login-bsgt.png`);
       assert.strictEqual(heroResponse.status, 200);

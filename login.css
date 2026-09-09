@@ -34,15 +34,15 @@ body.login-active {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background-color: #f7f8fa;
+  background-color: #fff;
   background-image: url("jahez-login-bsgt.png");
-  background-size: cover;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
 }
 
 #lockScreen .lock-image-panel.has-custom-login-image {
-  background-size: cover;
+  background-size: contain;
   background-position: center;
 }
 
