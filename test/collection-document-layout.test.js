@@ -90,6 +90,12 @@ async function main() {
     const exchange = await page.evaluate(()=>({
       metaCells:[...document.querySelectorAll('.boe-meta td')].map(cell=>cell.textContent.trim()),
       metaBorders:[...document.querySelectorAll('.boe-meta td')].map(cell=>getComputedStyle(cell).borderTopStyle),
+      amountBox:(()=>{
+        const cell=document.querySelector('.boe-meta td').getBoundingClientRect();
+        const label=document.querySelector('[data-text-style-id="boe-amount-label"]').getBoundingClientRect();
+        const value=document.querySelector('[data-text-style-id="boe-amount-value"]').getBoundingClientRect();
+        return {leftGap:label.left-cell.left,rightGap:cell.right-value.right,separation:value.left-label.right};
+      })(),
       invoiceRows:document.querySelectorAll('.boe-invoices tr').length,
       invoiceCells:[...document.querySelector('.boe-invoices tr').cells].map(cell=>cell.textContent.trim()),
       invoiceBorders:[...document.querySelector('.boe-invoices tr').cells].map(cell=>getComputedStyle(cell).borderTopStyle),
@@ -97,6 +103,9 @@ async function main() {
     }));
     assert.strictEqual(exchange.metaCells.length, 2);
     assert.ok(exchange.metaBorders.every(style=>style === 'solid'));
+    assert.ok(exchange.amountBox.leftGap < 25);
+    assert.ok(exchange.amountBox.rightGap < 25);
+    assert.ok(exchange.amountBox.separation > 30);
     assert.strictEqual(exchange.invoiceRows, 2);
     assert.deepStrictEqual(exchange.invoiceCells, ['HJ2026173','Dated:','2026-07-20']);
     assert.ok(exchange.invoiceBorders.every(style=>style === 'none'));

@@ -357,12 +357,15 @@ async function main() {
       assert.ok(collectionJs.includes('undertaking-currency-${index}'));
       assert.ok(collectionJs.includes('undertaking-amount-${index}'));
       assert.ok(collectionJs.includes('<table class="boe-meta">'));
+      assert.ok(collectionJs.includes('data-text-style-id="boe-amount-label"'));
+      assert.ok(collectionJs.includes('data-text-style-id="boe-amount-value"'));
       assert.ok(collectionJs.includes('<table class="boe-invoices"'));
       const collectionListsCss = await (await fetch(`${BASE}/experiments/bs-collection/collection-lists.css`)).text();
       assert.ok(collectionListsCss.includes('.document-editor-shell'));
       assert.ok(collectionListsCss.includes('.preview-section.is-preview-focus'));
       assert.match(collectionListsCss, /\.undertaking-refs\s*:is\(th,td\)[^{]*\{[^}]*border:\s*0\s*!important/);
       assert.match(collectionListsCss, /\.boe-meta td\s*\{[^}]*border:\s*\.25mm solid #000\s*!important/);
+      assert.ok(collectionListsCss.includes('.boe-meta-box { display: flex; align-items: center; justify-content: space-between;'));
       assert.match(collectionListsCss, /\.boe-invoices\s*:is\(th,td\)[^{]*\{[^}]*border:\s*0\s*!important/);
     });
     await check('login requires explicit submit while internal portal routes preserve session restore', async () => {
