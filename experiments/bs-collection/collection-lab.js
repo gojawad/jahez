@@ -86,6 +86,7 @@ function updateDocumentEditorState(){
 }
 function markDocumentLayoutDirty(){ dirtyDocumentLayouts.add(state.preview); updateDocumentEditorState(); }
 function saveCurrentDocumentLayout(){
+  if(portalRole!=='admin') return;
   const meta=documentEditorMeta();
   meta[state.preview]={savedAt:new Date().toISOString()};
   try { localStorage.setItem(collectionDocumentEditorMetaStorageKey,JSON.stringify(meta)); }
@@ -130,6 +131,7 @@ function setPortalUserProfile(user, profile){
   const name=profile?.display_name||user?.email?.split('@')[0]||'زائر';
   portalRole=profile?.role||'';
   document.body.classList.toggle('role-bsgt-portal-user',portalRole==='bsgt_user');
+  document.body.classList.toggle('role-collection-preview-only',portalRole!=='admin');
   const role=portalRoleLabels[profile?.role]||'الحساب الحالي';
   $('portalUserName').textContent=name;
   $('portalUserRole').textContent=role;

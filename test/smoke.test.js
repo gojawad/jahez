@@ -149,10 +149,11 @@ async function main() {
       assert.ok(companyWizard.includes('Office 307 Al Faheem Building'));
       assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));
     });
-    await check('BSGT shipment attachments have role-aware read-only UI', async () => {
+    await check('BSGT shipment attachments have role-scoped management UI', async () => {
       assert.ok(appHtml.includes('function canManageShipmentFiles(r)'));
+      assert.ok(appHtml.includes('isBsgtPortalUser() && isBsgtRecord(r)'));
       assert.ok(appHtml.includes('async function deleteBaharDocument(r, key)'));
-      assert.ok(appHtml.includes("k==='importPermit' && uploaded && canManageFiles"));
+      assert.ok(appHtml.includes("uploaded && canManageFiles ? `<button"));
       assert.ok(appHtml.includes('حذف الملف'));
       assert.ok(appHtml.includes('ستبقى الخانة فارغة ويمكنك رفع ملف جديد لاحقاً'));
       assert.ok(appHtml.includes("shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.label!==label)"));
@@ -162,6 +163,22 @@ async function main() {
       assert.ok(policySql.includes('public.is_bsgt_user() and s.company_id = public.bsgt_company_id()'));
       assert.ok(policySql.includes('create policy shipmentfiles_select'));
       assert.ok(policySql.includes('create policy shippkgatt_select'));
+      const managePolicySql = fs.readFileSync(path.join(__dirname, '..', 'supabase', '26_إدارة_مرفقات_BSGT.sql'), 'utf8');
+      assert.ok(managePolicySql.includes('create policy shipmentfiles_write'));
+      assert.ok(managePolicySql.includes('create policy shipmentfiles_delete'));
+      assert.ok(managePolicySql.includes('public.is_bsgt_user() and s.company_id = public.bsgt_company_id()'));
+    });
+
+    await check('Collection document formatting controls are admin-only', async () => {
+      const portalHtml = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'index.html'), 'utf8');
+      const portalJs = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
+      const portalCss = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lists.css'), 'utf8');
+      assert.ok(portalHtml.includes('<body class="role-collection-preview-only">'));
+      assert.ok(portalHtml.includes('settings-section admin-document-settings'));
+      assert.ok(portalJs.includes("document.body.classList.toggle('role-collection-preview-only',portalRole!=='admin')"));
+      assert.ok(portalJs.includes("if(portalRole!=='admin') return;"));
+      assert.ok(portalCss.includes('.role-collection-preview-only .document-editor-panel'));
+      assert.ok(portalCss.includes('.role-collection-preview-only .admin-document-settings'));
     });
     await check('BSGT bill numbers are duplicate-safe and operation history is visible', async () => {
       assert.ok(appHtml.includes('function normalizeBsgtBillNumber(value)'));

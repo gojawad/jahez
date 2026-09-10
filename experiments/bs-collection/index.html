@@ -9,10 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="collection-lab.css?v=20260905-6">
-  <link rel="stylesheet" href="collection-lists.css?v=20260910-boe-meta-2">
+  <link rel="stylesheet" href="collection-lists.css?v=20260910-role-guard-1">
   <link rel="stylesheet" href="../../jahez-glass.css?v=20260908-glass-4">
 </head>
-<body>
+<body class="role-collection-preview-only">
   <header class="lab-header">
     <div class="lab-brand">
       <a class="lab-site-logo" href="/#v=dashboard" aria-label="الصفحة الرئيسية" title="الرئيسية"><img id="portalBrandImage" alt="شعار المنصة" hidden><i id="portalBrandIcon" class="bx bx-ship"></i></a>
@@ -29,7 +29,7 @@
     <nav id="portalStepGrid" class="portal-step-grid" aria-label="مراحل بوابة الإرسال">
       <button class="portal-step-card" type="button" data-step-section="picker-section"><span class="step-number">01</span><i class="bx bx-package"></i><strong>اختيار الشحنات</strong><small data-step-description="picker-section">جاري تحميل شحنات بحر سواكن...</small></button>
       <button class="portal-step-card" type="button" data-step-section="draft-section"><span class="step-number">02</span><i class="bx bx-file"></i><strong>مسودة الإرسال للبنك المُرسل</strong><small data-step-description="draft-section">اختر شحنة واحدة أو أكثر لبدء المعاينة.</small></button>
-      <button class="portal-step-card" type="button" data-step-section="settings-section"><span class="step-number">03</span><i class="bx bx-edit-alt"></i><strong>بيانات الإرسال للبنك المُرسل</strong><small data-step-description="settings-section">مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</small></button>
+      <button class="portal-step-card admin-document-settings" type="button" data-step-section="settings-section"><span class="step-number">03</span><i class="bx bx-edit-alt"></i><strong>بيانات الإرسال للبنك المُرسل</strong><small data-step-description="settings-section">مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</small></button>
       <button class="portal-step-card" type="button" data-step-section="preview-section"><span class="step-number">04</span><i class="bx bx-show"></i><strong>معاينة مستندات الإرسال</strong><small data-step-description="preview-section">تتحدث فوراً من مسودة الإرسال المحلية.</small></button>
       <button class="portal-step-card" type="button" data-step-section="collection-portal-section"><span class="step-number">05</span><i class="bx bx-building-house"></i><strong>بوابة التحصيل</strong><small data-step-description="collection-portal-section">المستندات المرسلة للبنك المُرسل والتي تنتظر التحصيل.</small></button>
     </nav>
@@ -56,7 +56,7 @@
       <div id="consigneeGroups" class="consignee-groups" hidden></div>
     </section>
 
-    <section class="lab-section settings-section">
+    <section class="lab-section settings-section admin-document-settings">
       <div class="section-heading"><div class="collapsible-heading-title"><span>03</span><h2>بيانات الإرسال للبنك المُرسل</h2><button class="section-collapse-btn" type="button" data-collapse-section="settings-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p>مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</p></div>
       <form id="settingsForm" class="settings-grid" autocomplete="off">
         <label>تاريخ الإرسال<input name="collectionDate" type="date"></label>
@@ -90,7 +90,7 @@
         </div>
         <div class="preview-actions">
           <button id="previewFocusBtn" class="text-btn" type="button"><i class="bx bx-fullscreen"></i> معاينة التعديلات</button>
-          <button id="saveDocumentLayoutBtn" class="btn btn-primary" type="button"><i class="bx bx-save"></i> حفظ إعدادات المستند</button>
+          <button id="saveDocumentLayoutBtn" class="btn btn-primary admin-document-settings" type="button"><i class="bx bx-save"></i> حفظ إعدادات المستند</button>
           <button id="printAllBtn" class="btn btn-primary" type="button"><i class="bx bx-printer"></i> طباعة الحزمة كاملة (3 مستندات)</button>
         </div>
       </div>
@@ -172,6 +172,6 @@
     <details class="debug-panel"><summary><i class="bx bx-code-alt"></i> بيانات التجربة</summary><pre id="debugOutput"></pre></details>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="collection-lab.js?v=20260910-boe-meta-2"></script>
+  <script src="collection-lab.js?v=20260910-role-guard-1"></script>
 </body>
 </html>

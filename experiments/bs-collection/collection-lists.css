@@ -267,8 +267,9 @@ body, .lab-header, .lab-shell, button, input, select, textarea { font-family: 'I
 .preview-section.is-preview-focus .preview-focus-toolbar { display: flex; position: sticky; z-index: 20; top: 0; padding: 9px 12px; border: 1px solid #d3e1ed; border-radius: 9px; background: rgba(255,255,255,.94); box-shadow: 0 5px 15px rgba(31,66,101,.1); }
 .preview-section.is-preview-focus .document-preview { padding-top: 4px; }
 .btn.is-saved { background: #18865f !important; border-color: #18865f !important; }
-.role-bsgt-portal-user .document-editor-panel, .role-bsgt-portal-user #saveDocumentLayoutBtn { display: none !important; }
-.role-bsgt-portal-user .document-editor-shell { grid-template-columns: minmax(0,1fr); }
+.role-collection-preview-only .admin-document-settings,
+.role-collection-preview-only .document-editor-panel { display: none !important; }
+.role-collection-preview-only .document-editor-shell { grid-template-columns: minmax(0,1fr); }
 
 @media (max-width: 1120px) {
   .document-editor-heading { align-items: stretch; flex-direction: column; }

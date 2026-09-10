@@ -8900,7 +8900,11 @@ let shipmentFilesCache = {};
 let shipmentFilesErrors = {};
 
 function canManageShipmentFiles(r){
-  return !!(r && currentUser && (r.ownerId === currentUser.id || isAdmin()));
+  return !!(r && currentUser && (
+    r.ownerId === currentUser.id
+    || isAdmin()
+    || (isBsgtPortalUser() && isBsgtRecord(r))
+  ));
 }
 
 function renderShipmentFiles(id){
@@ -8984,6 +8988,7 @@ function baharUploadedDoc(r, key){
   return list.find(f=>f.label===label) || null;
 }
 function triggerBaharDocUpload(r, key){
+  if(!canManageShipmentFiles(r)) return;
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'application/pdf,image/*'; input.style.display = 'none';
   input.addEventListener('change', async function(){
@@ -8995,7 +9000,7 @@ function triggerBaharDocUpload(r, key){
   input.click();
 }
 async function uploadBaharDocument(r, key, file){
-  if(!file) return;
+  if(!file || !canManageShipmentFiles(r)) return;
   if(!(file.type==='application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))){
     alert('ارفع ملف PDF أو صورة فقط.');
     return;
@@ -14841,7 +14846,7 @@ function renderDocActionsGrid(r){
           <div style="display:flex;gap:6px;margin-top:6px">
             ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
             ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>` : ''}
-            ${k==='importPermit' && uploaded && canManageFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف إذن الاستيراد">${icon('trash',13)} حذف الملف</button>` : ''}
+            ${uploaded && canManageFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف ${m.label}">${icon('trash',13)} حذف الملف</button>` : ''}
           </div>
         </div>`;
     }
@@ -14860,7 +14865,7 @@ function wireDocActionButtons(r){
       const uploaded = baharUploadedDoc(r, k);
       if(canManageShipmentFiles(r)) document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
-      if(k==='importPermit' && uploaded && canManageShipmentFiles(r)) document.getElementById(m.btnId+'Delete')?.addEventListener('click', ()=> deleteBaharDocument(r, k));
+      if(uploaded && canManageShipmentFiles(r)) document.getElementById(m.btnId+'Delete')?.addEventListener('click', ()=> deleteBaharDocument(r, k));
       if(canManageShipmentFiles(r)) bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
     });
   } else {
