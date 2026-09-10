@@ -1877,7 +1877,15 @@ body:has(#viewRecords.bsgt-shipment-view) .ship-tab{
   min-height:44px;padding:0 19px;border-radius:11px;font-size:13px;font-weight:700;
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
 }
-body:has(#viewRecords.bsgt-shipment-view) #bsgtCollectionLabBtn{border-color:#1768bd;background:#fff;color:#1768bd;}
+body:has(#viewRecords.bsgt-shipment-view) #bsgtCollectionLabBtn{
+  border-color:#0f4f8f;color:#fff;
+  background:linear-gradient(135deg,#123d6b 0%,#1768bd 100%);
+  box-shadow:0 6px 16px rgba(18,61,107,.2);
+}
+body:has(#viewRecords.bsgt-shipment-view) #bsgtCollectionLabBtn:hover{
+  border-color:#0c4278;background:linear-gradient(135deg,#0d3158 0%,#125da9 100%);
+  transform:translateY(-1px);box-shadow:0 8px 18px rgba(18,61,107,.26);
+}
 body:has(#viewRecords.bsgt-shipment-view) #bsgtNewBtn{padding-inline:21px;border-radius:11px;background:#86191f;box-shadow:0 5px 13px rgba(134,25,31,.22);}
 body:has(#viewRecords.bsgt-shipment-view) #bsgtNewBtn:before{display:none;}
 body:has(#viewRecords.bsgt-shipment-view) .wrap{padding-top:24px;}
@@ -2709,7 +2717,7 @@ try{
   </div>
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
-    <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">مختبر التحصيل (تجريبي)</button>
+    <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">إرسال المستندات للبنك</button>
     <button type="button" class="btn btn-ghost" id="bsgtImportPermitBtn" style="display:none;" data-ic="invoice" onclick="openImportPermitInvoice()" aria-controls="importPermitOverlay">فاتورة إذن الاستيراد</button>
     <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
   </div>
@@ -6458,6 +6466,7 @@ let loginSubmitting = false;
 let loginSecurityPromise = null;
 let turnstileWidgetId = null;
 let turnstileToken = '';
+let loginSubmitIntent = false;
 const loginSecurity = {ready:false, enabled:false, developmentBypass:false};
 
 function isLocalLoginEnvironment(){
@@ -6858,8 +6867,22 @@ document.querySelectorAll('[data-landing-target]').forEach(button=>{
   });
 });
 
-document.getElementById('loginForm').addEventListener('submit', e=>{
+const loginForm = document.getElementById('loginForm');
+document.getElementById('lockBtn').addEventListener('click', e=>{
+  if(e.isTrusted) loginSubmitIntent = true;
+});
+loginForm.addEventListener('keydown', e=>{
+  if(e.isTrusted && e.key === 'Enter') loginSubmitIntent = true;
+});
+loginForm.addEventListener('submit', e=>{
   e.preventDefault();
+  // Password managers may populate and submit a form without a deliberate user action.
+  // Require a real button click or Enter press before starting authentication.
+  if(!loginSubmitIntent){
+    loginError('اضغط زر تسجيل الدخول للمتابعة.');
+    return;
+  }
+  loginSubmitIntent = false;
   handleLockSubmit();
 });
 document.getElementById('lockNowBtn').addEventListener('click', ()=>{
@@ -7432,7 +7455,7 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
   const displayName = prompt('الاسم الظاهر:', email.split('@')[0]) || email.split('@')[0];
   const pass = prompt('كلمة مرور مبدئية (6 حروف على الأقل):');
   if(!pass || pass.length<6){ alert('كلمة المرور قصيرة جداً.'); return; }
-  const bsgtOnly = confirm('هل يقتصر هذا المستخدم على بوابة شحنات بحر سواكن ومختبر التحصيل فقط؟');
+  const bsgtOnly = confirm('هل يقتصر هذا المستخدم على بوابة شحنات بحر سواكن وإرسال المستندات للبنك فقط؟');
   netStart();
   try{
     const {data, error} = await getSignupClient().auth.signUp({
@@ -7458,7 +7481,7 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
       alert('تم إنشاء الحساب ✓\n\nالنظام أرسل رسالة تأكيد على بريده. لازم يفتحها ويأكّد قبل ما يقدر يدخل.\n\nلو عايز تلغي التأكيد: Supabase ← Authentication ← Users ← افتح الحساب ← Confirm.');
     }else{
       alert(bsgtOnly
-        ? 'تم إنشاء الحساب ✓\n\nالصلاحية: مستخدم BSGT — يرى شحنات بحر سواكن ومختبر التحصيل فقط.'
+        ? 'تم إنشاء الحساب ✓\n\nالصلاحية: مستخدم BSGT — يرى شحنات بحر سواكن وإرسال المستندات للبنك فقط.'
         : 'تم إنشاء الحساب ✓\n\nالصلاحية الافتراضية: مشاهد. غيّرها من زرار "تغيير الصلاحية".');
     }
   }catch(e){ dbError(e, 'تعذّر إنشاء الحساب'); }
@@ -19346,6 +19369,13 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
   // الافتراضي ثم تُحدَّث تلقائياً فور وصول الهوية الحقيقية، حتى قبل تسجيل الدخول (يحتاج ملف SQL رقم 17)
   loadBranding().then(applyBranding).catch(e=>console.warn('early branding load failed', e));
   try{ lastSeenAt = +(localStorage.getItem('lastSeenAt')||0); }catch(e){}
+  // The public root is an explicit landing/login entry. Do not restore a saved
+  // session behind the visible login screen; authentication starts only after submit.
+  // Internal routes (for example /#v=dashboard) still restore the shared session.
+  if(isPublicLandingRequest()){
+    showLanding();
+    return;
+  }
   try{
     const {data:{session}} = await sb.auth.getSession();
     if(session && session.user){

@@ -340,6 +340,7 @@ async function main() {
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-4'));
+      assert.strictEqual((collectionHtml.match(/href="\/#v=dashboard"/g) || []).length, 2);
       assert.ok(collectionHtml.includes('id="documentEditorShell"'));
       assert.ok(collectionHtml.includes('id="saveDocumentLayoutBtn"'));
       assert.strictEqual((collectionHtml.match(/data-preview="(?:letter|undertaking|exchange)"/g) || []).length, 3);
@@ -348,9 +349,28 @@ async function main() {
       assert.ok(collectionJs.includes('function saveCurrentDocumentLayout()'));
       assert.ok(collectionJs.includes("paper.classList.toggle('has-layout-overflow',overflow)"));
       assert.ok(!collectionJs.includes('offset.y+correction'));
+      assert.ok(collectionJs.includes("window.location.assign('/#v=dashboard')"));
+      assert.ok(collectionJs.includes('class="undertaking-refs"'));
+      assert.ok(collectionJs.includes('data-text-style-id="undertaking-ref-label"'));
+      assert.ok(collectionJs.includes('undertaking-invoice-${index}'));
+      assert.ok(collectionJs.includes('undertaking-bill-${index}'));
+      assert.ok(collectionJs.includes('undertaking-currency-${index}'));
+      assert.ok(collectionJs.includes('undertaking-amount-${index}'));
+      assert.ok(collectionJs.includes('<table class="boe-meta">'));
+      assert.ok(collectionJs.includes('<table class="boe-invoices"'));
       const collectionListsCss = await (await fetch(`${BASE}/experiments/bs-collection/collection-lists.css`)).text();
       assert.ok(collectionListsCss.includes('.document-editor-shell'));
       assert.ok(collectionListsCss.includes('.preview-section.is-preview-focus'));
+      assert.match(collectionListsCss, /\.undertaking-refs\s*:is\(th,td\)[^{]*\{[^}]*border:\s*0\s*!important/);
+      assert.match(collectionListsCss, /\.boe-meta td\s*\{[^}]*border:\s*\.25mm solid #000\s*!important/);
+      assert.match(collectionListsCss, /\.boe-invoices\s*:is\(th,td\)[^{]*\{[^}]*border:\s*0\s*!important/);
+    });
+    await check('login requires explicit submit while internal portal routes preserve session restore', async () => {
+      assert.ok(appHtml.includes('let loginSubmitIntent = false;'));
+      assert.ok(appHtml.includes("loginError('اضغط زر تسجيل الدخول للمتابعة.');"));
+      assert.ok(appHtml.includes('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }'));
+      assert.ok(appHtml.indexOf('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }') < appHtml.lastIndexOf('await sb.auth.getSession()'));
+      assert.ok(appHtml.includes('>إرسال المستندات للبنك</button>'));
     });
     await check('server files and SQL are not exposed', async () => {
       for (const p of ['/server.js', '/package.json', '/.env', '/.git/config', '/supabase/1.sql', '/api/microsoft.js', '/../etc/passwd', '/%2e%2e/etc/passwd']) {

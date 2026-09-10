@@ -192,6 +192,12 @@ async function main() {
       }
 
       await page.screenshot({path:path.join(OUTPUT, `login-${viewport.width}.png`), fullPage:false});
+      await page.evaluate(()=>document.getElementById('loginForm').requestSubmit());
+      assert.strictEqual(
+        await page.locator('#lockErr').textContent(),
+        'اضغط زر تسجيل الدخول للمتابعة.',
+        `${viewport.width}px programmatic/password-manager submit must not start authentication`
+      );
       await context.close();
       console.log(`Login responsive ${viewport.width}px: passed`);
     }

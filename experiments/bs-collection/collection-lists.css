@@ -110,9 +110,9 @@ body, .lab-header, .lab-shell, button, input, select, textarea { font-family: 'I
 .collection-a4 .word-page-2 .undertaking-head { display: block; font-size: 10.8px; line-height: 1.25; }
 .collection-a4 .word-page-2 .undertaking-date { margin: 0 0 12px; text-align: right; }
 .collection-a4 .word-page-2 h2 { margin: 13px 0 2px; font-family: Georgia, 'Times New Roman', serif; font-size: 11.5px; text-align: center; }
-.collection-a4 .word-page-2 .undertaking-refs { align-self: flex-start; display: inline-grid; grid-template-columns: repeat(4, max-content); width: max-content !important; max-width: 100%; margin: 0 0 14px; font: 700 11.5px Georgia, 'Times New Roman', serif; color: #000; border-top: .25mm solid #000; border-left: .25mm solid #000; }
-.collection-a4 .word-page-2 .undertaking-ref-cell { min-width: .84cm; padding: .04cm .42cm; border-right: .25mm solid #000; border-bottom: .25mm solid #000; white-space: nowrap; line-height: 1.25; }
-.collection-a4 .word-page-2 .undertaking-ref-cell:nth-child(4n+2), .collection-a4 .word-page-2 .undertaking-ref-cell:nth-child(4n+3), .collection-a4 .word-page-2 .undertaking-ref-cell:nth-child(4n+4) { text-align: center; }
+.collection-a4.word-page-2 .undertaking-refs { width: auto !important; max-width: 100%; margin: 0 0 14px; border: 0 !important; border-collapse: collapse; table-layout: auto; font: 700 11.5px Georgia, 'Times New Roman', serif; color: #000; background: transparent !important; }
+.collection-a4.word-page-2 .undertaking-refs :is(th,td) { width: auto; min-width: 0; padding: 0 .16cm 0 0; border: 0 !important; line-height: 1.25; white-space: nowrap; text-align: left; background: transparent !important; }
+.collection-a4.word-page-2 .undertaking-refs th { padding-inline-end: .12cm; vertical-align: top; }
 .role-bsgt-portal-user .text-position-controls, .role-bsgt-portal-user .text-layer-controls, .role-bsgt-portal-user .text-review-controls, .role-bsgt-portal-user .stamp-hint, .role-bsgt-portal-user #resetStampBtn, .role-bsgt-portal-user #selectParagraphForArrowsBtn, .role-bsgt-portal-user #resetCurrentPreviewBtn { display: none !important; }
 .collection-a4 .word-page-2 .undertaking-dear { margin: 0 0 16px; font-size: 11px; }
 .collection-a4 .word-page-2 .undertaking-terms { margin: 0; padding-left: 18px; font-size: 10.6px; line-height: 1.16; }
@@ -121,13 +121,13 @@ body, .lab-header, .lab-shell, button, input, select, textarea { font-family: 'I
 .collection-a4 .word-page-2 .undertaking-signature { margin-top: 12px; font-size: 10.8px; line-height: 1.18; }
 .collection-a4 .word-page-3 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 12px; line-height: 1.3; }
 .collection-a4 .word-page-3 h2 { margin: 0 0 24px; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; text-align: center; }
-.collection-a4 .word-page-3 .boe-meta { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 34px; }
-.collection-a4 .word-page-3 .boe-meta p { margin: 0; }
+.collection-a4.word-page-3 .boe-meta { width: 68% !important; margin: 0 auto 78px; border: .25mm solid #000 !important; border-collapse: collapse; table-layout: fixed; }
+.collection-a4.word-page-3 .boe-meta td { width: 50%; padding: .3cm .55cm; border: .25mm solid #000 !important; text-align: center; background: transparent !important; }
 .collection-a4 .word-page-3 .boe-order { margin: 0 0 12px; line-height: 1.6; }
 .collection-a4 .word-page-3 .boe-words { margin: 0 0 16px; }
-.collection-a4 .word-page-3 .boe-invoices { width: 48%; margin: 0 auto 78px; font-size: 12px; }
-.collection-a4 .word-page-3 .boe-invoices div { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; min-height: 24px; }
-.collection-a4 .word-page-3 .boe-invoices span { text-align: right; }
+.collection-a4.word-page-3 .boe-invoices { width: 48% !important; margin: 0 auto 78px; border: 0 !important; border-collapse: collapse; table-layout: auto; font-size: 12px; background: transparent !important; }
+.collection-a4.word-page-3 .boe-invoices :is(th,td) { height: 24px; padding: 0 8px 0 0; border: 0 !important; text-align: left; white-space: nowrap; background: transparent !important; }
+.collection-a4.word-page-3 .boe-invoices th { font-weight: 700; }
 .collection-a4 .word-page-3 .boe-drawn { margin: 0 0 82px; white-space: pre-line; line-height: 1.55; }
 .collection-a4 .word-page-3 .boe-drawer { margin-left: 56%; line-height: 1.55; }
 .collection-lists { display: grid; gap: 10px; padding: 14px; border: 1px dashed #b9d2ea; border-radius: 10px; background: #fbfdff; }

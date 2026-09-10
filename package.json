@@ -7,7 +7,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "start": "node server.js",
-    "test": "node --no-warnings test/turnstile-edge.test.js && node test/login-responsive.test.js && node test/smoke.test.js"
+    "test": "node --no-warnings test/turnstile-edge.test.js && node test/login-responsive.test.js && node test/collection-document-layout.test.js && node test/smoke.test.js"
   },
   "dependencies": {
     "playwright-core": "1.58.2"
