@@ -8970,7 +8970,9 @@ function switchView(v){
   if(v==='clientProfiles') window.ClientCompanyProfiles?.open();
   if(v==='activityLog') renderLog();
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
-  updateHash(navKey === 'bsgt' ? 'bsgt' : v);
+  const activeRoute = parseHash();
+  const preservedId = v === 'clientProfiles' && activeRoute.v === 'clientProfiles' ? activeRoute.id : null;
+  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId);
   syncEmployeeNavigationState();
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
