@@ -3,6 +3,12 @@
 
   const STAGES = Object.freeze(['created', 'bank_sent', 'signed', 'accepted']);
   const STAGE_SET = new Set(STAGES);
+  const STAGE_PRESENTATION = Object.freeze({
+    created:Object.freeze({label:'إنشاء الشحنة', shortLabel:'إنشاء', badgeLabel:'جديدة', description:'الشحنة تم إنشاؤها ولم تُرسل للبنك بعد.', completedDescription:'تم إنشاء الشحنة'}),
+    bank_sent:Object.freeze({label:'الإرسال للبنك', shortLabel:'البنك', badgeLabel:'مرسلة للبنك', description:'تم إرسال الشحنة للبنك وتنتظر اكتمال المستندات الموقعة.', completedDescription:'تم إرسال المستندات للبنك'}),
+    signed:Object.freeze({label:'توقيع المستندات', shortLabel:'التوقيع', badgeLabel:'بانتظار القبول', description:'اكتمل توقيع المستندات وتنتظر القبول النهائي.', completedDescription:'اكتمل توقيع المستندات'}),
+    accepted:Object.freeze({label:'القبول النهائي', shortLabel:'القبول', badgeLabel:'مكتملة', description:'اكتملت جميع مراحل الشحنة ويمكن دمج الحزمة.', completedDescription:'تم القبول النهائي'})
+  });
   const SIGNED_DOCUMENT_TYPES = Object.freeze(['letter', 'undertaking', 'exchange']);
   const SIGNED_DOCUMENT_TYPE_SET = new Set(SIGNED_DOCUMENT_TYPES);
   const FIELD_MAP = Object.freeze({
@@ -171,6 +177,31 @@
     return 'الشحنة مكتملة ويمكن دمج الحزمة.';
   }
 
+  function workflowStageMeta(value) {
+    return STAGE_PRESENTATION[normalizeStage(value)];
+  }
+
+  function workflowProgress(recordOrStage) {
+    const source = recordOrStage && typeof recordOrStage === 'object'
+      ? (recordOrStage.workflowStage || recordOrStage.workflow_stage)
+      : recordOrStage;
+    const stage = normalizeStage(source);
+    const currentIndex = STAGES.indexOf(stage);
+    return {
+      stage,
+      currentIndex,
+      completedCount:currentIndex + 1,
+      total:STAGES.length,
+      meta:workflowStageMeta(stage),
+      steps:STAGES.map((step, index)=>({
+        stage:step,
+        ...workflowStageMeta(step),
+        state:stage === 'accepted' || index < currentIndex ? 'completed' : index === currentIndex ? 'current' : 'upcoming',
+        current:index === currentIndex
+      }))
+    };
+  }
+
   global.JahezShipmentWorkflow = Object.freeze({
     STAGES,
     SIGNED_DOCUMENT_TYPES,
@@ -188,6 +219,8 @@
     canAcceptShipment,
     acceptedFields,
     canMergeShipmentPackage,
-    packageMergeBlockReason
+    packageMergeBlockReason,
+    workflowStageMeta,
+    workflowProgress
   });
 })(window);

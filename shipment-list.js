@@ -4,7 +4,7 @@
   const view = document.getElementById('viewRecords');
   if(!view || typeof sb === 'undefined') return;
 
-  const ROW_SELECT = 'id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,task_ref,bol_template_id,created_at,updated_at,data';
+  const ROW_SELECT = 'id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,task_ref,bol_template_id,created_at,updated_at,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,data';
   const STORAGE_KEY = 'jahezShipmentListView';
   const state = {
     viewMode: readViewPreference(),
@@ -85,6 +85,13 @@
             <option value="review">بانتظار الاعتماد</option>
             <option value="rework">معادة للتعديل</option>
             <option value="draft">مسودة</option>
+          </select>
+          <select class="shipment-filter-control" id="shipmentWorkflowFilter" aria-label="مرحلة الشحنة" hidden>
+            <option value="">كل المراحل</option>
+            <option value="created">إنشاء الشحنة</option>
+            <option value="bank_sent">تم الإرسال للبنك</option>
+            <option value="signed">بانتظار/اكتمل التوقيع</option>
+            <option value="accepted">مكتملة ومعتمدة</option>
           </select>
           <select class="shipment-filter-control" id="shipmentClientFilter" aria-label="العميل">
             <option value="">كل العملاء</option>
@@ -200,6 +207,7 @@
       topSearch: document.getElementById('shipmentTopSearch'),
       datePreset: document.getElementById('shipmentDatePreset'),
       status: document.getElementById('shipmentStatusFilter'),
+      workflow: document.getElementById('shipmentWorkflowFilter'),
       client: document.getElementById('shipmentClientFilter'),
       sort: document.getElementById('shipmentSort'),
       pageSize: document.getElementById('shipmentPageSize'),
@@ -247,6 +255,10 @@
     });
     ui.status.addEventListener('change', ()=>{
       setLegacyValue('fltStatus', ui.status.value);
+      setPage(1);
+      scheduleQuery();
+    });
+    ui.workflow.addEventListener('change', ()=>{
       setPage(1);
       scheduleQuery();
     });
@@ -300,6 +312,7 @@
       if(ui.topSearch) ui.topSearch.value = '';
       ui.datePreset.value = 'all';
       ui.status.value = '';
+      ui.workflow.value = '';
       ui.client.value = '';
       ui.sort.value = 'newest';
       ui.pageSize.value = '10';
@@ -403,12 +416,28 @@
       : 'إدارة ومتابعة جميع الشحنات الصادرة من النظام';
     ui.create.querySelector('.shipment-create-label').textContent = isBsgt ? 'إنشاء شحنة BSGT' : 'إنشاء شحنة جديدة';
     ui.create.hidden = !canEdit();
+    ui.workflow.hidden = !isBsgt;
+    if(!isBsgt) ui.workflow.value = '';
+    syncWorkflowTableHeaders(isBsgt);
     const permitButton = document.getElementById('bsgtImportPermitBtn');
     const collectionButton = document.getElementById('bsgtCollectionLabBtn');
     if(permitButton) permitButton.style.display = isBsgt && (canEdit() || isBsgtPortalUser()) ? 'inline-flex' : 'none';
     if(collectionButton) collectionButton.style.display = isBsgt ? 'inline-flex' : 'none';
     updateLocalStats();
     void loadServerStats();
+  }
+
+  function syncWorkflowTableHeaders(isBsgt){
+    view.querySelectorAll('.ship-pane .ledger-row.head').forEach(head=>{
+      let column = head.querySelector('.shipment-workflow-column-head');
+      if(!column){
+        column = document.createElement('div');
+        column.className = 'shipment-workflow-column-head';
+        column.textContent = 'مرحلة الشحنة';
+        head.insertBefore(column, head.children[4] || null);
+      }
+      column.hidden = !isBsgt;
+    });
   }
 
   function refreshClientOptions(){
@@ -498,6 +527,7 @@
       search: String(ui.search.value || '').trim(),
       client: String(ui.client.value || '').trim(),
       status: String(ui.status.value || ''),
+      workflowStage: scopeKey() === 'bsgt' ? String(ui.workflow.value || '') : '',
       from: String(document.getElementById('fltDateFrom')?.value || ''),
       to: String(document.getElementById('fltDateTo')?.value || ''),
       bank: String(document.getElementById('fltBank')?.value || '').trim(),
@@ -547,6 +577,7 @@
     if(filters.from) query = query.gte('data->>invoiceDate', filters.from);
     if(filters.to) query = query.lte('data->>invoiceDate', filters.to);
     if(filters.status && !['issued','drafts'].includes(activeTab())) query = query.eq('status', filters.status);
+    if(filters.workflowStage && scopeKey() === 'bsgt') query = query.eq('workflow_stage', filters.workflowStage);
     return query;
   }
 
@@ -575,6 +606,7 @@
     if(activeTab() === 'land') list = list.filter(record=>!isSea(record));
     if(activeTab() === 'issued') list = list.filter(record=>recStatus(record) === 'sent');
     if(activeTab() === 'drafts') list = list.filter(record=>recStatus(record) === 'draft');
+    if(filters.workflowStage) list = list.filter(record=>JahezShipmentWorkflow.normalizeStage(record.workflowStage) === filters.workflowStage);
     if(filters.search){
       const term = filters.search.toLowerCase();
       list = list.filter(record=>[
@@ -674,6 +706,7 @@
     const type = shipmentType(record);
     const invoiceNumber = record.invoiceNo || record.proformaNo || '';
     const collectionBadge = collectionStatusBadge(record, status);
+    const workflowProgress = scopeKey() === 'bsgt' ? renderShipmentWorkflowProgress(record, {compact:true}) : '';
     return `<article class="shipment-result-card" data-shipment-id="${escapeHtml(record.id)}" tabindex="0" role="button" aria-label="فتح تفاصيل ${escapeHtml(reference)}">
       <div class="shipment-card-top">
         <span class="shipment-card-sequence">${String(sequence).padStart(2, '0')}</span>
@@ -695,6 +728,7 @@
         ${invoiceNumber ? `<span class="shipment-card-document-number" title="رقم الفاتورة">${icon('invoice', 11)} ${escapeHtml(invoiceNumber)}</span>` : ''}
         ${record.billNo ? `<span class="shipment-card-document-number" title="رقم البوليصة">${icon('ship', 11)} ${escapeHtml(record.billNo)}</span>` : ''}
       </div>
+      ${workflowProgress}
       <div class="shipment-card-docs">${documentBadges(record)}</div>
       <footer class="shipment-card-footer">
         <strong class="shipment-card-amount">${escapeHtml(record.totalAmount || '—')}</strong>
@@ -708,6 +742,7 @@
     const type = shipmentType(record);
     const collectionBadge = collectionStatusBadge(record, recStatus(record));
     const invoiceNumber = record.invoiceNo || record.proformaNo || '';
+    const workflowBadge = scopeKey() === 'bsgt' ? renderShipmentWorkflowBadge(record, {showCount:true}) : '';
     const documentNumbers = [
       invoiceNumber ? `<span title="رقم الفاتورة">${icon('invoice', 10)} فاتورة: <b>${escapeHtml(invoiceNumber)}</b></span>` : '',
       record.billNo ? `<span title="رقم البوليصة">${icon('ship', 10)} بوليصة: <b>${escapeHtml(record.billNo)}</b></span>` : ''
@@ -717,6 +752,7 @@
       <span class="shipment-table-main"><b title="${escapeHtml(record.itemDesc || '(بدون وصف)')}">${escapeHtml(record.itemDesc || '(بدون وصف)')}</b><small title="${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}">${escapeHtml(record.consignee || record.exporter || 'لم يحدد العميل')}</small></span>
       <span class="shipment-table-meta"><b title="${escapeHtml(reference)}">${escapeHtml(reference)}</b><small>${escapeHtml(fmtDate(record.invoiceDate || record.proformaDate || '') || 'بدون تاريخ')} · ${type.label}</small>${documentNumbers ? `<span class="shipment-table-identifiers">${documentNumbers}</span>` : ''}</span>
       <span class="shipment-table-docs">${documentBadges(record)} ${statusBadge(recStatus(record))} ${collectionBadge}</span>
+      ${workflowBadge ? `<span class="shipment-table-workflow">${workflowBadge}</span>` : ''}
       <strong class="shipment-table-amount">${escapeHtml(record.totalAmount || '—')}</strong>
       <button class="shipment-table-action" type="button" data-shipment-open>فتح</button>
     </div>`;

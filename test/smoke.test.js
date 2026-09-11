@@ -115,7 +115,7 @@ async function main() {
       assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
     });
     await check('shipment workflow acceptance and BSGT merge gate stay independent from review status', async () => {
-      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-3'));
+      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-4'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.fromRow(row)'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.toRow(r)'));
       const helperResponse = await fetch(`${BASE}/shipment-workflow.js`);
@@ -157,7 +157,7 @@ async function main() {
       assert.ok(appHtml.includes('printPackage(r, lang);'));
       assert.ok(appHtml.includes("const canManage = canManageShipmentFiles(r) && stage !== 'accepted'"));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
-      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-3'));
+      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-4'));
       const collectionSource = await fs.promises.readFile(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
       assert.ok(collectionSource.includes('JahezShipmentWorkflow.bankSentFields(data.collectionSentAt)'));
       assert.ok(collectionSource.includes("data.collectionStatus='sent'"));
@@ -379,8 +379,8 @@ async function main() {
       }
     });
     await check('shipment list glass UI is isolated and server-paginated', async () => {
-      assert.ok(appHtml.includes('shipment-list.css?v=20260908-bsgt-table-meta-1'));
-      assert.ok(appHtml.includes('shipment-list.js?v=20260908-bsgt-table-meta-1'));
+      assert.ok(appHtml.includes('shipment-list.css?v=20260911-workflow-4'));
+      assert.ok(appHtml.includes('shipment-list.js?v=20260911-workflow-4'));
       assert.ok(shipmentListCss.includes('sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody)'));
       assert.ok(shipmentListCss.includes('backdrop-filter: none'));
       assert.ok(shipmentListCss.includes('#viewRecords.shipment-glass-page'));
@@ -388,11 +388,24 @@ async function main() {
       assert.ok(shipmentListCss.includes('padding-right: 194px'));
       assert.ok(shipmentListCss.includes('.shipment-collection-status.collected'));
       assert.ok(shipmentListCss.includes('.shipment-table-identifiers'));
+      assert.ok(shipmentListCss.includes('.shipment-workflow-progress'));
+      assert.ok(shipmentListCss.includes('.shipment-table-workflow'));
+      assert.ok(shipmentListCss.includes('.shipment-workflow-progress.is-full .shipment-workflow-steps'));
       assert.ok(shipmentListCss.includes('@media (max-width: 1160px)'));
       assert.ok(shipmentListCss.includes('@media (max-width: 600px)'));
       assert.ok(shipmentListJs.includes("const STORAGE_KEY = 'jahezShipmentListView'"));
       assert.ok(shipmentListJs.includes("select(ROW_SELECT, {count:'exact'})"));
+      for (const field of ['workflow_stage','workflow_updated_at','bank_sent_at','signed_at','accepted_at','accepted_by']) {
+        assert.ok(shipmentListJs.includes(field), `${field} must be fetched with the shipment page`);
+      }
       assert.ok(shipmentListJs.includes('.range(from, to)'));
+      assert.ok(shipmentListJs.includes('id="shipmentWorkflowFilter"'));
+      assert.ok(shipmentListJs.includes("query.eq('workflow_stage', filters.workflowStage)"));
+      assert.ok(shipmentListJs.includes("query.eq('status', filters.status)"));
+      assert.ok(shipmentListJs.includes('ui.workflow.hidden = !isBsgt'));
+      assert.ok(shipmentListJs.includes("scopeKey() === 'bsgt' ? renderShipmentWorkflowProgress"));
+      assert.ok(shipmentListJs.includes("scopeKey() === 'bsgt' ? renderShipmentWorkflowBadge"));
+      assert.ok(!shipmentListJs.includes("from('shipment_files')"));
       assert.ok(shipmentListJs.includes('scheduleQuery(380)'));
       assert.ok(shipmentListJs.includes('<option value="100">100</option>'));
       assert.ok(shipmentListJs.includes("state.viewMode === 'table'"));
@@ -409,6 +422,15 @@ async function main() {
       assert.ok(!/\.from\('shipments'\)\.(insert|update|delete|upsert)/.test(shipmentListJs));
       const storageKeys = [...shipmentListJs.matchAll(/localStorage\.(?:getItem|setItem)\(([^,)]+)/g)].map(match => match[1].trim());
       assert.deepStrictEqual([...new Set(storageKeys)], ['STORAGE_KEY']);
+      assert.ok(appHtml.includes('function renderShipmentWorkflowProgress(record, options = {})'));
+      assert.ok(appHtml.includes('function renderShipmentWorkflowBadge(record, options = {})'));
+      assert.ok(appHtml.includes('id="bsgtWorkflow"'));
+      assert.ok(appHtml.includes('record?.bankSentAt'));
+      assert.ok(appHtml.includes('record?.signedAt'));
+      assert.ok(appHtml.includes('record?.acceptedAt'));
+      assert.ok(appHtml.includes('shipmentAuditUserName(record?.acceptedBy)'));
+      assert.ok(appHtml.includes('JahezShipmentWorkflow.packageMergeBlockReason(r, shipmentFilesCache[r.id] || [])'));
+      assert.ok(appHtml.includes('async function ensureBsgtPackageMergeAllowed'));
     });
     await check('Jahez Glass skin is isolated from generated documents', async () => {
       assert.ok(appHtml.includes('jahez-glass.css?v=20260908-glass-4'));

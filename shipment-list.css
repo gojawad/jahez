@@ -455,6 +455,10 @@ body:has(#lockScreen.hidden):has(#viewRecords.active.shipment-glass-ready) .wrap
   padding: 13px 14px;
 }
 
+#viewRecords.bsgt-shipment-view .shipment-filter-row {
+  grid-template-columns: minmax(168px, .8fr) repeat(4, minmax(138px, .7fr)) minmax(240px, 1.35fr);
+}
+
 .shipment-filter-row > * {
   min-width: 0;
 }
@@ -1140,6 +1144,202 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   background: rgba(72, 115, 158, .26);
 }
 
+.shipment-workflow-progress {
+  --workflow-brand: var(--brand-primary, #EA1B23);
+  --workflow-brand-dark: var(--brand-dark, #D01119);
+  --workflow-success: #18794e;
+  min-width: 0;
+  color: #1f2937;
+  direction: rtl;
+  text-align: right;
+}
+
+.shipment-workflow-progress.is-compact {
+  margin: 0 0 9px;
+  padding: 8px 9px 7px;
+  border: 1px solid rgba(234, 27, 35, .13);
+  border-radius: 10px;
+  background: rgba(255, 249, 249, .72);
+}
+
+.shipment-workflow-progress.is-full {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.shipment-workflow-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  margin-bottom: 11px;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.shipment-workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(234, 27, 35, .2);
+  border-radius: 999px;
+  background: rgba(234, 27, 35, .08);
+  color: var(--workflow-brand-dark, #D01119);
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+  direction: rtl;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.shipment-workflow-badge b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shipment-workflow-badge small {
+  padding-inline-start: 5px;
+  border-inline-start: 1px solid currentColor;
+  font: 700 8px 'IBM Plex Mono', monospace;
+  opacity: .72;
+}
+
+.shipment-workflow-badge.stage-accepted {
+  border-color: #bfe8d2;
+  background: #f1fbf6;
+  color: var(--workflow-success);
+}
+
+.shipment-workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  direction: rtl;
+}
+
+.shipment-workflow-step {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.shipment-workflow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 11px;
+  right: calc(50% + 12px);
+  width: calc(100% - 24px);
+  height: 2px;
+  background: #e5e7eb;
+  transition: background-color 160ms ease;
+}
+
+.shipment-workflow-step.is-completed:not(:last-child)::after {
+  background: linear-gradient(90deg, var(--workflow-brand), var(--workflow-brand-dark));
+}
+
+.shipment-workflow-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  background: #fff;
+  color: #9ca3af;
+  font: 800 9px 'IBM Plex Mono', monospace;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.shipment-workflow-step.is-completed .shipment-workflow-marker {
+  border-color: var(--workflow-brand);
+  background: linear-gradient(135deg, var(--workflow-brand), var(--workflow-brand-dark));
+  color: #fff;
+}
+
+.shipment-workflow-step.is-current .shipment-workflow-marker {
+  border-color: var(--workflow-brand);
+  color: var(--workflow-brand-dark);
+  box-shadow: 0 0 0 3px rgba(234, 27, 35, .1);
+}
+
+.shipment-workflow-progress.stage-accepted .shipment-workflow-step[data-stage="accepted"] .shipment-workflow-marker {
+  border-color: var(--workflow-success);
+  background: var(--workflow-success);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(24, 121, 78, .1);
+}
+
+.shipment-workflow-copy {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.shipment-workflow-copy b {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shipment-workflow-step.is-completed,
+.shipment-workflow-step.is-current {
+  color: #4b5563;
+}
+
+.shipment-workflow-step.is-current .shipment-workflow-copy b {
+  color: var(--workflow-brand-dark);
+}
+
+.shipment-workflow-progress.is-full .shipment-workflow-copy b {
+  font-size: 11px;
+  white-space: normal;
+}
+
+.shipment-workflow-progress.is-full .shipment-workflow-copy small,
+.shipment-workflow-progress.is-full .shipment-workflow-copy time,
+.shipment-workflow-accepted-by {
+  display: block;
+  max-width: 210px;
+  color: #6b7280;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.shipment-workflow-progress.is-full .shipment-workflow-copy time {
+  color: #374151;
+  font: 700 8.5px 'IBM Plex Mono', monospace;
+  direction: ltr;
+}
+
+.shipment-workflow-accepted-by {
+  color: var(--workflow-success);
+  font-weight: 700;
+}
+
 .shipment-card-docs {
   display: flex;
   flex-wrap: wrap;
@@ -1209,6 +1409,16 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   -webkit-backdrop-filter: blur(18px);
 }
 
+#viewRecords.bsgt-shipment-view.sp-view-table .ledger {
+  --sp-table-columns: 60px minmax(260px, 1.25fr) minmax(240px, 1fr) minmax(280px, 1.1fr) minmax(150px, .65fr) minmax(150px, .62fr) minmax(120px, .5fr);
+}
+
+#viewRecords.shipment-glass-page.bsgt-shipment-view.sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody),
+#viewRecords.shipment-glass-page.bsgt-shipment-view.sp-view-table .ledger-row.head,
+#viewRecords.shipment-glass-page.bsgt-shipment-view.sp-view-table .shipment-table-row {
+  min-width: 1400px;
+}
+
 /* Override the legacy BSGT card grid when the user switches to table mode. */
 #viewRecords.shipment-glass-page.sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody) {
   display: block;
@@ -1256,7 +1466,8 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 
 .shipment-table-main,
 .shipment-table-meta,
-.shipment-table-docs {
+.shipment-table-docs,
+.shipment-table-workflow {
   min-width: 0;
 }
 
@@ -1334,6 +1545,13 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   align-content: center;
   flex-wrap: wrap;
   gap: 6px;
+  direction: rtl;
+}
+
+.shipment-table-workflow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   direction: rtl;
 }
 
@@ -1480,6 +1698,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 @media (max-width: 1160px) {
   .shipment-page-hero { grid-template-columns: 1fr; }
   .shipment-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #viewRecords.bsgt-shipment-view .shipment-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .shipment-search-control { grid-column: span 2; }
   .shipment-control-row { align-items: flex-start; }
   .shipment-tab-slot { flex-basis: 100%; }
@@ -1535,6 +1754,7 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   .shipment-page-heading h1 { font-size: 20px; }
   .shipment-stat-grid,
   .shipment-filter-row { grid-template-columns: 1fr; }
+  #viewRecords.bsgt-shipment-view .shipment-filter-row { grid-template-columns: 1fr; }
   .shipment-search-control { grid-column: auto; }
   .shipment-control-row { align-items: stretch; }
   #viewRecords.shipment-glass-page .ship-tabs { width: 100%; }
@@ -1552,6 +1772,37 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
   .shipment-skeleton-grid { grid-template-columns: 1fr; }
   .shipment-pagination-buttons { max-width: 100%; flex-wrap: wrap; }
   .shipment-result-card { min-height: 225px; }
+}
+
+@media (max-width: 720px) {
+  .shipment-workflow-progress.is-full .shipment-workflow-steps {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .shipment-workflow-progress.is-full .shipment-workflow-step {
+    grid-template-columns: 26px minmax(0, 1fr);
+    justify-items: start;
+    align-items: start;
+    text-align: right;
+  }
+
+  .shipment-workflow-progress.is-full .shipment-workflow-step:not(:last-child)::after {
+    top: 24px;
+    right: 11px;
+    width: 2px;
+    height: calc(100% - 2px);
+  }
+
+  .shipment-workflow-progress.is-full .shipment-workflow-copy {
+    justify-items: start;
+  }
+
+  .shipment-workflow-progress.is-full .shipment-workflow-copy small,
+  .shipment-workflow-progress.is-full .shipment-workflow-copy time,
+  .shipment-workflow-progress.is-full .shipment-workflow-accepted-by {
+    max-width: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

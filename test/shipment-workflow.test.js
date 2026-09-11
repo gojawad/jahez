@@ -33,6 +33,23 @@ assert.deepStrictEqual(Array.from(workflow.STAGES), ['created', 'bank_sent', 'si
 assert.deepStrictEqual(Array.from(workflow.SIGNED_DOCUMENT_TYPES), ['letter', 'undertaking', 'exchange']);
 assert.strictEqual(workflow.normalizeStage('bank_sent'), 'bank_sent');
 assert.strictEqual(workflow.normalizeStage('unexpected'), 'created');
+assert.strictEqual(workflow.workflowStageMeta('created').label, 'إنشاء الشحنة');
+assert.strictEqual(workflow.workflowStageMeta('bank_sent').label, 'الإرسال للبنك');
+assert.strictEqual(workflow.workflowStageMeta('signed').label, 'توقيع المستندات');
+assert.strictEqual(workflow.workflowStageMeta('accepted').label, 'القبول النهائي');
+assert.strictEqual(workflow.workflowStageMeta('created').description, 'الشحنة تم إنشاؤها ولم تُرسل للبنك بعد.');
+assert.strictEqual(workflow.workflowStageMeta('bank_sent').description, 'تم إرسال الشحنة للبنك وتنتظر اكتمال المستندات الموقعة.');
+assert.strictEqual(workflow.workflowStageMeta('signed').description, 'اكتمل توقيع المستندات وتنتظر القبول النهائي.');
+assert.strictEqual(workflow.workflowStageMeta('accepted').description, 'اكتملت جميع مراحل الشحنة ويمكن دمج الحزمة.');
+for(const [stage, completedCount] of [['created', 1], ['bank_sent', 2], ['signed', 3], ['accepted', 4]]){
+  const progress = plain(workflow.workflowProgress(stage));
+  assert.strictEqual(progress.stage, stage);
+  assert.strictEqual(progress.completedCount, completedCount);
+  assert.strictEqual(progress.total, 4);
+  assert.strictEqual(progress.steps.filter(step=>step.state === 'completed').length, stage === 'accepted' ? 4 : completedCount - 1);
+  assert.strictEqual(progress.steps.filter(step=>step.current).length, 1);
+}
+assert.ok(plain(workflow.workflowProgress('accepted')).steps.every(step=>step.state === 'completed'));
 assert.strictEqual(workflow.inferStage({data:{collectionStatus:'sent'}}), 'bank_sent');
 assert.strictEqual(workflow.inferStage({data:{collectionSentAt:'2026-09-11T10:00:00.000Z'}}), 'bank_sent');
 assert.strictEqual(workflow.inferStage({data:{}}), 'created');
@@ -145,4 +162,4 @@ assert.ok(phase2Migration.includes('shipmentfiles_signature_status_idx'));
 assert.ok(!phase2Migration.includes('update public.shipments'));
 assert.ok(!phase2Migration.includes('create policy'));
 
-console.log('Shipment workflow phases 1-3 helpers: passed');
+console.log('Shipment workflow phases 1-4 helpers: passed');
