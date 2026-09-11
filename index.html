@@ -2481,6 +2481,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-4">
   <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-1">
+  <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
 </head>
 <body class="landing-active">
 
@@ -2698,6 +2699,7 @@ try{
     <button class="navtab" data-view="review" id="navReview" data-ic="checkCircle" style="display:none;">الاعتمادات <span class="nav-badge review" id="reviewBadge">0</span></button>
     <button class="navtab" data-view="money" id="navMoney" data-ic="bank" style="display:none;">التحصيل <span class="nav-badge money" id="moneyBadge">0</span></button>
     <button class="navtab" data-view="wallet" id="navWallet" data-ic="bank" style="display:none;">محفظة العميل</button>
+    <button class="navtab" data-view="clientProfiles" id="navClientProfiles" data-ic="building">بروفايل الشركات</button>
     <button class="navtab" data-view="admin" id="navAdmin" style="display:none;" data-ic="shield">لوحة التحكم</button>
   </div>
   </aside>
@@ -3868,6 +3870,11 @@ try{
       <button class="wallet-tab" data-wtab="reports">التقارير</button>
     </div>
     <div id="walletBody"></div>
+  </div>
+
+  <!-- ===== بروفايل الشركات العملاء ===== -->
+  <div class="view" id="viewClientProfiles">
+    <div id="clientProfilesRoot"></div>
   </div>
 
   <!-- ===== لوحة التحكم ===== -->
@@ -6545,10 +6552,10 @@ function roleLabel(role){
   return {admin:'مدير النظام', editor:'محرر', viewer:'مشاهد فقط', staff:'موظف', bsgt_user:'مستخدم بوابة BSGT'}[role] || 'مستخدم';
 }
 const APP_VIEW_ACCESS = Object.freeze({
-  admin: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','review','money','wallet','admin','shipForm','sea','issued','drafts','document-editor']),
-  editor: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','money','wallet','shipForm','sea','issued','drafts']),
-  staff: Object.freeze(['dashboard','tasks','records','shipForm']),
-  viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','activityLog','sea','issued','drafts']),
+  admin: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','review','money','wallet','clientProfiles','admin','shipForm','sea','issued','drafts','document-editor']),
+  editor: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','money','wallet','clientProfiles','shipForm','sea','issued','drafts']),
+  staff: Object.freeze(['dashboard','tasks','records','clientProfiles','shipForm']),
+  viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','activityLog','clientProfiles','sea','issued','drafts']),
   bsgt_user: Object.freeze(['dashboard','bsgt'])
 });
 function canAccessAppView(view){
@@ -8913,6 +8920,7 @@ function restoreFromHash(){
   }
   switchView(v);
   if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id);
+  if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id, {route:false}), 0);
 }
 window.addEventListener('hashchange', restoreFromHash);
 
@@ -8938,8 +8946,9 @@ function switchView(v){
   document.getElementById('viewReview').classList.toggle('active', v==='review');
   document.getElementById('viewMoney').classList.toggle('active', v==='money');
   document.getElementById('viewWallet').classList.toggle('active', v==='wallet');
+  document.getElementById('viewClientProfiles').classList.toggle('active', v==='clientProfiles');
   document.getElementById('viewActivityLog').classList.toggle('active', v==='activityLog');
-  const names = {dashboard:'لوحة المعلومات', operationCenter:'مركز العملية', records:'الشحنات', bsgt:'شحنات BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
+  const names = {dashboard:'لوحة المعلومات', operationCenter:'مركز العملية', records:'الشحنات', bsgt:'شحنات BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', clientProfiles:'بروفايل الشركات', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
   document.getElementById('crumbCurrent').textContent = names[navKey] || names[v] || '';
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('commercial_collection')) ? 'inline-flex' : 'none';
@@ -8958,6 +8967,7 @@ function switchView(v){
   if(v==='review') renderReview();
   if(v==='money') renderMoney();
   if(v==='wallet') renderWallet();
+  if(v==='clientProfiles') window.ClientCompanyProfiles?.open();
   if(v==='activityLog') renderLog();
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
   updateHash(navKey === 'bsgt' ? 'bsgt' : v);
@@ -20077,5 +20087,6 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
 <script src="company-wizard.js?v=20260909-document-controls"></script>
 <script src="shipment-detail.js"></script>
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
+<script src="client-company-profiles.js?v=20260912-1"></script>
 </body>
 </html>

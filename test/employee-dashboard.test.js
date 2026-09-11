@@ -85,7 +85,8 @@ check('dashboard statistics remain scoped by the current Supabase session and RL
 
 check('viewer receives no new write permission', () => {
   assert.ok(appHtml.includes("function isEditor(){ return currentUser && ['admin','editor','staff'].includes(currentUser.role); }"));
-  assert.ok(appHtml.includes("viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','activityLog','sea','issued','drafts'])"));
+  assert.ok(appHtml.includes("viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','activityLog','clientProfiles','sea','issued','drafts'])"));
+  assert.strictEqual(require('../client-company-profiles').canManage('viewer'), false);
   assert.ok(!portalAccess.resolveUserPortals(profile('viewer')).length);
 });
 
