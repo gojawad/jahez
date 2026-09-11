@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>إرسال المستندات للبنك - بحر سواكن</title>
+  <title>بوابة التحصيل التجاري - بحر سواكن</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
   <header class="lab-header">
     <div class="lab-brand">
       <a class="lab-site-logo" href="/#v=dashboard" aria-label="الصفحة الرئيسية" title="الرئيسية"><img id="portalBrandImage" alt="شعار المنصة" hidden><i id="portalBrandIcon" class="bx bx-ship"></i></a>
-      <div><span class="lab-kicker">BSGT / BANK DOCUMENTS</span><h1>إرسال المستندات للبنك - بحر سواكن</h1><p>مرحلة تجهيز وإرسال المستندات، ثم متابعتها من بوابة التحصيل.</p></div>
+      <div><span class="lab-kicker">BSGT / TRADE COLLECTION</span><h1>بوابة التحصيل التجاري - بحر سواكن</h1><p>توليد خطاب التحصيل والتعهد والكمبيالة وربطها بالشحنات تحت مرجع مستقل.</p></div>
     </div>
     <div class="lab-header-side">
       <div class="lab-quick-nav" aria-label="تنقل البوابة"><button id="portalBackBtn" type="button" title="الرجوع للصفحة السابقة"><i class="bx bx-right-arrow-alt"></i><span>رجوع</span></button><a href="/#v=dashboard" title="الصفحة الرئيسية"><i class="bx bx-home-alt-2"></i><span>الرئيسية</span></a><button id="portalLogoutBtn" type="button" title="تسجيل الخروج"><i class="bx bx-log-out"></i><span>تسجيل الخروج</span></button></div>
@@ -31,7 +31,7 @@
       <button class="portal-step-card" type="button" data-step-section="draft-section"><span class="step-number">02</span><i class="bx bx-file"></i><strong>مسودة الإرسال للبنك المُرسل</strong><small data-step-description="draft-section">اختر شحنة واحدة أو أكثر لبدء المعاينة.</small></button>
       <button class="portal-step-card admin-document-settings" type="button" data-step-section="settings-section"><span class="step-number">03</span><i class="bx bx-edit-alt"></i><strong>بيانات الإرسال للبنك المُرسل</strong><small data-step-description="settings-section">مسودة محلية لهذه التجربة فقط، ولا يتم حفظها.</small></button>
       <button class="portal-step-card" type="button" data-step-section="preview-section"><span class="step-number">04</span><i class="bx bx-show"></i><strong>معاينة مستندات الإرسال</strong><small data-step-description="preview-section">تتحدث فوراً من مسودة الإرسال المحلية.</small></button>
-      <button class="portal-step-card" type="button" data-step-section="collection-portal-section"><span class="step-number">05</span><i class="bx bx-building-house"></i><strong>بوابة التحصيل</strong><small data-step-description="collection-portal-section">المستندات المرسلة للبنك المُرسل والتي تنتظر التحصيل.</small></button>
+      <button class="portal-step-card" type="button" data-step-section="collection-portal-section"><span class="step-number">05</span><i class="bx bx-building-house"></i><strong>سجل التحصيل التجاري</strong><small data-step-description="collection-portal-section">عمليات التحصيل المرسلة للبنك والتي تنتظر التحصيل.</small></button>
     </nav>
     <section class="lab-section picker-section">
       <div class="section-heading"><div class="collapsible-heading-title"><span>01</span><h2>اختيار الشحنات</h2><button class="section-collapse-btn" type="button" data-collapse-section="picker-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p id="shipmentCount">جاري تحميل شحنات بحر سواكن...</p></div>
@@ -81,7 +81,7 @@
     </section>
 
     <section class="lab-section preview-section">
-      <div class="section-heading"><div class="collapsible-heading-title preview-heading-title"><span>04</span><h2>معاينة مستندات الإرسال</h2><button id="togglePreviewSectionBtn" class="section-collapse-btn preview-collapse-btn" type="button" data-collapse-section="preview-section" aria-expanded="true" title="طي المعاينة"><i class="bx bx-chevron-up"></i><span>طي المعاينة</span></button></div><p>تتحدث فوراً من مسودة الإرسال المحلية.</p></div>
+      <div class="section-heading"><div class="collapsible-heading-title preview-heading-title"><span>04</span><h2>معاينة مستندات التحصيل التجاري</h2><button id="togglePreviewSectionBtn" class="section-collapse-btn preview-collapse-btn" type="button" data-collapse-section="preview-section" aria-expanded="true" title="طي المعاينة"><i class="bx bx-chevron-up"></i><span>طي المعاينة</span></button></div><p><strong id="activeCollectionOperationRef">عملية جديدة غير محفوظة</strong> · تتحدث المعاينة فوراً من البيانات المختارة.</p></div>
       <div class="document-editor-heading">
         <div class="preview-tabs document-portals" id="previewTabs">
           <button class="active" data-preview="letter" type="button"><i class="bx bx-envelope"></i><span><strong>خطاب التحصيل</strong><small>Collection Letter</small></span></button>
@@ -164,7 +164,7 @@
     </section>
 
     <section class="lab-section collection-portal-section">
-      <div class="section-heading"><div class="collapsible-heading-title"><span>05</span><h2>بوابة التحصيل</h2><button class="section-collapse-btn" type="button" data-collapse-section="collection-portal-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p>المستندات المرسلة للبنك المُرسل والتي تنتظر التحصيل.</p></div>
+      <div class="section-heading"><div class="collapsible-heading-title"><span>05</span><h2>سجل عمليات التحصيل التجاري</h2><button class="section-collapse-btn" type="button" data-collapse-section="collection-portal-section" aria-expanded="true" title="طي القسم"><i class="bx bx-chevron-up"></i></button></div><p>المستندات المرسلة للبنك والمحفوظة تحت مراجع مستقلة عن أرقام الشحنات.</p></div>
       <div id="collectionNotice" class="collection-notice" hidden></div>
       <div id="pendingCollectionList" class="pending-collection-list"><div class="empty-state">لا توجد مستندات بانتظار التحصيل.</div></div>
     </section>

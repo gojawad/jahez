@@ -377,6 +377,11 @@ async function main() {
       assert.ok(collectionJs.includes('data-text-style-id="boe-amount-label"'));
       assert.ok(collectionJs.includes('data-text-style-id="boe-amount-value"'));
       assert.ok(collectionJs.includes('<table class="boe-invoices"'));
+      assert.ok(collectionHtml.includes('بوابة التحصيل التجاري - بحر سواكن'));
+      assert.ok(collectionJs.includes('function createCollectionOperationNo('));
+      assert.ok(collectionJs.includes('commercialCollectionOperations'));
+      assert.ok(collectionJs.includes('qrIncluded:false'));
+      assert.ok(collectionJs.includes('function restoreRequestedCollectionOperation()'));
       const collectionListsCss = await (await fetch(`${BASE}/experiments/bs-collection/collection-lists.css`)).text();
       assert.ok(collectionListsCss.includes('.document-editor-shell'));
       assert.ok(collectionListsCss.includes('.preview-section.is-preview-focus'));
@@ -390,7 +395,12 @@ async function main() {
       assert.ok(appHtml.includes("loginError('اضغط زر تسجيل الدخول للمتابعة.');"));
       assert.ok(appHtml.includes('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }'));
       assert.ok(appHtml.indexOf('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }') < appHtml.lastIndexOf('await sb.auth.getSession()'));
-      assert.ok(appHtml.includes('>إرسال المستندات للبنك</button>'));
+      assert.ok(appHtml.includes('>بوابة التحصيل التجاري</button>'));
+      assert.ok(appHtml.includes('function renderCommercialCollectionHistory(r)'));
+      assert.ok(appHtml.includes('/experiments/bs-collection/?shipment='));
+      assert.ok(appHtml.includes('مستبعدة من QR'));
+      assert.ok(appHtml.includes("const sequence = ['contract','importPermit', ...ordered.filter(kind=>kind!=='contract')];"));
+      assert.ok(!appHtml.includes("generatedKinds = new Set(['contract','proforma','invoice','packing','letter','undertaking','exchange'])"));
     });
     await check('server files and SQL are not exposed', async () => {
       for (const p of ['/server.js', '/package.json', '/.env', '/.git/config', '/supabase/1.sql', '/api/microsoft.js', '/../etc/passwd', '/%2e%2e/etc/passwd']) {

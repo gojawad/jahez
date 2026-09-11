@@ -602,6 +602,8 @@ body{padding-right:230px;}
 .bsgt-operation-audit div{min-width:0;padding:9px 10px;border-inline-start:2px solid #2b72bd;}
 .bsgt-operation-audit span{display:block;margin-bottom:5px;color:#6b8199;font-size:10.5px;font-weight:700;}
 .bsgt-operation-audit b{display:block;color:#173753;font-size:12px;line-height:1.45;overflow-wrap:anywhere;}
+.bsgt-operation-audit small{display:block;margin-top:5px;color:#7890a7;font-size:10px;line-height:1.4;}
+.bsgt-operation-audit a{display:inline-flex;margin-top:8px;text-decoration:none;}
 .bsgt-detail-section{scroll-margin-top:16px;margin-top:22px;}
 .bsgt-detail-section h3{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:#183652;font-size:15px;}
 .bsgt-detail-section h3:before{content:'';width:3px;height:17px;border-radius:2px;background:#1e64b4;}
@@ -2717,7 +2719,7 @@ try{
   </div>
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
-    <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">إرسال المستندات للبنك</button>
+    <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">بوابة التحصيل التجاري</button>
     <button type="button" class="btn btn-ghost" id="bsgtImportPermitBtn" style="display:none;" data-ic="invoice" onclick="openImportPermitInvoice()" aria-controls="importPermitOverlay">فاتورة إذن الاستيراد</button>
     <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
   </div>
@@ -7455,7 +7457,7 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
   const displayName = prompt('الاسم الظاهر:', email.split('@')[0]) || email.split('@')[0];
   const pass = prompt('كلمة مرور مبدئية (6 حروف على الأقل):');
   if(!pass || pass.length<6){ alert('كلمة المرور قصيرة جداً.'); return; }
-  const bsgtOnly = confirm('هل يقتصر هذا المستخدم على بوابة شحنات بحر سواكن وإرسال المستندات للبنك فقط؟');
+  const bsgtOnly = confirm('هل يقتصر هذا المستخدم على بوابة شحنات بحر سواكن وبوابة التحصيل التجاري فقط؟');
   netStart();
   try{
     const {data, error} = await getSignupClient().auth.signUp({
@@ -7481,7 +7483,7 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
       alert('تم إنشاء الحساب ✓\n\nالنظام أرسل رسالة تأكيد على بريده. لازم يفتحها ويأكّد قبل ما يقدر يدخل.\n\nلو عايز تلغي التأكيد: Supabase ← Authentication ← Users ← افتح الحساب ← Confirm.');
     }else{
       alert(bsgtOnly
-        ? 'تم إنشاء الحساب ✓\n\nالصلاحية: مستخدم BSGT — يرى شحنات بحر سواكن وإرسال المستندات للبنك فقط.'
+        ? 'تم إنشاء الحساب ✓\n\nالصلاحية: مستخدم BSGT — يرى شحنات بحر سواكن وبوابة التحصيل التجاري فقط.'
         : 'تم إنشاء الحساب ✓\n\nالصلاحية الافتراضية: مشاهد. غيّرها من زرار "تغيير الصلاحية".');
     }
   }catch(e){ dbError(e, 'تعذّر إنشاء الحساب'); }
@@ -14907,6 +14909,15 @@ function bsgtDetailSourceName(r){
   return c.nameAr || c.nameEn || 'شركة بحر سواكن';
 }
 
+function renderCommercialCollectionHistory(r){
+  const operations = Array.isArray(r.commercialCollectionOperations) ? r.commercialCollectionOperations.slice().reverse() : [];
+  if(!operations.length) return '';
+  const statusLabels = {sent:'بانتظار التحصيل', collected:'تم التحصيل', cancelled:'ملغاة'};
+  return `<details class="bsgt-doc-order" open><summary class="sf-head"><span>${icon('bank',14)} عمليات التحصيل التجاري (${operations.length})</span></summary><div class="bsgt-operation-audit">${operations.map(operation=>`
+    <div><span>${escapeHtml(statusLabels[operation.status]||operation.status||'محفوظة')}</span><b>${escapeHtml(operation.operationNo||'—')}</b><small>${escapeHtml(formatShipmentAuditDate(operation.sentAt||operation.completedAt))} · مستبعدة من QR</small><a class="btn btn-ghost btn-small" href="${escapeHtml(`/experiments/bs-collection/?shipment=${encodeURIComponent(r.id)}&operation=${encodeURIComponent(operation.operationNo||'')}`)}" target="_blank" rel="noopener">${icon('eye',13)} معاينة المستندات</a></div>
+  `).join('')}</div></details>`;
+}
+
 function renderBsgtDetail(r){
   const status = STATUS_AR[recStatus(r)] || 'غير محددة';
   const ownerName = shipmentAuditUserName(r.ownerId);
@@ -14942,6 +14953,7 @@ function renderBsgtDetail(r){
             <div class="bsgt-summary-card"><div class="sum-top">${icon('user',14)} المرسل إليه</div><span class="sum-value">${escapeHtml(r.consignee||'—')}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('building',14)} المصدر</div><span class="sum-value">${escapeHtml(bsgtDetailSourceName(r))}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('ship',14)} رقم البوليصة</div><span class="sum-value">${escapeHtml(r.billNo||'—')}</span></div>
+            ${r.collectionOperationNo ? `<div class="bsgt-summary-card"><div class="sum-top">${icon('bank',14)} عملية التحصيل التجاري</div><span class="sum-value">${escapeHtml(r.collectionOperationNo)}</span></div>` : ''}
             <div class="bsgt-summary-card"><div class="sum-top">${icon('box',14)} الكمية</div><span class="sum-value">${escapeHtml(String(quantity))}</span></div>
             <div class="bsgt-summary-card"><div class="sum-top">${icon('invoice',14)} الإجمالي</div><span class="sum-value amount">${escapeHtml(r.totalAmount||'—')}</span></div>
           </div>
@@ -14958,6 +14970,7 @@ function renderBsgtDetail(r){
             <div><span>آخر تحديث</span><b>${escapeHtml(formatShipmentAuditDate(r.updatedAt))}</b></div>
             <div><span>الحالة الحالية</span><b>${escapeHtml(status)}</b></div>
           </div>
+          ${renderCommercialCollectionHistory(r)}
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
           <details class="bsgt-doc-order"><summary class="sf-head"><span>${icon('list',14)} ترتيب مستندات الحزمة</span></summary><div id="docOrderList" class="sf-list"></div></details>
         </section>
