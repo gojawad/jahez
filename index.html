@@ -8920,7 +8920,7 @@ function restoreFromHash(){
   }
   switchView(v);
   if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id);
-  if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id, {route:false}), 0);
+  if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id), 0);
 }
 window.addEventListener('hashchange', restoreFromHash);
 

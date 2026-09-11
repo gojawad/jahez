@@ -72,7 +72,15 @@ async function main(){
       await page.locator('.ccp-profile-head').waitFor();
       assert.strictEqual(await page.locator('.ccp-tab').count(),4);
       assert.strictEqual(await page.locator('#ccpEditProfile').count(),1);
-      if(width===1440) await page.screenshot({path:path.join(os.tmpdir(),'jahez-client-company-profiles.png'),fullPage:true});
+      if(width===1440){
+        assert.ok(page.url().includes(`id=${CLIENT_ID}`));
+        await page.reload({waitUntil:'domcontentloaded'});
+        await page.locator('.ccp-profile-head').waitFor({timeout:20000});
+        assert.ok(page.url().includes(`id=${CLIENT_ID}`));
+        await page.reload({waitUntil:'domcontentloaded'});
+        await page.locator('.ccp-profile-head').waitFor({timeout:20000});
+        await page.screenshot({path:path.join(os.tmpdir(),'jahez-client-company-profiles.png'),fullPage:true});
+      }
       await context.close();
       console.log(`Client company profiles responsive ${width}px: passed`);
     }
