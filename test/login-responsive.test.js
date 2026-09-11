@@ -92,6 +92,9 @@ async function main() {
         const imageBox = image.getBoundingClientRect();
         return {
           bodyClass:document.body.className,
+          brandPrimary:getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim(),
+          brandDark:getComputedStyle(document.documentElement).getPropertyValue('--brand-dark').trim(),
+          primaryBackground:getComputedStyle(document.querySelector('.landing-action.primary')).backgroundImage,
           loginHidden:document.getElementById('lockScreen').classList.contains('hidden'),
           horizontalOverflow:landing.scrollWidth - landing.clientWidth,
           imageCount:document.querySelectorAll('.landing-visual img').length,
@@ -109,6 +112,10 @@ async function main() {
       });
 
       assert.ok(landingMetrics.bodyClass.includes('landing-active'), `${viewport.width}px must start on the public landing page`);
+      assert.strictEqual(landingMetrics.brandPrimary.toUpperCase(), '#EA1B23');
+      assert.strictEqual(landingMetrics.brandDark.toUpperCase(), '#D01119');
+      assert.ok(landingMetrics.primaryBackground.includes('rgb(234, 27, 35)'));
+      assert.ok(landingMetrics.primaryBackground.includes('rgb(208, 17, 25)'));
       assert.strictEqual(landingMetrics.loginHidden, true, `${viewport.width}px login must stay hidden until requested`);
       assert.ok(landingMetrics.horizontalOverflow <= 0, `${viewport.width}px landing page has horizontal overflow`);
       assert.strictEqual(landingMetrics.imageCount, 1, `${viewport.width}px must render one logistics image`);
@@ -128,6 +135,37 @@ async function main() {
         assert.strictEqual(landingMetrics.menuDisplay, 'none', `${viewport.width}px desktop menu button must be hidden`);
       }
       await page.screenshot({path:path.join(OUTPUT, `landing-${viewport.width}.png`), fullPage:false});
+
+      if(viewport.width === 1440){
+        const dashboardTheme = await page.evaluate(()=>{
+          document.body.classList.remove('landing-active', 'login-active');
+          document.getElementById('landingPage').hidden = true;
+          document.getElementById('lockScreen').classList.add('hidden');
+          currentUser = {username:'theme-test', displayName:'معاينة الهوية', role:'admin'};
+          records = [];
+          renderDashboard();
+          document.querySelectorAll('.view').forEach(view=>view.classList.remove('active'));
+          document.getElementById('viewDashboard').classList.add('active');
+          const root = getComputedStyle(document.documentElement);
+          return {
+            heroBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-hero')).backgroundImage,
+            heroStatsBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-hero-stats')).backgroundImage,
+            insightBackground:getComputedStyle(document.querySelector('.db-insight')).backgroundImage,
+            chartStroke:document.querySelector('.db-chart path[stroke]')?.getAttribute('stroke'),
+            brandPrimary:root.getPropertyValue('--brand-primary').trim(),
+            brandDark:root.getPropertyValue('--brand-dark').trim()
+          };
+        });
+        assert.ok(dashboardTheme.heroBackground.includes('rgb(234, 27, 35)'));
+        assert.ok(dashboardTheme.heroBackground.includes('rgb(208, 17, 25)'));
+        assert.ok(dashboardTheme.heroStatsBackground.includes('rgb(255, 255, 255)'));
+        assert.ok(dashboardTheme.insightBackground.includes('rgb(63, 63, 70)') || dashboardTheme.insightBackground.includes('rgb(37, 39, 43)'));
+        assert.strictEqual(dashboardTheme.chartStroke.toUpperCase(), '#D01119');
+        assert.strictEqual(dashboardTheme.brandPrimary.toUpperCase(), '#EA1B23');
+        assert.strictEqual(dashboardTheme.brandDark.toUpperCase(), '#D01119');
+        await page.screenshot({path:path.join(OUTPUT, 'dashboard-brand-1440.png'), fullPage:false});
+        await page.evaluate(()=>showLanding());
+      }
 
       await page.locator('#landingLoginBtn').click();
       await page.locator('#lockScreen').waitFor({state:'visible'});
@@ -165,7 +203,8 @@ async function main() {
           cardTransform:getComputedStyle(document.getElementById('loginForm')).transform,
           horizontalOverflow:document.documentElement.scrollWidth - innerWidth,
           widgetOverflow:widget.scrollWidth - widget.clientWidth,
-          widgetRenderedWidth:(document.querySelector('#turnstileWidget iframe') || document.querySelector('#turnstileWidget > div'))?.getBoundingClientRect().width || 0
+          widgetRenderedWidth:(document.querySelector('#turnstileWidget iframe') || document.querySelector('#turnstileWidget > div'))?.getBoundingClientRect().width || 0,
+          loginButtonBackground:getComputedStyle(document.getElementById('lockBtn')).backgroundImage
         };
       });
 
@@ -175,6 +214,8 @@ async function main() {
       assert.ok(metrics.widgetRenderedWidth > 0 && metrics.widgetRenderedWidth <= metrics.card.width, `${viewport.width}px Turnstile widget must fit the form`);
       assert.ok(metrics.logo.top >= 0, `${viewport.width}px logo is clipped at the top`);
       assert.ok(metrics.card.top >= 0 && metrics.card.bottom <= viewport.height + 1, `${viewport.width}px login card must fit the viewport`);
+      assert.ok(metrics.loginButtonBackground.includes('rgb(234, 27, 35)'));
+      assert.ok(metrics.loginButtonBackground.includes('rgb(208, 17, 25)'));
       assert.deepStrictEqual(pageErrors, [], `${viewport.width}px page errors: ${pageErrors.join(', ')}`);
 
       if(viewport.width <= 899){

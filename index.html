@@ -13,10 +13,10 @@
 <style>
 
 :root{
-  /* ===== هوية فيسبوك (أزرق) ===== */
-  --brand:#1877F2;
-  --brand-dark:#1462C6;
-  --brand-light:#E7F3FF;
+  /* ===== هوية جاهز الموحدة ===== */
+  --brand:#EA1B23;
+  --brand-dark:#D01119;
+  --brand-light:#FFF1F2;
   --teal:#00857D;
   --teal-dark:#006B64;
   --teal-light:#E6F4F3;
@@ -34,10 +34,10 @@
   --dark:#1F2933;
   --radius:10px;
   --radius-lg:16px;
-  --ring:0 0 0 3px rgba(24,119,242,.18);
-  --brand2:#69A7F7;
-  --bar-fill:#1877F2;
-  --chart-fill:#69A7F7;
+  --ring:0 0 0 3px rgba(234,27,35,.18);
+  --brand2:#D01119;
+  --bar-fill:#EA1B23;
+  --chart-fill:#D01119;
   --kpi2:#00857D; --kpi3:#F5A623; --kpi4:#2E7D32; --kpi5:#3F6FB8;
   --ease:cubic-bezier(.4,0,.2,1);
   --shadow-sm:0 1px 3px rgba(0,0,0,.07);
@@ -2466,6 +2466,7 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="shipment-list.css?v=20260908-bsgt-table-meta-1">
   <link rel="stylesheet" href="landing.css?v=20260909-landing-1">
   <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-4">
+  <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-1">
 </head>
 <body class="landing-active">
 
@@ -7258,8 +7259,8 @@ const DEFAULT_BRAND = {
   loginImgMode:'reference',
   loginImgVersion:'20260909-bsgt-hero-2',
   loginImgCurrent:false,
-  color:'#1877F2',
-  color2:'#69A7F7',      // لون ثانوي احتياطي (غير مستخدم حالياً — لا تدرجات)
+  color:'#EA1B23',
+  color2:'#D01119',      // اللون الثانوي المعتمد للهوية الموحدة
   useGradient:false,     // تدرج أم لون واحد
   kpi2:'#00857D', kpi3:'#F5A623', kpi4:'#2E7D32',
   animations:true
@@ -13372,10 +13373,10 @@ function renderTargetDashboard(){
       </section>
       <section class="db-three-grid">
         <div class="db-panel"><div class="db-panel-title"><div><h3>آخر العمليات</h3><p>نظرة سريعة على آخر الحركات التشغيلية</p></div><button class="db-link" id="dbShowAll">عرض الكل</button></div><table class="db-operations"><thead><tr><th>الشركة</th><th>مركز العملية</th><th>النوع</th><th>التاريخ</th></tr></thead><tbody>${recent.length?recent.map((r,i)=>{const seaType=isSea(r);return `<tr><td>${escapeHtml(r.exporter||r.consignee||'—')}</td><td>${escapeHtml(r.operationNo||r.taskRef||r.invoiceNo||String(total-i).padStart(4,'0'))}</td><td><span class="db-type ${seaType?'sea':'land'}">${icon(seaType?'ship':'truck',11)}${seaType?'بحرية':'برية'}</span></td><td>${r.invoiceDate?new Date(r.invoiceDate).toLocaleDateString('ar-EG'): '—'}</td></tr>`;}).join(''):'<tr><td colspan="4" style="padding:28px;text-align:center;color:#9aa8b9">لا توجد عمليات مسجلة بعد</td></tr>'}</tbody></table></div>
-        <div class="db-panel"><div class="db-panel-title"><div><h3>العمليات آخر 6 أشهر</h3><p>اتجاهات النمو والتغير التشغيلي</p></div><span class="db-link">آخر 6 أشهر</span></div><div class="db-chart"><svg viewBox="0 0 570 180" preserveAspectRatio="none"><defs><linearGradient id="dbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b76ed" stop-opacity=".25"/><stop offset="1" stop-color="#1b76ed" stop-opacity=".01"/></linearGradient></defs>${[45,82,119,156].map(y=>`<line x1="20" x2="550" y1="${y}" y2="${y}" stroke="#e8eef7" stroke-dasharray="3 7"/>`).join('')}<path d="${area}" fill="url(#dbArea)"/><path d="${line}" fill="none" stroke="#1c76ef" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>${pts.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#fff" stroke="#1c76ef" stroke-width="2"/><text x="${p.x}" y="${p.y-10}" text-anchor="middle" fill="#36475e" font-size="10" font-weight="700">${months[i].count||''}</text>`).join('')}</svg><div class="db-chart-labels">${months.map(m=>`<span>${m.label}</span>`).join('')}</div></div></div>
+        <div class="db-panel"><div class="db-panel-title"><div><h3>العمليات آخر 6 أشهر</h3><p>اتجاهات النمو والتغير التشغيلي</p></div><span class="db-link">آخر 6 أشهر</span></div><div class="db-chart"><svg viewBox="0 0 570 180" preserveAspectRatio="none"><defs><linearGradient id="dbArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EA1B23" stop-opacity=".25"/><stop offset="1" stop-color="#EA1B23" stop-opacity=".01"/></linearGradient></defs>${[45,82,119,156].map(y=>`<line x1="20" x2="550" y1="${y}" y2="${y}" stroke="#e8eef7" stroke-dasharray="3 7"/>`).join('')}<path d="${area}" fill="url(#dbArea)"/><path d="${line}" fill="none" stroke="#D01119" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>${pts.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#fff" stroke="#D01119" stroke-width="2"/><text x="${p.x}" y="${p.y-10}" text-anchor="middle" fill="#36475e" font-size="10" font-weight="700">${months[i].count||''}</text>`).join('')}</svg><div class="db-chart-labels">${months.map(m=>`<span>${m.label}</span>`).join('')}</div></div></div>
         <div class="db-panel"><div class="db-panel-title"><div><h3>تقييم الشركات (أعلى 3)</h3><p>أفضل الشركات حسب الأداء</p></div><span>${icon('award',17)}</span></div>${companies.length?companies.map(([name,count],i)=>`<div class="db-company"><div class="db-company-top"><span>${escapeHtml(name)}</span><span class="db-rank">${i+1}</span></div><div class="db-company-meta"><span>${fmt(count)} عملية</span><span class="db-stars">★★★★★ ${Math.max(4.1,4.9-i*.3).toFixed(1)}</span></div></div>`).join(''):'<div class="dash-empty">ستظهر التقييمات بعد إضافة عمليات</div>'}<button class="db-all">عرض جميع الشركات</button></div>
       </section>
-      <section class="db-panel db-distribution"><div class="db-panel-title"><div><h3>توزيع العمليات</h3><p>توازن العمليات البرية والبحرية خلال الفترة الحالية</p></div><span>${icon('chart',17)}</span></div><div class="db-distribution-grid"><div class="db-donut-box"><div class="db-donut" style="background:conic-gradient(#2878f0 0 ${landPct}%,#35c48d ${landPct}% 100%)"><div class="db-donut-center">إجمالي العمليات<b>${fmt(total)}</b></div></div></div><div class="db-mix"><div class="db-mix-card"><span class="db-mix-icon">${icon('truck',19)}</span><b>${landPct}%</b><span>نسبة العمليات البرية</span><small>${fmt(land.length)} عملية</small></div><div class="db-mix-card"><span class="db-mix-icon sea">${icon('ship',19)}</span><b>${total?100-landPct:0}%</b><span>نسبة العمليات البحرية</span><small>${fmt(sea.length)} عملية</small></div></div><div class="db-insight"><span class="db-chip" style="background:rgba(255,255,255,.12);color:#fff">Insight ↗</span><h3>${land.length>=sea.length?'نسبة العمليات البرية أعلى من البحرية':'نسبة العمليات البحرية أعلى من البرية'}</h3><p>استمر على هذا الأداء المميز!</p><div class="db-bars"><span>برية ${landPct}%</span><i><b style="width:${landPct}%"></b></i><span>بحرية ${total?100-landPct:0}%</span><i class="sea-bar"><b style="width:${total?100-landPct:0}%"></b></i></div><div class="db-insight-art">${icon('truck',58)}${icon('ship',42)}</div></div></div></section>
+      <section class="db-panel db-distribution"><div class="db-panel-title"><div><h3>توزيع العمليات</h3><p>توازن العمليات البرية والبحرية خلال الفترة الحالية</p></div><span>${icon('chart',17)}</span></div><div class="db-distribution-grid"><div class="db-donut-box"><div class="db-donut" style="background:conic-gradient(#EA1B23 0 ${landPct}%,#35c48d ${landPct}% 100%)"><div class="db-donut-center">إجمالي العمليات<b>${fmt(total)}</b></div></div></div><div class="db-mix"><div class="db-mix-card"><span class="db-mix-icon">${icon('truck',19)}</span><b>${landPct}%</b><span>نسبة العمليات البرية</span><small>${fmt(land.length)} عملية</small></div><div class="db-mix-card"><span class="db-mix-icon sea">${icon('ship',19)}</span><b>${total?100-landPct:0}%</b><span>نسبة العمليات البحرية</span><small>${fmt(sea.length)} عملية</small></div></div><div class="db-insight"><span class="db-chip" style="background:rgba(255,255,255,.12);color:#fff">Insight ↗</span><h3>${land.length>=sea.length?'نسبة العمليات البرية أعلى من البحرية':'نسبة العمليات البحرية أعلى من البرية'}</h3><p>استمر على هذا الأداء المميز!</p><div class="db-bars"><span>برية ${landPct}%</span><i><b style="width:${landPct}%"></b></i><span>بحرية ${total?100-landPct:0}%</span><i class="sea-bar"><b style="width:${total?100-landPct:0}%"></b></i></div><div class="db-insight-art">${icon('truck',58)}${icon('ship',42)}</div></div></div></section>
     </div>`;
   const allBtn=document.getElementById('dbShowAll');
   if(allBtn) allBtn.onclick=()=>document.getElementById('navActivityLog').click();

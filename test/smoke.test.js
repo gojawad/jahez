@@ -92,6 +92,28 @@ async function main() {
       assert.ok(landingCss.includes('height: clamp(260px, 78vw, 320px)'));
       assert.ok(!landingCss.includes('transform: scale('));
     });
+    await check('central brand theme is loaded last and exposes the approved palette', async () => {
+      assert.ok(appHtml.includes('brand-theme.css?v=20260911-brand-1'));
+      assert.ok(appHtml.indexOf('brand-theme.css?v=20260911-brand-1') > appHtml.indexOf('login.css?v=20260909-bsgt-login-4'));
+      const themeResponse = await fetch(`${BASE}/brand-theme.css`);
+      assert.strictEqual(themeResponse.status, 200);
+      const themeCss = await themeResponse.text();
+      assert.ok(themeCss.includes('--brand-primary: #EA1B23'));
+      assert.ok(themeCss.includes('--brand-dark: #D01119'));
+      assert.ok(themeCss.includes('--brand-gradient: linear-gradient(135deg, #EA1B23 0%, #D01119 100%)'));
+      assert.ok(themeCss.includes('.app-sidebar .o-menu button.active'));
+      assert.ok(themeCss.includes('#viewRecords.shipment-glass-page'));
+      assert.ok(themeCss.includes('.import-permit-overlay'));
+      const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
+      assert.ok(collectionHtml.includes('../../brand-theme.css?v=20260911-brand-1'));
+      assert.ok(collectionHtml.indexOf('brand-theme.css') > collectionHtml.indexOf('jahez-glass.css'));
+      const publicShipmentHtml = await fs.promises.readFile(path.join(__dirname, '..', 'public-shipment.html'), 'utf8');
+      assert.ok(publicShipmentHtml.includes('class="public-shipment-page"'));
+      assert.ok(publicShipmentHtml.includes('/brand-theme.css?v=20260911-brand-1'));
+      const qrSplashHtml = await fs.promises.readFile(path.join(__dirname, '..', 'qr-splash.html'), 'utf8');
+      assert.ok(qrSplashHtml.includes('--brand-primary:#EA1B23'));
+      assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
+    });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
       assert.ok(appHtml.includes('function isBsgtRecord(r)'));

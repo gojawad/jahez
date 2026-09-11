@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>جاري تجهيز الملفات | BSGT</title>
   <style>
+    :root{--brand-primary:#EA1B23;--brand-dark:#D01119;--brand-gradient:linear-gradient(135deg,#EA1B23 0%,#D01119 100%)}
     *{box-sizing:border-box}
     html,body{margin:0;min-height:100%;background:#fff;font-family:Tahoma,'IBM Plex Sans Arabic',sans-serif}
     body{min-height:100vh;min-height:100dvh;overflow:hidden;color:#151515}
@@ -13,9 +14,9 @@
     .wrap{text-align:center;transform:translateY(-2vh)}
     .orbit{position:relative;display:grid;place-items:center;width:205px;height:205px;margin:0 auto 26px;border-radius:50%}
     .orbit::before,.orbit::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
-    .orbit::before{inset:0;border:2px solid rgba(203,68,55,.20);border-top-color:#cb4437;animation:spin 2s linear infinite}
-    .orbit::after{inset:10px;border:1px solid rgba(203,68,55,.12);border-bottom-color:#cb4437;animation:spin 3.4s linear infinite reverse}
-    .logo{width:140px;height:140px;object-fit:contain;animation:breathe 1.45s ease-in-out infinite;filter:drop-shadow(0 10px 24px rgba(203,68,55,.10))}
+    .orbit::before{inset:0;border:2px solid rgba(234,27,35,.20);border-top-color:var(--brand-primary);animation:spin 2s linear infinite}
+    .orbit::after{inset:10px;border:1px solid rgba(208,17,25,.12);border-bottom-color:var(--brand-dark);animation:spin 3.4s linear infinite reverse}
+    .logo{width:140px;height:140px;object-fit:contain;animation:breathe 1.45s ease-in-out infinite;filter:drop-shadow(0 10px 24px rgba(208,17,25,.10))}
     .brand{margin-bottom:10px;color:#151515;font-size:26px;font-weight:800;letter-spacing:1.8px;direction:ltr}
     .status{color:#777;font-size:16px}
     .dots::after{content:"";animation:dots 1.25s steps(4,end) infinite}

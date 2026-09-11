@@ -85,6 +85,17 @@ async function main() {
     }));
     await page.goto(`${BASE}/experiments/bs-collection/`, {waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor();
+    const theme = await page.evaluate(()=>( {
+      primary:getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim(),
+      dark:getComputedStyle(document.documentElement).getPropertyValue('--brand-dark').trim(),
+      header:getComputedStyle(document.querySelector('.lab-header')).backgroundImage,
+      selected:getComputedStyle(document.querySelector('.section-heading span')).color
+    }));
+    assert.strictEqual(theme.primary.toUpperCase(), '#EA1B23');
+    assert.strictEqual(theme.dark.toUpperCase(), '#D01119');
+    assert.ok(theme.header.includes('rgb(37, 39, 43)'));
+    assert.strictEqual(theme.selected, 'rgb(208, 17, 25)');
+    await page.screenshot({path:path.join(OUTPUT, 'collection-portal.png'), fullPage:false});
     await page.locator('.shipment-card').nth(0).click();
     await page.locator('.shipment-card').nth(1).click();
     await page.locator('[data-step-section="preview-section"]').click();
