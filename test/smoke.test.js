@@ -114,6 +114,22 @@ async function main() {
       assert.ok(qrSplashHtml.includes('--brand-primary:#EA1B23'));
       assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
     });
+    await check('shipment workflow phase 1 stays independent from review status', async () => {
+      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-1'));
+      assert.ok(appHtml.includes('JahezShipmentWorkflow.fromRow(row)'));
+      assert.ok(appHtml.includes('JahezShipmentWorkflow.toRow(r)'));
+      const helperResponse = await fetch(`${BASE}/shipment-workflow.js`);
+      assert.strictEqual(helperResponse.status, 200);
+      const helperSource = await helperResponse.text();
+      assert.ok(helperSource.includes("['created', 'bank_sent', 'signed', 'accepted']"));
+      assert.ok(helperSource.includes("workflow_stage: 'bank_sent'"));
+      const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
+      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-1'));
+      const collectionSource = await fs.promises.readFile(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
+      assert.ok(collectionSource.includes('JahezShipmentWorkflow.bankSentFields(data.collectionSentAt)'));
+      assert.ok(collectionSource.includes("data.collectionStatus='sent'"));
+      assert.ok(collectionSource.includes("data.collectionSentAt=sentAt"));
+    });
     await check('shipment company isolation guards are present', async () => {
       assert.ok(appHtml.includes('function companyEntryForRecord(r)'));
       assert.ok(appHtml.includes('function isBsgtRecord(r)'));

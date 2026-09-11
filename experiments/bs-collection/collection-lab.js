@@ -563,10 +563,10 @@ function renderCollectionListManager(){
     return `<span class="collection-list-value"><span title="${esc(text)}">${esc(text)}</span><button type="button" title="حذف" data-remove-list-index="${index}">×</button></span>`;
   }).join(''):'<small>لا توجد قيم محفوظة بعد.</small>';
 }
-const rowToShipment = row => Object.assign({}, row.data||{}, {id:row.id,status:row.status,companyId:row.company_id,shipmentNo:row.data?.operationNo||row.task_ref||row.id.slice(0,8)});
+const rowToShipment = row => Object.assign({}, row.data||{}, JahezShipmentWorkflow.fromRow(row), {id:row.id,status:row.status,companyId:row.company_id,shipmentNo:row.data?.operationNo||row.task_ref||row.id.slice(0,8)});
 function shipmentDataForUpdate(shipment){
   const data=Object.assign({},shipment);
-  ['id','status','companyId','shipmentNo'].forEach(key=>delete data[key]);
+  ['id','status','companyId','shipmentNo','workflowStage','workflowUpdatedAt','bankSentAt','signedAt','acceptedAt','acceptedBy'].forEach(key=>delete data[key]);
   return data;
 }
 async function saveShipmentCollectionState(rows, stateName, batch){
@@ -575,8 +575,9 @@ async function saveShipmentCollectionState(rows, stateName, batch){
     const data=shipmentDataForUpdate(sourceShipment);
     const operations=Array.isArray(data.commercialCollectionOperations)?data.commercialCollectionOperations.map(operation=>({...operation})):[];
     if(stateName==='sent'){
+      const sentAt=batch.sentAt||new Date().toISOString();
       data.collectionStatus='sent';
-      data.collectionSentAt=batch.sentAt;
+      data.collectionSentAt=sentAt;
       data.collectionBatchId=batch.id;
       data.collectionOperationNo=batch.operationNo;
       data.collectionRemittingBank=batch.remittingBank;
@@ -585,7 +586,7 @@ async function saveShipmentCollectionState(rows, stateName, batch){
       data.collectionDocumentKinds=batch.documentKinds;
       data.collectionConvertToAed=batch.convertToAed;
       data.collectionExchangeRate=batch.exchangeRate;
-      const operation={id:batch.id,operationNo:batch.operationNo,status:'sent',sentAt:batch.sentAt,remittingBank:batch.remittingBank,amount:batch.amount,documentSettings:batch.documentSettings,documentKinds:batch.documentKinds,qrIncluded:false,convertToAed:batch.convertToAed,exchangeRate:batch.exchangeRate,shipmentSnapshot:collectionShipmentSnapshot(shipment)};
+      const operation={id:batch.id,operationNo:batch.operationNo,status:'sent',sentAt,remittingBank:batch.remittingBank,amount:batch.amount,documentSettings:batch.documentSettings,documentKinds:batch.documentKinds,qrIncluded:false,convertToAed:batch.convertToAed,exchangeRate:batch.exchangeRate,shipmentSnapshot:collectionShipmentSnapshot(shipment)};
       const existingIndex=operations.findIndex(item=>item.id===batch.id);
       if(existingIndex>=0) operations[existingIndex]=operation; else operations.push(operation);
     }else{
@@ -597,7 +598,9 @@ async function saveShipmentCollectionState(rows, stateName, batch){
       ['collectionStatus','collectionSentAt','collectionBatchId','collectionRemittingBank','collectionAmount','collectionDocumentSettings','collectionDocumentKinds','collectionConvertToAed','collectionExchangeRate'].forEach(key=>delete data[key]);
     }
     data.commercialCollectionOperations=operations;
-    const {data:updated,error}=await sb.from('shipments').update({data}).eq('id',shipment.id).select().single();
+    const updatePayload={data};
+    if(stateName==='sent') Object.assign(updatePayload,JahezShipmentWorkflow.bankSentFields(data.collectionSentAt));
+    const {data:updated,error}=await sb.from('shipments').update(updatePayload).eq('id',shipment.id).select().single();
     if(error) throw error;
     return rowToShipment(updated);
   }));

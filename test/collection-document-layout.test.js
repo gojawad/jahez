@@ -149,6 +149,10 @@ async function main() {
       return {
         numbers:rows.map(row=>row.data.collectionOperationNo),
         statuses:rows.map(row=>row.data.collectionStatus),
+        reviewStatuses:rows.map(row=>row.status),
+        workflowStages:rows.map(row=>row.workflow_stage),
+        workflowUpdatedAt:rows.map(row=>row.workflow_updated_at),
+        bankSentAt:rows.map(row=>row.bank_sent_at),
         operations:rows.map(row=>row.data.commercialCollectionOperations?.at(-1)),
         activeRef:document.getElementById('activeCollectionOperationRef')?.textContent||''
       };
@@ -156,6 +160,10 @@ async function main() {
     assert.match(operation.numbers[0], /^TC-\d{8}-\d{6}-\d{3}$/);
     assert.strictEqual(operation.numbers[0], operation.numbers[1]);
     assert.deepStrictEqual(operation.statuses, ['sent','sent']);
+    assert.deepStrictEqual(operation.reviewStatuses, ['issued','issued']);
+    assert.deepStrictEqual(operation.workflowStages, ['bank_sent','bank_sent']);
+    assert.ok(operation.workflowUpdatedAt.every(Boolean));
+    assert.deepStrictEqual(operation.bankSentAt, operation.workflowUpdatedAt);
     assert.ok(operation.operations.every(item=>item.operationNo===operation.numbers[0]));
     assert.ok(operation.operations.every(item=>item.qrIncluded===false));
     assert.ok(operation.operations.every(item=>JSON.stringify(item.documentKinds)===JSON.stringify(['letter','undertaking','exchange'])));
