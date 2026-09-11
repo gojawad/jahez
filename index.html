@@ -2476,11 +2476,11 @@ body.role-staff #navWallet,body.role-staff #navAdmin{display:flex !important;}
   <link rel="stylesheet" href="modal-layout.css">
   <link rel="stylesheet" href="shipment-detail.css?v=20260907-bsgt-workflow">
   <link rel="stylesheet" href="jahez-glass.css?v=20260908-glass-4">
-  <link rel="stylesheet" href="import-permit.css?v=20260908-glass-1">
+  <link rel="stylesheet" href="import-permit.css?v=20260911-enterprise-1">
   <link rel="stylesheet" href="shipment-list.css?v=20260911-workflow-4">
   <link rel="stylesheet" href="landing.css?v=20260909-landing-1">
   <link rel="stylesheet" href="login.css?v=20260909-bsgt-login-4">
-  <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-1">
+  <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
 </head>
 <body class="landing-active">
 
@@ -5367,7 +5367,7 @@ SWIFT: NBEGEGCX"></textarea>
   <div class="import-permit-shell">
     <header class="import-permit-header">
       <div>
-        <span class="import-permit-kicker">بوابة مستقلة داخل BSGT</span>
+        <span class="import-permit-kicker">بوابة معتمدة داخل BSGT</span>
         <h2>فاتورة إذن الاستيراد</h2>
         <p>فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً.</p>
       </div>
@@ -5379,6 +5379,11 @@ SWIFT: NBEGEGCX"></textarea>
         <button type="button" class="close-x" id="importPermitCloseX" data-ic="close" aria-label="إغلاق"></button>
       </div>
     </header>
+    <nav class="import-permit-stepper" aria-label="أقسام فاتورة إذن الاستيراد">
+      <div class="import-permit-step is-current" aria-current="step"><span>01</span><b>بيانات الفاتورة المبدئية</b></div>
+      <div class="import-permit-step"><span>02</span><b>السلع المقيدة حسب منصة بلدنا</b></div>
+      <div class="import-permit-step"><span>03</span><b>شروط الفاتورة</b></div>
+    </nav>
     <main class="import-permit-body">
       <div class="import-permit-validation" id="importPermitValidation" role="alert"></div>
       <section class="import-permit-card import-permit-card-accent">
@@ -9025,6 +9030,16 @@ function canCurrentUserAcceptShipment(){
   return !!isAdmin();
 }
 
+function bsgtPackageMergeAccess(r, files){
+  const adminOverride = !!isAdmin();
+  const workflowAllowed = JahezShipmentWorkflow.canMergeShipmentPackage(r, files);
+  return {
+    allowed: adminOverride || workflowAllowed,
+    adminOverride,
+    reason: adminOverride ? 'صلاحية المدير تسمح بدمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)
+  };
+}
+
 function renderShipmentAcceptanceState(r, evaluation){
   const stage = JahezShipmentWorkflow.normalizeStage(r?.workflowStage);
   if(stage === 'accepted'){
@@ -9045,8 +9060,8 @@ function renderShipmentAcceptanceState(r, evaluation){
 function refreshBsgtMergeControls(r){
   if(!isBsgtRecord(r)) return;
   const files = shipmentFilesCache[r.id] || [];
-  const allowed = JahezShipmentWorkflow.canMergeShipmentPackage(r, files);
-  const reason = JahezShipmentWorkflow.packageMergeBlockReason(r, files);
+  const access = bsgtPackageMergeAccess(r, files);
+  const {allowed, reason} = access;
   const packageButton = document.getElementById('packageBtn');
   const mergeButton = document.getElementById('mergeAllBtn');
   [packageButton, mergeButton].forEach(button=>{
@@ -15329,9 +15344,9 @@ function renderBsgtDetail(r){
   const ownerName = shipmentAuditUserName(r.ownerId);
   const quantity = r.totalQty || r.qty || r.numberOfPackages || '—';
   const shippingType = shipmentTypeLabel(r);
-  const workflowStage = JahezShipmentWorkflow.normalizeStage(r.workflowStage);
-  const mergeLocked = workflowStage !== 'accepted';
-  const mergeLockReason = JahezShipmentWorkflow.packageMergeBlockReason(r, shipmentFilesCache[r.id] || []);
+  const mergeAccess = bsgtPackageMergeAccess(r, shipmentFilesCache[r.id] || []);
+  const mergeLocked = !mergeAccess.allowed;
+  const mergeLockReason = mergeAccess.reason;
   const dataCards = [
     [shipmentTypeIcon(r), 'نوع الشحنة', shippingType],
     ['box', 'عدد الطرود', r.numberOfPackages || r.totalQty || r.qty || '—'],
@@ -18647,12 +18662,12 @@ window.bsgtPdfPreviewBlob = async function bsgtPdfPreviewBlob(record, kind='invo
 async function ensureBsgtPackageMergeAllowed(record, {showDialog = false} = {}){
   if(!isBsgtRecord(record)) return {allowed:true, record, files:[]};
   const latest = await fetchLatestShipmentWorkflowState(record.id);
-  const allowed = JahezShipmentWorkflow.canMergeShipmentPackage(latest.record, latest.files);
-  const reason = JahezShipmentWorkflow.packageMergeBlockReason(latest.record, latest.files);
+  const access = bsgtPackageMergeAccess(latest.record, latest.files);
+  const {allowed, reason} = access;
   if(!allowed && showDialog){
     await showShipmentWorkflowDialog({title:'لا يمكن دمج الحزمة', message:reason});
   }
-  return {...latest, allowed, reason};
+  return {...latest, ...access};
 }
 
 function bsgtWorkflowGateError(reason){

@@ -701,12 +701,14 @@ body:has(#viewRecords.active.shipment-glass-page) #viewRecords.bsgt-shipment-vie
 }
 
 .import-permit-card-accent {
-  background: var(--brand-gradient);
+  background: #FFFFFF;
 }
 
 .import-permit-draft-bar,
 .import-permit-current-ref {
-  background: linear-gradient(145deg, var(--neutral-sidebar), var(--neutral-sidebar-deep));
+  border-color: rgba(234, 27, 35, .14);
+  background: #FFF7F7;
+  color: var(--text-primary);
 }
 
 .import-permit-view-tabs button.active,

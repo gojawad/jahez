@@ -93,8 +93,8 @@ async function main() {
       assert.ok(!landingCss.includes('transform: scale('));
     });
     await check('central brand theme is loaded last and exposes the approved palette', async () => {
-      assert.ok(appHtml.includes('brand-theme.css?v=20260911-brand-1'));
-      assert.ok(appHtml.indexOf('brand-theme.css?v=20260911-brand-1') > appHtml.indexOf('login.css?v=20260909-bsgt-login-4'));
+      assert.ok(appHtml.includes('brand-theme.css?v=20260911-brand-2'));
+      assert.ok(appHtml.indexOf('brand-theme.css?v=20260911-brand-2') > appHtml.indexOf('login.css?v=20260909-bsgt-login-4'));
       const themeResponse = await fetch(`${BASE}/brand-theme.css`);
       assert.strictEqual(themeResponse.status, 200);
       const themeCss = await themeResponse.text();
@@ -105,11 +105,11 @@ async function main() {
       assert.ok(themeCss.includes('#viewRecords.shipment-glass-page'));
       assert.ok(themeCss.includes('.import-permit-overlay'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
-      assert.ok(collectionHtml.includes('../../brand-theme.css?v=20260911-brand-1'));
+      assert.ok(collectionHtml.includes('../../brand-theme.css?v=20260911-brand-2'));
       assert.ok(collectionHtml.indexOf('brand-theme.css') > collectionHtml.indexOf('jahez-glass.css'));
       const publicShipmentHtml = await fs.promises.readFile(path.join(__dirname, '..', 'public-shipment.html'), 'utf8');
       assert.ok(publicShipmentHtml.includes('class="public-shipment-page"'));
-      assert.ok(publicShipmentHtml.includes('/brand-theme.css?v=20260911-brand-1'));
+      assert.ok(publicShipmentHtml.includes('/brand-theme.css?v=20260911-brand-2'));
       const qrSplashHtml = await fs.promises.readFile(path.join(__dirname, '..', 'qr-splash.html'), 'utf8');
       assert.ok(qrSplashHtml.includes('--brand-primary:#EA1B23'));
       assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
@@ -130,6 +130,10 @@ async function main() {
       assert.ok(helperSource.includes('function acceptedFields(userId, acceptedAt)'));
       assert.ok(helperSource.includes('function canMergeShipmentPackage(record, files)'));
       assert.ok(helperSource.includes('function packageMergeBlockReason(record, files)'));
+      assert.ok(appHtml.includes('function bsgtPackageMergeAccess(r, files)'));
+      assert.ok(appHtml.includes('const adminOverride = !!isAdmin()'));
+      assert.ok(appHtml.includes('allowed: adminOverride || workflowAllowed'));
+      assert.ok(appHtml.includes("reason: adminOverride ? 'صلاحية المدير تسمح بدمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)"));
       assert.ok(appHtml.includes('function renderSignedDocumentsPanel(r)'));
       assert.ok(appHtml.includes('async function uploadSignedShipmentDocument(r, type, file)'));
       assert.ok(appHtml.includes('async function syncShipmentSignedWorkflow(shipmentId)'));
@@ -146,6 +150,8 @@ async function main() {
       assert.ok(appHtml.includes('قبول المستندات وإكمال الشحنة'));
       assert.ok(appHtml.includes('مكتملة ومعتمدة'));
       assert.ok(appHtml.includes('function ensureBsgtPackageMergeAllowed(record'));
+      assert.ok(appHtml.includes('const access = bsgtPackageMergeAccess(latest.record, latest.files)'));
+      assert.ok(appHtml.includes('return {...latest, ...access}'));
       assert.ok(appHtml.includes('async function requestBsgtPackageMerge(record, triggerButton)'));
       const bsgtMergeSource = appHtml.slice(appHtml.indexOf('async function mergeBsgtPackageLocally'), appHtml.indexOf('window.refreshAllPublishedBsgtQrPackages'));
       assert.ok(bsgtMergeSource.indexOf('ensureBsgtPackageMergeAllowed(r)') < bsgtMergeSource.indexOf('PDFDocument.create()'));
@@ -271,6 +277,7 @@ async function main() {
     });
     await check('import-permit proforma portal is standalone and Baldna-restricted', async () => {
       const permitSource = fs.readFileSync(path.join(__dirname, '..', 'import-permit.js'), 'utf8');
+      const permitCss = fs.readFileSync(path.join(__dirname, '..', 'import-permit.css'), 'utf8');
       const catalogSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodities.js'), 'utf8');
       const translationSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodity-translations.js'), 'utf8');
       const catalogJson = catalogSource.slice(catalogSource.indexOf('Object.freeze(') + 'Object.freeze('.length, catalogSource.lastIndexOf(');'));
@@ -297,6 +304,24 @@ async function main() {
       assert.ok(appHtml.includes('id="importPermitPageSize"'));
       assert.ok(appHtml.includes('data-import-permit-tab="new"'));
       assert.ok(appHtml.includes('data-import-permit-tab="history"'));
+      assert.ok(appHtml.includes('import-permit.css?v=20260911-enterprise-1'));
+      assert.ok(appHtml.includes('class="import-permit-stepper"'));
+      assert.ok(appHtml.includes('aria-label="أقسام فاتورة إذن الاستيراد"'));
+      assert.ok(appHtml.includes('بوابة معتمدة داخل BSGT'));
+      for (const id of [
+        'permit_proformaNo', 'permit_proformaDate', 'permit_consignee', 'permit_consigneeAddress',
+        'permit_portDischarge', 'permit_countryOrigin', 'importPermitItems', 'permit_currency',
+        'permitAedToggle', 'permit_aedRate', 'permit_incoterm', 'permit_paymentTerm', 'permit_bankPick',
+        'permit_weight', 'importPermitResetBtn', 'importPermitSaveBtn', 'importPermitPrintBtn'
+      ]) assert.ok(appHtml.includes(`id="${id}"`), `missing preserved import-permit control: ${id}`);
+      assert.ok(permitCss.includes('--permit-primary: var(--brand-primary, #EA1B23)'));
+      assert.ok(permitCss.includes('--permit-primary-hover: var(--brand-dark, #D01119)'));
+      assert.ok(permitCss.includes('#importPermitOverlay .import-permit-shell'));
+      assert.ok(permitCss.includes('grid-template-rows: auto auto minmax(0, 1fr) auto'));
+      assert.ok(permitCss.includes('.import-permit-current-ref'));
+      assert.ok(permitCss.includes('background: #fff7f7'));
+      assert.ok(permitCss.includes('.import-permit-actions'));
+      assert.ok(permitCss.includes('@media (max-width: 560px)'));
       assert.ok(appHtml.includes("window.dispatchEvent(new CustomEvent('jahez:session-ready'))"));
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
@@ -333,6 +358,9 @@ async function main() {
       assert.ok(permitSource.includes("chooseDocLang({...record.data, permitInvoice:true}"));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
       assert.ok(permitSource.includes('saveCurrentRecord'));
+      assert.ok(permitSource.includes("byId('importPermitResetBtn').addEventListener('click', resetPortal)"));
+      assert.ok(permitSource.includes("byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord)"));
+      assert.ok(permitSource.includes("byId('importPermitPrintBtn').addEventListener('click', async () =>"));
       assert.ok(permitSource.includes('document.documentElement.appendChild(overlay)'));
       assert.ok(!permitSource.includes('dbSaveRecord'));
       assert.ok(!permitSource.includes("from('shipments')"));
@@ -429,7 +457,7 @@ async function main() {
       assert.ok(appHtml.includes('record?.signedAt'));
       assert.ok(appHtml.includes('record?.acceptedAt'));
       assert.ok(appHtml.includes('shipmentAuditUserName(record?.acceptedBy)'));
-      assert.ok(appHtml.includes('JahezShipmentWorkflow.packageMergeBlockReason(r, shipmentFilesCache[r.id] || [])'));
+      assert.ok(appHtml.includes('const mergeAccess = bsgtPackageMergeAccess(r, shipmentFilesCache[r.id] || [])'));
       assert.ok(appHtml.includes('async function ensureBsgtPackageMergeAllowed'));
     });
     await check('Jahez Glass skin is isolated from generated documents', async () => {
