@@ -114,8 +114,8 @@ async function main() {
       assert.ok(qrSplashHtml.includes('--brand-primary:#EA1B23'));
       assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
     });
-    await check('shipment workflow phase 1 stays independent from review status', async () => {
-      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-1'));
+    await check('shipment workflow signed phase stays independent from review status', async () => {
+      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-2'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.fromRow(row)'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.toRow(r)'));
       const helperResponse = await fetch(`${BASE}/shipment-workflow.js`);
@@ -123,8 +123,15 @@ async function main() {
       const helperSource = await helperResponse.text();
       assert.ok(helperSource.includes("['created', 'bank_sent', 'signed', 'accepted']"));
       assert.ok(helperSource.includes("workflow_stage: 'bank_sent'"));
+      assert.ok(helperSource.includes("SIGNED_DOCUMENT_TYPES = Object.freeze(['letter', 'undertaking', 'exchange'])"));
+      assert.ok(helperSource.includes('function evaluateShipmentSigning(record, files)'));
+      assert.ok(helperSource.includes('function signingSyncFields(record, files, changedAt)'));
+      assert.ok(appHtml.includes('function renderSignedDocumentsPanel(r)'));
+      assert.ok(appHtml.includes('async function uploadSignedShipmentDocument(r, type, file)'));
+      assert.ok(appHtml.includes("signatureStatus:'signed'"));
+      assert.ok(appHtml.includes('renderSignedDocumentsPanel(r)'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
-      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-1'));
+      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-2'));
       const collectionSource = await fs.promises.readFile(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
       assert.ok(collectionSource.includes('JahezShipmentWorkflow.bankSentFields(data.collectionSentAt)'));
       assert.ok(collectionSource.includes("data.collectionStatus='sent'"));
