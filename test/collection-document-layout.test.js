@@ -34,7 +34,12 @@ function supabaseStub() {
   ];
   return `window.__testCollectionShipments=${JSON.stringify(shipments)};
   window.supabase={createClient:function(){return {
-    auth:{getUser:async()=>({data:{user:{id:'u1',email:'admin@jahez.test'}}}),signOut:async()=>({error:null})},
+    auth:{
+      getSession:async()=>({data:{session:{user:{id:'u1',email:'admin@jahez.test'},access_token:'test-token'}},error:null}),
+      getUser:async()=>({data:{user:{id:'u1',email:'admin@jahez.test'}}}),
+      onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),
+      signOut:async()=>({error:null})
+    },
     from:function(table){
       let updatePayload=null, eqColumn='', eqValue='';
       const result=()=>table==='companies'

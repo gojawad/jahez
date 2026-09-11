@@ -3,6 +3,7 @@ const SB_URL = 'https://vthcmqqiexaedukduquv.supabase.co';
 const SB_KEY = 'sb_publishable_kYEMmAQ2KTETIabDTMz2ig_fNB8vo02';
 const sb = supabase.createClient(SB_URL, SB_KEY, {auth:{storageKey:'shipdocs-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const $ = id => document.getElementById(id);
+const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
 const state = {shipments:[], payments:{}, selected:new Set(), overrides:{}, preview:'letter', activeOperationNo:'', convertToAed:false, exchangeRate:3.6725, settings:{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of  Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING LLC',authorizedPerson:'JAWAD ELMASRI',title:'MANAGER',draweeAddress:''}};
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const collectionListStorageKey = 'bsCollectionDataLists';
@@ -41,6 +42,7 @@ let sharedCollectionBranding = {};
 let layoutHistory = [];
 let layoutRedoHistory = [];
 let restoringLayoutHistory = false;
+let portalLogoutRequested = false;
 const dirtyDocumentLayouts = new Set();
 const layoutHistoryKeys = [collectionTextOffsetStorageKey, collectionTextBlockOffsetStorageKey, collectionTextStyleStorageKey, collectionTextLayerStorageKey, stampTransformStorageKey];
 function layoutSnapshot(){ return Object.fromEntries(layoutHistoryKeys.map(key=>[key,localStorage.getItem(key)])); }
@@ -155,24 +157,44 @@ function setPortalBrand(branding){
   image.removeAttribute('src'); image.hidden=true; icon.hidden=false;
   icon.className=`bx bx-${branding?.icon||'ship'}`;
 }
-async function loadPortalHeader(){
-  try{
-    const [{data:{user}}, {data:branding}]=await Promise.all([
-      sb.auth.getUser(),
+function rememberPortalLocation(){
+  try{ sessionStorage.setItem(AUTH_RETURN_PATH_KEY, location.pathname + location.search + location.hash); }catch(error){}
+}
+function redirectPortalToLogin(){
+  rememberPortalLocation();
+  window.location.replace('/?login=1');
+}
+async function restorePortalSession(attempts=3){
+  let lastError=null;
+  for(let attempt=0;attempt<attempts;attempt++){
+    try{
+      const {data,error}=await sb.auth.getSession();
+      if(data?.session?.user) return data.session;
+      if(!error) return null;
+      lastError=error;
+    }catch(error){ lastError=error; }
+    if(attempt<attempts-1) await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
+  }
+  if(lastError) console.warn('collection portal session restore',lastError);
+  return null;
+}
+async function loadPortalHeader(user){
+  let lastError=null;
+  for(let attempt=0;attempt<3;attempt++){
+    const [{data:profile,error:profileError}, {data:branding,error:brandingError}]=await Promise.all([
+      sb.from('profiles').select('display_name, role, photo_url').eq('id',user.id).maybeSingle(),
       sb.from('settings').select('value').eq('key','branding').maybeSingle()
     ]);
-    let profile=null;
-    if(user){
-      const {data}=await sb.from('profiles').select('display_name, role, photo_url').eq('id',user.id).maybeSingle();
-      profile=data;
+    if(!profileError){
+      if(brandingError) console.warn('portal branding',brandingError);
+      setPortalUserProfile(user,profile);
+      setPortalBrand(branding?.value);
+      return;
     }
-    setPortalUserProfile(user,profile);
-    setPortalBrand(branding?.value);
-  }catch(error){
-    console.warn('portal header',error);
-    setPortalUserProfile(null,null);
-    setPortalBrand(null);
+    lastError=profileError;
+    if(attempt<2) await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
   }
+  throw lastError;
 }
 function localCollectionBrandingSettings(){
   try { return JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
@@ -198,11 +220,14 @@ async function logoutPortal(){
   const button=$('portalLogoutBtn');
   if(!confirm('تسجيل الخروج من النظام؟')) return;
   button.disabled=true;
+  portalLogoutRequested=true;
+  try{ sessionStorage.removeItem(AUTH_RETURN_PATH_KEY); }catch(error){}
   try{
     const {error}=await sb.auth.signOut();
     if(error) throw error;
     window.location.assign('/');
   }catch(error){
+    portalLogoutRequested=false;
     button.disabled=false;
     alert(`تعذّر تسجيل الخروج: ${error.message||error}`);
   }
@@ -840,11 +865,13 @@ async function recordCollection(){
   }finally{ buttons.forEach((button,index)=>{button.disabled=false;button.innerHTML=originals[index];}); }
 }
 async function init(){
+  const session=await restorePortalSession();
+  if(!session){ redirectPortalToLogin(); return; }
   ensureTextLayerControls();
   loadCollectionLists();
   loadRemittingBatches();
   const legacyRemittingBatches=[...remittingBatches];
-  await loadPortalHeader();
+  await loadPortalHeader(session.user);
   const collapsed=sectionCollapseState();
   const activeSection=portalSectionNames.find(name=>collapsed[name]===false)||'picker-section';
   portalSectionNames.forEach(name=>setSectionCollapsed(name,name!==activeSection));
@@ -1191,4 +1218,8 @@ function wireCollectionStampDrag(paper){
 
 window.addEventListener('beforeprint',()=>document.querySelectorAll('.collection-page-content').forEach(fitCollectionContent));
 window.addEventListener('resize',()=>{ const content=document.querySelector('#documentPreview .collection-page-content'); if(content) scheduleTextOverflowCheck(content); });
+sb.auth.onAuthStateChange((event,session)=>{
+  if(event!=='SIGNED_OUT' || session || portalLogoutRequested) return;
+  setTimeout(redirectPortalToLogin,0);
+});
 init();

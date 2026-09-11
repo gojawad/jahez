@@ -6454,6 +6454,60 @@ async function saveDocIdentity(){
 // ===== تسجيل الدخول عبر Supabase =====
 let users = [];
 let currentUser = null;
+const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
+
+function safeAuthReturnPath(value){
+  if(!value || typeof value !== 'string') return '';
+  try{
+    const target = new URL(value, location.origin);
+    if(target.origin !== location.origin || target.pathname === '/') return '';
+    return target.pathname + target.search + target.hash;
+  }catch(error){
+    return '';
+  }
+}
+
+function rememberAuthReturnPath(path){
+  const target = safeAuthReturnPath(path || (location.pathname + location.search + location.hash));
+  if(!target) return;
+  try{ sessionStorage.setItem(AUTH_RETURN_PATH_KEY, target); }catch(error){}
+}
+
+function takeAuthReturnPath(){
+  try{
+    const target = safeAuthReturnPath(sessionStorage.getItem(AUTH_RETURN_PATH_KEY));
+    sessionStorage.removeItem(AUTH_RETURN_PATH_KEY);
+    return target;
+  }catch(error){
+    return '';
+  }
+}
+
+async function getRestorableSession(attempts = 3){
+  let lastError = null;
+  for(let attempt = 0; attempt < attempts; attempt++){
+    try{
+      const {data, error} = await sb.auth.getSession();
+      if(data?.session?.user) return {session:data.session, error:null};
+      if(!error) return {session:null, error:null};
+      lastError = error;
+    }catch(error){
+      lastError = error;
+    }
+    if(attempt < attempts - 1) await new Promise(resolve=>setTimeout(resolve, 450 * (attempt + 1)));
+  }
+  return {session:null, error:lastError};
+}
+
+function restoreAuthenticatedLocation(){
+  const target = takeAuthReturnPath();
+  const current = location.pathname + location.search + location.hash;
+  if(target && target !== current){
+    location.replace(target);
+    return;
+  }
+  restoreFromHash();
+}
 
 function isAdmin(){ return currentUser && currentUser.role === 'admin'; }
 function isEditor(){ return currentUser && ['admin','editor','staff'].includes(currentUser.role); }
@@ -6702,7 +6756,8 @@ async function handleLockSubmit(){
       if(document.getElementById('rememberMe').checked) localStorage.setItem('remember_email', email);
       else localStorage.removeItem('remember_email');
     }catch(e){}
-    await afterSignIn(data.user);
+    const status = await afterSignIn(data.user);
+    if(status === 'ok') restoreAuthenticatedLocation();
   }catch(e){
     loginError(e && e.message ? e.message : 'تعذر تسجيل الدخول الآن. حاول مرة أخرى.');
     document.getElementById('loginPass').value = '';
@@ -19880,7 +19935,8 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
     return;
   }
   try{
-    const {data:{session}} = await sb.auth.getSession();
+    const {session, error:sessionError} = await getRestorableSession();
+    if(sessionError) throw sessionError;
     if(session && session.user){
       // استرجاع الجلسة بيحصل والمتصفح لسه بيحمّل الملف الضخم بمكتباته —
       // لو afterSignIn فشلت بسبب الشبكة، نعيد المحاولة كاملة قبل ما نستسلم لشاشة الدخول
@@ -19890,7 +19946,7 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
         status = await afterSignIn(session.user);
       }
       if(status === 'ok'){
-        restoreFromHash();
+        restoreAuthenticatedLocation();
         return;
       }
       // فشلت فعلياً بعد كل المحاولات (أو غياب صلاحية) — تفضل شاشة الدخول ظاهرة
@@ -19900,9 +19956,10 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
     loginError('تعذّر استرجاع الجلسة. سجّل دخول من جديد.');
   }
   if(isPublicLandingRequest()) showLanding();
-  else await initLock();
-  switchShipTab('land');
-  switchView(isStaffRole() ? 'tasks' : 'dashboard');
+  else{
+    rememberAuthReturnPath();
+    await initLock();
+  }
 })();
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
