@@ -45,7 +45,14 @@
   }
 
   function canUsePortal(){
-    return (typeof canEdit === 'function' && canEdit()) || (typeof isBsgtPortalUser === 'function' && isBsgtPortalUser());
+    if(!window.JahezPortalAccess || typeof currentAccessProfile !== 'function') return false;
+    return window.JahezPortalAccess.canAccessPortal('import_permit', currentAccessProfile());
+  }
+
+  function denyStandalonePortalAccess(){
+    const message = 'ليس لديك صلاحية للوصول إلى هذه البوابة.';
+    try{ sessionStorage.setItem(window.JahezPortalAccess?.ACCESS_MESSAGE_KEY || 'jahez:portal-access-message', message); }catch(error){}
+    window.location.replace('/#v=dashboard');
   }
 
   async function portalApi(path, options){
@@ -962,7 +969,12 @@
   async function openStandaloneRegister(){
     if(!standaloneRegister || standaloneRegisterOpened) return;
     if(!byId('lockScreen').classList.contains('hidden')) return;
-    if(!canUsePortal() || !catalog.length || !baharCompanyEntry()) return;
+    if(!canUsePortal()){
+      standaloneRegisterOpened = true;
+      denyStandalonePortalAccess();
+      return;
+    }
+    if(!catalog.length || !baharCompanyEntry()) return;
     standaloneRegisterOpened = true;
     if(requestedPortalView === 'new') openNewInvoicePortal(true);
     else await openRecordsPortal();

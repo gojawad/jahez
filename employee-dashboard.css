@@ -1,0 +1,109 @@
+.employee-top-nav[hidden] {
+  display: none !important;
+}
+
+.employee-top-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-inline: 10px auto;
+  padding: 4px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .82);
+}
+
+.employee-top-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.employee-top-nav button,
+.employee-top-nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font: 700 12px/1.4 inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease;
+}
+
+.employee-top-nav button:hover,
+.employee-top-nav a:hover,
+.employee-top-nav .active {
+  color: var(--brand-primary, #ea1b23);
+  background: var(--brand-soft, #fff1f2);
+}
+
+.employee-top-nav .active::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 2px;
+  left: 12px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ea1b23 0%, #d01119 100%);
+}
+
+.db-employee-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, .86);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.db-employee-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, .72);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+
+.db-employee-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 1180px) {
+  .employee-top-nav button,
+  .employee-top-nav a {
+    padding-inline: 9px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 860px) {
+  .employee-top-nav {
+    order: 4;
+    width: 100%;
+    margin: 0 0 8px;
+    overflow-x: auto;
+  }
+
+  .employee-top-nav-links {
+    flex: 1 0 auto;
+  }
+}

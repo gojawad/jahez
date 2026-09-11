@@ -164,6 +164,11 @@ function redirectPortalToLogin(){
   rememberPortalLocation();
   window.location.replace('/?login=1');
 }
+function denyPortalAccess(){
+  const message='ليس لديك صلاحية للوصول إلى هذه البوابة.';
+  try{ sessionStorage.setItem(window.JahezPortalAccess?.ACCESS_MESSAGE_KEY||'jahez:portal-access-message',message); }catch(error){}
+  window.location.replace('/#v=dashboard');
+}
 async function restorePortalSession(attempts=3){
   let lastError=null;
   for(let attempt=0;attempt<attempts;attempt++){
@@ -182,14 +187,12 @@ async function loadPortalHeader(user){
   let lastError=null;
   for(let attempt=0;attempt<3;attempt++){
     const [{data:profile,error:profileError}, {data:branding,error:brandingError}]=await Promise.all([
-      sb.from('profiles').select('display_name, role, photo_url').eq('id',user.id).maybeSingle(),
+      sb.from('profiles').select('display_name, role, photo_url, active').eq('id',user.id).maybeSingle(),
       sb.from('settings').select('value').eq('key','branding').maybeSingle()
     ]);
     if(!profileError){
       if(brandingError) console.warn('portal branding',brandingError);
-      setPortalUserProfile(user,profile);
-      setPortalBrand(branding?.value);
-      return;
+      return {profile, branding:branding?.value};
     }
     lastError=profileError;
     if(attempt<2) await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
@@ -867,11 +870,25 @@ async function recordCollection(){
 async function init(){
   const session=await restorePortalSession();
   if(!session){ redirectPortalToLogin(); return; }
+  let portalContext;
+  try{ portalContext=await loadPortalHeader(session.user); }
+  catch(error){
+    console.error('collection portal profile',error);
+    const loader=$('portalAccessLoader');
+    if(loader) loader.innerHTML='<strong>تعذّر التحقق من صلاحية البوابة. حدّث الصفحة وحاول مرة أخرى.</strong>';
+    return;
+  }
+  if(!portalContext?.profile || !window.JahezPortalAccess?.canAccessPortal('commercial_collection',portalContext.profile)){
+    denyPortalAccess();
+    return;
+  }
+  setPortalUserProfile(session.user,portalContext.profile);
+  setPortalBrand(portalContext.branding);
+  document.body.classList.remove('portal-access-loading');
   ensureTextLayerControls();
   loadCollectionLists();
   loadRemittingBatches();
   const legacyRemittingBatches=[...remittingBatches];
-  await loadPortalHeader(session.user);
   const collapsed=sectionCollapseState();
   const activeSection=portalSectionNames.find(name=>collapsed[name]===false)||'picker-section';
   portalSectionNames.forEach(name=>setSectionCollapsed(name,name!==activeSection));

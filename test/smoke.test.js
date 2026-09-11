@@ -250,7 +250,7 @@ async function main() {
       const portalHtml = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'index.html'), 'utf8');
       const portalJs = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
       const portalCss = fs.readFileSync(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lists.css'), 'utf8');
-      assert.ok(portalHtml.includes('<body class="role-collection-preview-only collection-enterprise-ui">'));
+      assert.ok(portalHtml.includes('<body class="role-collection-preview-only collection-enterprise-ui portal-access-loading">'));
       assert.ok(portalHtml.includes('settings-section admin-document-settings'));
       assert.ok(portalJs.includes("document.body.classList.toggle('role-collection-preview-only',portalRole!=='admin')"));
       assert.ok(portalJs.includes("if(portalRole!=='admin') return;"));
@@ -478,7 +478,7 @@ async function main() {
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-4'));
-      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260911-1'));
+      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260912-2'));
       assert.ok(collectionHtml.includes('role-collection-preview-only collection-enterprise-ui'));
       assert.strictEqual((collectionHtml.match(/href="\/#v=dashboard"/g) || []).length, 2);
       assert.ok(collectionHtml.includes('id="documentEditorShell"'));

@@ -12,9 +12,12 @@
   <link rel="stylesheet" href="collection-lists.css?v=20260910-role-guard-1">
   <link rel="stylesheet" href="../../jahez-glass.css?v=20260908-glass-4">
   <link rel="stylesheet" href="../../brand-theme.css?v=20260911-brand-2">
-  <link rel="stylesheet" href="collection-enterprise.css?v=20260911-1">
+  <link rel="stylesheet" href="collection-enterprise.css?v=20260912-2">
 </head>
-<body class="role-collection-preview-only collection-enterprise-ui">
+<body class="role-collection-preview-only collection-enterprise-ui portal-access-loading">
+  <div class="portal-access-loader" id="portalAccessLoader" role="status" aria-live="polite">
+    <span></span><strong>جاري التحقق من صلاحية البوابة...</strong>
+  </div>
   <header class="lab-header">
     <div class="lab-brand">
       <a class="lab-site-logo" href="/#v=dashboard" aria-label="الصفحة الرئيسية" title="الرئيسية"><img id="portalBrandImage" alt="شعار المنصة" hidden><i id="portalBrandIcon" class="bx bx-ship"></i></a>
@@ -174,7 +177,8 @@
     <details class="debug-panel"><summary><i class="bx bx-code-alt"></i> بيانات التجربة</summary><pre id="debugOutput"></pre></details>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../portal-access.js?v=20260912-1"></script>
   <script src="../../shipment-workflow.js?v=20260911-workflow-4"></script>
-  <script src="collection-lab.js?v=20260911-session-1"></script>
+  <script src="collection-lab.js?v=20260912-employee-access-1"></script>
 </body>
 </html>

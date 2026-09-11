@@ -16,6 +16,39 @@ body.collection-enterprise-ui {
   -webkit-text-size-adjust: 100%;
 }
 
+.portal-access-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  background: #f7f8fa;
+  color: #1f2937;
+}
+
+.portal-access-loader span {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #fecdd3;
+  border-top-color: #ea1b23;
+  border-radius: 50%;
+  animation: portal-access-spin .7s linear infinite;
+}
+
+body.portal-access-loading .portal-access-loader {
+  display: grid;
+}
+
+body.portal-access-loading > :not(.portal-access-loader):not(script) {
+  visibility: hidden;
+}
+
+@keyframes portal-access-spin {
+  to { transform: rotate(360deg); }
+}
+
 body.collection-enterprise-ui .lab-header {
   min-height: 82px;
   padding: 14px max(24px, calc((100vw - 1550px) / 2));
