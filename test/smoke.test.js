@@ -272,7 +272,8 @@ async function main() {
       assert.ok(appHtml.includes('ما حدث في العملية'));
       assert.ok(appHtml.includes("if(!isBsgtAudit) query = query.in('kind', ['submit','approve','return'])"));
       assert.ok(appHtml.includes("const note = isBsgtAudit ? [`بواسطة: ${actor}`, c.body]"));
-      assert.ok(appHtml.includes("updateHash(navKey === 'bsgt' ? 'bsgt' : v)"));
+      assert.ok(appHtml.includes("const preservedId = v === 'clientProfiles' && activeRoute.v === 'clientProfiles' ? activeRoute.id : null;"));
+      assert.ok(appHtml.includes("updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId)"));
       assert.ok(appHtml.includes('onclick="openBsgtShipForm(null)"'));
     });
     await check('import-permit proforma portal is standalone and Baldna-restricted', async () => {
