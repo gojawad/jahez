@@ -93,7 +93,7 @@ async function main() {
     }));
     assert.strictEqual(theme.primary.toUpperCase(), '#EA1B23');
     assert.strictEqual(theme.dark.toUpperCase(), '#D01119');
-    assert.ok(theme.header.includes('rgb(37, 39, 43)'));
+    assert.ok(theme.header.includes('rgb(25, 27, 32)'));
     assert.strictEqual(theme.selected, 'rgb(208, 17, 25)');
     await page.screenshot({path:path.join(OUTPUT, 'collection-portal.png'), fullPage:false});
     await page.locator('.shipment-card').nth(0).click();
