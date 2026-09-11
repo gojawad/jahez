@@ -128,8 +128,13 @@ async function main() {
       assert.ok(helperSource.includes('function signingSyncFields(record, files, changedAt)'));
       assert.ok(appHtml.includes('function renderSignedDocumentsPanel(r)'));
       assert.ok(appHtml.includes('async function uploadSignedShipmentDocument(r, type, file)'));
+      assert.ok(appHtml.includes('async function syncShipmentSignedWorkflow(shipmentId)'));
+      assert.ok(appHtml.includes("sb.from('shipments').select('*').eq('id', id).single()"));
+      assert.ok(appHtml.includes("sb.from('shipment_files').select('*').eq('shipment_id', id)"));
       assert.ok(appHtml.includes("signatureStatus:'signed'"));
       assert.ok(appHtml.includes('renderSignedDocumentsPanel(r)'));
+      assert.ok(appHtml.includes('بانتظار المستندات الموقعة'));
+      assert.ok(appHtml.includes('اكتمل توقيع المستندات'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-2'));
       const collectionSource = await fs.promises.readFile(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');

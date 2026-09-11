@@ -608,6 +608,7 @@ body{padding-right:230px;}
 .signed-documents-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px;}
 .signed-documents-head div{min-width:0;}.signed-documents-head b{display:flex;align-items:center;gap:7px;color:#173753;font-size:13px;}.signed-documents-head span{display:block;margin-top:4px;color:#6b8199;font-size:10.5px;line-height:1.45;}
 .signed-documents-head strong{flex:none;padding:6px 10px;border-radius:999px;background:#eef4fb;color:#173753;font:800 12px 'IBM Plex Mono',monospace;direction:ltr;}
+.signed-documents-summary{display:flex;align-items:flex-end;gap:6px;flex-direction:column;}.signed-documents-summary em{color:#5c7188;font-size:10.5px;font-style:normal;font-weight:800;white-space:nowrap;}
 .signed-documents-progress{height:6px;margin-bottom:11px;border-radius:999px;background:#e7edf4;overflow:hidden;}.signed-documents-progress span{display:block;height:100%;border-radius:inherit;background:var(--brand-gradient,var(--brand));transition:width .2s var(--ease);}
 .signed-document-row{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #e5edf5;}
 .signed-document-copy{min-width:0;}.signed-document-copy b{display:block;color:#173753;font-size:12px;}.signed-document-copy span{display:block;margin-top:3px;color:#71879e;font-size:10.5px;overflow-wrap:anywhere;}
@@ -9012,6 +9013,8 @@ function renderSignedDocumentsPanel(r){
   if(!signedDocumentsPanelVisible(r)) return '';
   const evaluation = shipmentSigningEvaluation(r);
   const canManage = canManageShipmentFiles(r);
+  const stage = JahezShipmentWorkflow.normalizeStage(r.workflowStage);
+  const stageLabel = stage === 'signed' ? 'اكتمل توقيع المستندات' : 'بانتظار المستندات الموقعة';
   const rows = evaluation.requiredTypes.map(type=>{
     const file = evaluation.activeSignedFiles[type];
     const label = SIGNED_DOCUMENT_LABELS[type] || type;
@@ -9029,7 +9032,7 @@ function renderSignedDocumentsPanel(r){
   return `<div class="signed-documents-panel" id="signedDocumentsPanel">
     <div class="signed-documents-head">
       <div><b>${icon('doc',15)} المستندات الموقعة</b><span>تُحتسب النسخ الموقعة فقط من مستندات آخر عملية تحصيل مرسلة.</span></div>
-      <strong>${progress.completed} / ${progress.total}</strong>
+      <div class="signed-documents-summary"><em>${escapeHtml(stageLabel)}</em><strong>${progress.completed} من ${progress.total} مستندات موقعة</strong></div>
     </div>
     <div class="signed-documents-progress" aria-label="اكتمل ${progress.completed} من ${progress.total}"><span style="width:${progress.total ? Math.round(progress.completed / progress.total * 100) : 0}%"></span></div>
     ${rows || '<div class="sf-empty">لا توجد أنواع مستندات مطلوبة في آخر عملية تحصيل مرسلة.</div>'}
@@ -9045,14 +9048,27 @@ function refreshSignedDocumentsPanel(r){
   wireSignedDocumentsPanel(r);
 }
 
-async function syncShipmentSignedWorkflow(r){
-  if(!r) return;
-  const fields = JahezShipmentWorkflow.signingSyncFields(r, shipmentFilesCache[r.id] || []);
-  if(!fields) return;
-  const {data, error} = await sb.from('shipments').update(fields).eq('id', r.id).select('*').single();
-  if(error) throw error;
-  Object.assign(r, rowToRecord(data));
-  refreshSignedDocumentsPanel(r);
+async function syncShipmentSignedWorkflow(shipmentId){
+  const id = typeof shipmentId === 'object' ? shipmentId?.id : shipmentId;
+  if(!id) return null;
+  const {data:shipmentRow, error:shipmentError} = await sb.from('shipments').select('*').eq('id', id).single();
+  if(shipmentError) throw shipmentError;
+  const {data:files, error:filesError} = await sb.from('shipment_files').select('*').eq('shipment_id', id).order('created_at',{ascending:false});
+  if(filesError) throw filesError;
+  const freshRecord = rowToRecord(shipmentRow);
+  shipmentFilesCache[id] = files || [];
+  const fields = JahezShipmentWorkflow.signingSyncFields(freshRecord, shipmentFilesCache[id]);
+  let syncedRecord = freshRecord;
+  if(fields){
+    const {data:updatedRow, error:updateError} = await sb.from('shipments').update(fields).eq('id', id).select('*').single();
+    if(updateError) throw updateError;
+    syncedRecord = rowToRecord(updatedRow);
+  }
+  const localRecord = records.find(item=>item.id===id);
+  if(localRecord) Object.assign(localRecord, syncedRecord);
+  renderShipmentFiles(id);
+  refreshSignedDocumentsPanel(localRecord || syncedRecord);
+  return JahezShipmentWorkflow.evaluateShipmentSigning(syncedRecord, shipmentFilesCache[id]);
 }
 
 async function deleteShipmentFile(r, file){
@@ -9064,7 +9080,7 @@ async function deleteShipmentFile(r, file){
     if(error) throw error;
     shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.id!==file.id);
     renderShipmentFiles(r.id);
-    await syncShipmentSignedWorkflow(r);
+    await syncShipmentSignedWorkflow(r.id);
     refreshSignedDocumentsPanel(r);
   }catch(error){ dbError(error, 'تعذّر حذف المستند'); }
 }
@@ -9101,7 +9117,7 @@ async function uploadSignedShipmentDocument(r, type, file){
   });
   if(!uploadedCount) return;
   try{
-    await syncShipmentSignedWorkflow(r);
+    await syncShipmentSignedWorkflow(r.id);
     refreshSignedDocumentsPanel(r);
     if(typeof toast === 'function') toast(`تم حفظ ${SIGNED_DOCUMENT_LABELS[type]} الموقّع`);
   }catch(error){ dbError(error, 'تم رفع المستند لكن تعذّر تحديث مرحلة التوقيع'); }
