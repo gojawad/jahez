@@ -114,8 +114,8 @@ async function main() {
       assert.ok(qrSplashHtml.includes('--brand-primary:#EA1B23'));
       assert.ok(qrSplashHtml.includes('--brand-dark:#D01119'));
     });
-    await check('shipment workflow signed phase stays independent from review status', async () => {
-      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-2'));
+    await check('shipment workflow acceptance and BSGT merge gate stay independent from review status', async () => {
+      assert.ok(appHtml.includes('shipment-workflow.js?v=20260911-workflow-3'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.fromRow(row)'));
       assert.ok(appHtml.includes('JahezShipmentWorkflow.toRow(r)'));
       const helperResponse = await fetch(`${BASE}/shipment-workflow.js`);
@@ -126,6 +126,10 @@ async function main() {
       assert.ok(helperSource.includes("SIGNED_DOCUMENT_TYPES = Object.freeze(['letter', 'undertaking', 'exchange'])"));
       assert.ok(helperSource.includes('function evaluateShipmentSigning(record, files)'));
       assert.ok(helperSource.includes('function signingSyncFields(record, files, changedAt)'));
+      assert.ok(helperSource.includes('function canAcceptShipment(record, files)'));
+      assert.ok(helperSource.includes('function acceptedFields(userId, acceptedAt)'));
+      assert.ok(helperSource.includes('function canMergeShipmentPackage(record, files)'));
+      assert.ok(helperSource.includes('function packageMergeBlockReason(record, files)'));
       assert.ok(appHtml.includes('function renderSignedDocumentsPanel(r)'));
       assert.ok(appHtml.includes('async function uploadSignedShipmentDocument(r, type, file)'));
       assert.ok(appHtml.includes('async function syncShipmentSignedWorkflow(shipmentId)'));
@@ -135,8 +139,25 @@ async function main() {
       assert.ok(appHtml.includes('renderSignedDocumentsPanel(r)'));
       assert.ok(appHtml.includes('بانتظار المستندات الموقعة'));
       assert.ok(appHtml.includes('اكتمل توقيع المستندات'));
+      assert.ok(appHtml.includes('function canCurrentUserAcceptShipment()'));
+      assert.ok(appHtml.includes('async function acceptShipmentDocuments(shipmentId, triggerButton)'));
+      assert.ok(appHtml.includes(".eq('workflow_stage', 'signed').select('*').maybeSingle()"));
+      assert.ok(appHtml.includes('shipmentAcceptanceInFlight.has(id)'));
+      assert.ok(appHtml.includes('قبول المستندات وإكمال الشحنة'));
+      assert.ok(appHtml.includes('مكتملة ومعتمدة'));
+      assert.ok(appHtml.includes('function ensureBsgtPackageMergeAllowed(record'));
+      assert.ok(appHtml.includes('async function requestBsgtPackageMerge(record, triggerButton)'));
+      const bsgtMergeSource = appHtml.slice(appHtml.indexOf('async function mergeBsgtPackageLocally'), appHtml.indexOf('window.refreshAllPublishedBsgtQrPackages'));
+      assert.ok(bsgtMergeSource.indexOf('ensureBsgtPackageMergeAllowed(r)') < bsgtMergeSource.indexOf('PDFDocument.create()'));
+      const fullMergeSource = appHtml.slice(appHtml.indexOf('async function mergeFullPackage'), appHtml.indexOf('// ===== اختيار لغة الطباعة'));
+      assert.ok(fullMergeSource.indexOf('ensureBsgtPackageMergeAllowed(r, {showDialog:true})') < fullMergeSource.indexOf('await ensureQrToken(r)'));
+      assert.ok(fullMergeSource.includes("if(!gate.allowed) return;"));
+      assert.ok(appHtml.includes("if(isBsgtRecord(r)) return requestBsgtPackageMerge(r, document.getElementById('packageBtn'))"));
+      assert.ok(appHtml.includes("if(isBsgtRecord(r)) return requestBsgtPackageMerge(r, document.getElementById('mergeAllBtn'))"));
+      assert.ok(appHtml.includes('printPackage(r, lang);'));
+      assert.ok(appHtml.includes("const canManage = canManageShipmentFiles(r) && stage !== 'accepted'"));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
-      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-2'));
+      assert.ok(collectionHtml.includes('../../shipment-workflow.js?v=20260911-workflow-3'));
       const collectionSource = await fs.promises.readFile(path.join(__dirname, '..', 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
       assert.ok(collectionSource.includes('JahezShipmentWorkflow.bankSentFields(data.collectionSentAt)'));
       assert.ok(collectionSource.includes("data.collectionStatus='sent'"));

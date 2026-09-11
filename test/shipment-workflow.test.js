@@ -67,6 +67,30 @@ assert.strictEqual(workflow.signingSyncFields(bankSent, [signedFile('letter')]),
 assert.strictEqual(workflow.signingSyncFields(bankSent, [signedFile('letter'), signedFile('undertaking')]), null);
 
 const completedFiles = ['letter', 'undertaking', 'exchange'].map(type=>signedFile(type));
+
+assert.strictEqual(workflow.canAcceptShipment(sentRecord('created'), completedFiles), false);
+assert.strictEqual(workflow.canAcceptShipment(sentRecord('bank_sent'), completedFiles), false);
+assert.strictEqual(workflow.canAcceptShipment(sentRecord('signed'), completedFiles.slice(0, 2)), false);
+assert.strictEqual(workflow.canAcceptShipment(sentRecord('signed'), completedFiles), true);
+
+const acceptedTimestamp = '2026-09-11T15:00:00.000Z';
+const accepted = plain(workflow.acceptedFields('admin-user-1', acceptedTimestamp));
+assert.deepStrictEqual(accepted, {
+  workflow_stage:'accepted',
+  workflow_updated_at:acceptedTimestamp,
+  accepted_at:acceptedTimestamp,
+  accepted_by:'admin-user-1'
+});
+assert.throws(()=>workflow.acceptedFields(''), /accepted user is required/);
+
+assert.strictEqual(workflow.canMergeShipmentPackage(sentRecord('accepted'), completedFiles), true);
+assert.strictEqual(workflow.canMergeShipmentPackage(sentRecord('signed'), completedFiles), false);
+assert.strictEqual(workflow.canMergeShipmentPackage(sentRecord('bank_sent'), completedFiles), false);
+assert.strictEqual(workflow.canMergeShipmentPackage(sentRecord('created'), completedFiles), false);
+assert.strictEqual(workflow.canMergeShipmentPackage(sentRecord('accepted'), completedFiles.slice(0, 2)), false);
+assert.strictEqual(workflow.packageMergeBlockReason(sentRecord('created'), completedFiles), 'يجب إرسال الشحنة للبنك أولاً.');
+assert.strictEqual(workflow.packageMergeBlockReason(sentRecord('bank_sent'), completedFiles), 'بانتظار اكتمال المستندات الموقعة.');
+assert.strictEqual(workflow.packageMergeBlockReason(sentRecord('signed'), completedFiles), 'تم توقيع جميع المستندات، لكن لم يتم قبولها بعد.');
 assert.deepStrictEqual(
   plain(workflow.signingSyncFields(bankSent, completedFiles, '2026-09-11T12:00:00.000Z')),
   {workflow_stage:'signed',workflow_updated_at:'2026-09-11T12:00:00.000Z',signed_at:'2026-09-11T12:00:00.000Z'}
@@ -96,8 +120,10 @@ const unchanged = sentRecord();
 const before = plain(unchanged);
 workflow.evaluateShipmentSigning(unchanged, completedFiles);
 workflow.signingSyncFields(unchanged, completedFiles);
+workflow.acceptedFields('admin-user-1', acceptedTimestamp);
 assert.deepStrictEqual(plain(unchanged), before);
 assert.strictEqual(unchanged.status, 'sent');
+assert.ok(!Object.prototype.hasOwnProperty.call(accepted, 'status'));
 
 const phase1Migration = fs.readFileSync(path.join(root, 'supabase', '27_shipment_workflow_phase1.sql'), 'utf8');
 for(const column of ['workflow_stage','workflow_updated_at','bank_sent_at','signed_at','accepted_at','accepted_by']){
@@ -119,4 +145,4 @@ assert.ok(phase2Migration.includes('shipmentfiles_signature_status_idx'));
 assert.ok(!phase2Migration.includes('update public.shipments'));
 assert.ok(!phase2Migration.includes('create policy'));
 
-console.log('Shipment workflow phase 1 and signed phase 2 helpers: passed');
+console.log('Shipment workflow phases 1-3 helpers: passed');

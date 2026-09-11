@@ -140,6 +140,37 @@
     return null;
   }
 
+  function canAcceptShipment(record, files) {
+    const stage = normalizeStage(record && (record.workflowStage || record.workflow_stage));
+    return stage === 'signed' && evaluateShipmentSigning(record, files).completed;
+  }
+
+  function acceptedFields(userId, acceptedAt) {
+    const acceptedBy = String(userId || '').trim();
+    if(!acceptedBy) throw new TypeError('accepted user is required');
+    const timestamp = acceptedAt || new Date().toISOString();
+    return {
+      workflow_stage: 'accepted',
+      workflow_updated_at: timestamp,
+      accepted_at: timestamp,
+      accepted_by: acceptedBy
+    };
+  }
+
+  function canMergeShipmentPackage(record, files) {
+    const stage = normalizeStage(record && (record.workflowStage || record.workflow_stage));
+    return stage === 'accepted' && evaluateShipmentSigning(record, files).completed;
+  }
+
+  function packageMergeBlockReason(record, files) {
+    const stage = normalizeStage(record && (record.workflowStage || record.workflow_stage));
+    if(stage === 'created') return 'يجب إرسال الشحنة للبنك أولاً.';
+    if(stage === 'bank_sent') return 'بانتظار اكتمال المستندات الموقعة.';
+    if(stage === 'signed') return 'تم توقيع جميع المستندات، لكن لم يتم قبولها بعد.';
+    if(!evaluateShipmentSigning(record, files).completed) return 'المستندات الموقعة المطلوبة غير مكتملة.';
+    return 'الشحنة مكتملة ويمكن دمج الحزمة.';
+  }
+
   global.JahezShipmentWorkflow = Object.freeze({
     STAGES,
     SIGNED_DOCUMENT_TYPES,
@@ -153,6 +184,10 @@
     requiredSignedDocumentTypes,
     evaluateShipmentSigning,
     signedFields,
-    signingSyncFields
+    signingSyncFields,
+    canAcceptShipment,
+    acceptedFields,
+    canMergeShipmentPackage,
+    packageMergeBlockReason
   });
 })(window);
