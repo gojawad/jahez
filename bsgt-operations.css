@@ -178,3 +178,22 @@
   .bsgt-operations-detail .bsgt-operations-summary{grid-template-columns:1fr}
   .bsgt-operations-note-form{align-items:stretch;flex-direction:column}
 }
+
+/* Keep the master/detail contract isolated from legacy shipment and card layouts. */
+#viewBsgtWorkspace .bsgt-operations{display:grid;gap:14px;min-width:0}
+#viewBsgtWorkspace .bsgt-operations-workspace{display:grid;grid-template-columns:360px minmax(0,1fr);direction:ltr;min-width:0}
+#viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-navigator,
+#viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-detail{direction:rtl;min-width:0}
+#viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-navigator{display:flex}
+#viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-detail{display:block}
+
+@media(max-width:1100px) and (min-width:900px){
+  #viewBsgtWorkspace .bsgt-operations-workspace{grid-template-columns:320px minmax(0,1fr)}
+}
+@media(max-width:899px){
+  #viewBsgtWorkspace .bsgt-operations-workspace{display:block}
+  #viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-navigator{display:flex}
+  #viewBsgtWorkspace .bsgt-operations-workspace>.bsgt-operations-detail{display:none}
+  #viewBsgtWorkspace .bsgt-operations-workspace.show-detail>.bsgt-operations-navigator{display:none}
+  #viewBsgtWorkspace .bsgt-operations-workspace.show-detail>.bsgt-operations-detail{display:block}
+}

@@ -99,8 +99,26 @@ async function main(){
     await page.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
     await page.locator('.bsgt-operations-row:not(.is-head)').waitFor({timeout:20000});
     assert.strictEqual(await page.locator('.bsgt-operations-row:not(.is-head)').count(), 1);
+    assert.strictEqual(await page.locator('.bsgt-operations-list').count(), 1, 'only the master navigator list is rendered');
+    assert.strictEqual(await page.locator('.bsgt-operations-row.is-head').count(), 0, 'the legacy table header is not rendered');
     assert.strictEqual((await page.locator('.bsgt-operations-row-copy em').textContent()).replace(/\s+/g,' ').trim(), '7/7 متطلبات');
     assert.strictEqual(shipmentFileReads, 1, 'the paginated list must use one bulk file query');
+    const assetState = await page.evaluate(()=>{
+      const assets = [...document.querySelectorAll('link[rel="stylesheet"],script[src]')].map(node=>node.getAttribute('href')||node.getAttribute('src'));
+      const indexOf = suffix=>assets.findIndex(asset=>asset?.includes(suffix));
+      return {
+        assets,
+        brand:indexOf('brand-theme.css'),
+        workspace:indexOf('bsgt-workspace.css'),
+        operations:indexOf('bsgt-operations.css')
+      };
+    });
+    assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
+    assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
+    assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-master-detail-2')), 'operations CSS uses the master/detail cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-master-detail-2')), 'operations JS uses the master/detail cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260912-master-detail-2')), 'commodity images use the master/detail cache version');
 
     for(const width of [390,768]){
       await page.setViewportSize({width,height:900});
@@ -112,14 +130,44 @@ async function main(){
       assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
       await page.locator('#bsgtOperationsMobileBack').click();
     }
-    await page.setViewportSize({width:1440,height:900});
-    assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, 'desktop shows navigator');
-    assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, 'desktop shows inline detail');
-    assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, 'desktop has no horizontal overflow');
+    for(const viewport of [{width:1920,height:1080},{width:1536,height:864},{width:1440,height:900},{width:1366,height:768}]){
+      await page.setViewportSize(viewport);
+      const layout = await page.evaluate(()=>{
+        const workspace=document.querySelector('#viewBsgtWorkspace .bsgt-operations-workspace');
+        const navigator=workspace?.querySelector(':scope > .bsgt-operations-navigator');
+        const detail=workspace?.querySelector(':scope > .bsgt-operations-detail');
+        const box = element=>element?.getBoundingClientRect().toJSON();
+        return {
+          display:workspace&&getComputedStyle(workspace).display,
+          columns:workspace&&getComputedStyle(workspace).gridTemplateColumns,
+          workspace:box(workspace), navigator:box(navigator), detail:box(detail),
+          overflow:document.documentElement.scrollWidth<=window.innerWidth,
+          workspaces:document.querySelectorAll('#viewBsgtWorkspace .bsgt-operations-workspace').length,
+          navigators:document.querySelectorAll('#viewBsgtWorkspace .bsgt-operations-navigator').length,
+          details:document.querySelectorAll('#viewBsgtWorkspace .bsgt-operations-detail').length
+        };
+      });
+      assert.strictEqual(layout.display, 'grid', `${viewport.width}px keeps the desktop grid`);
+      assert.match(layout.columns, /^(320|360)px\s/, `${viewport.width}px keeps a fixed navigator column`);
+      assert.strictEqual(layout.workspaces, 1, `${viewport.width}px renders one workspace`);
+      assert.strictEqual(layout.navigators, 1, `${viewport.width}px renders one navigator`);
+      assert.strictEqual(layout.details, 1, `${viewport.width}px renders one detail panel`);
+      assert.ok(Math.abs(layout.navigator.top-layout.detail.top)<=1, `${viewport.width}px aligns navigator and detail tops`);
+      assert.ok(layout.detail.top < layout.navigator.bottom, `${viewport.width}px keeps detail beside, not below, navigator`);
+      assert.ok(layout.detail.width > layout.navigator.width, `${viewport.width}px gives detail the remaining width`);
+      assert.strictEqual(layout.overflow, true, `${viewport.width}px has no horizontal overflow`);
+    }
+    assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
+    assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');
+    assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb.is-large').count(), 1, 'the detail image frame is rendered');
     await page.locator('[data-bsgt-operation-open]').click();
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
     await page.locator('#bsgtOperationsDocumentsPanel').waitFor();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('7 / 7'));
+    assert.strictEqual(await page.locator('.bsgt-operations-group').count(), 2, 'generated and uploaded document groups are rendered');
+    assert.strictEqual(await page.locator('.bsgt-operations-group').first().locator('.bsgt-operation-doc-card').count(), 4, 'all four generated document cards are rendered');
+    assert.strictEqual(await page.locator('.bsgt-operation-doc-card').first().evaluate(element=>getComputedStyle(element).display), 'flex', 'document cards keep their component styling');
+    assert.match(await page.locator('.bsgt-operations-group').nth(1).textContent(), /المستندات المرفوعة/, 'uploaded documents section is rendered');
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم الإرسال للمالية'));
