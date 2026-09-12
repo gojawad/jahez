@@ -45,8 +45,9 @@
   function documentLabel(type) { return DOCUMENTS[type] || String(type || '—'); }
   function mergeAllowed(shipment, tradeFile, signedDocuments) {
     if(!tradeFile) return null;
-    return shipment?.bsgtStage === 'final_accepted'
-      && tradeFile.status === 'final_accepted'
+    const acceptedStages = new Set(['final_accepted', 'sent_to_collecting']);
+    return acceptedStages.has(shipment?.bsgtStage)
+      && acceptedStages.has(tradeFile.status)
       && evaluateBsgtManagementReadiness(tradeFile, signedDocuments).completed;
   }
 

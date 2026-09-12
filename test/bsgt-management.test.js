@@ -26,6 +26,7 @@ check(management.mergeAllowed({bsgtStage:'final_accepted'},null,completeDocs)===
 check(management.mergeAllowed({bsgtStage:'management_review'},{...base,status:'final_accepted'},completeDocs)===false,'shipment stage gates merge');
 check(management.mergeAllowed({bsgtStage:'final_accepted'},{...base,status:'under_management_review'},completeDocs)===false,'file stage gates merge');
 check(management.mergeAllowed({bsgtStage:'final_accepted'},{...base,status:'final_accepted'},completeDocs)===true,'accepted current revision can merge');
+check(management.mergeAllowed({bsgtStage:'sent_to_collecting'},{...base,status:'sent_to_collecting'},completeDocs)===true,'collecting-bank send does not relock merge');
 check(management.statusLabel('returned_to_operations')==='معاد إلى العمليات','operations return label');
 check(management.statusLabel('returned_to_finance')==='معاد إلى المالية','finance return label');
 
@@ -57,7 +58,7 @@ check(html.includes("workflowMode:'legacy'"),'legacy merge fallback');
 check(html.includes('adminOverride:false')&&html.includes("workflowMode:'trade_file'"),'admin cannot bypass linked workflow');
 check(html.includes("['returned_to_operations','returned_to_finance'].includes(file.status)"),'finance reopen behavior');
 check(html.includes('tradeContextByShipment'),'operations return context');
-check(portal.includes("['finance','management'].includes(permission.section)"),'management receives read-only collection preview access');
+check(portal.includes("['finance','management','relations'].includes(permission.section)"),'management and relations receive read-only collection preview access');
 check(passed>=33,`expected at least 33 Phase 4 checks, got ${passed}`);
 
 console.log(`BSGT management Phase 4: ${passed} checks passed`);
