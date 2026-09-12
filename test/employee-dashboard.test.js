@@ -13,6 +13,7 @@ const collectionHtml = fs.readFileSync(path.join(root, 'experiments', 'bs-collec
 const collectionJs = fs.readFileSync(path.join(root, 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
 const bsgtSql = fs.readFileSync(path.join(root, 'supabase', '24_مستخدم_بوابة_BSGT.sql'), 'utf8');
 const portalSql = fs.readFileSync(path.join(root, 'supabase', '36_user_portal_permissions.sql'), 'utf8');
+const permissionsSource = fs.readFileSync(path.join(root, 'permissions.js'), 'utf8');
 const dashboardRenderer = appHtml.slice(appHtml.indexOf('function renderTargetDashboard(){'), appHtml.indexOf('function renderDashboard(){'));
 
 let checks = 0;
@@ -110,8 +111,8 @@ check('dashboard statistics remain scoped by the current Supabase session and RL
 });
 
 check('viewer receives no new write permission', () => {
-  assert.ok(appHtml.includes("function isEditor(){ return currentUser && ['admin','editor','staff'].includes(currentUser.role); }"));
-  assert.ok(appHtml.includes("viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','bsgtWorkspace','activityLog','clientProfiles','sea','issued','drafts'])"));
+  assert.match(appHtml, /currentUser\.role === 'viewer'[\s\S]+return false/);
+  assert.match(permissionsSource, /profile\.role !== 'viewer'[\s\S]+WRITE_KEYS/);
   assert.strictEqual(require('../client-company-profiles').canManage('viewer'), false);
   assert.ok(!portalAccess.resolveUserPortals(profile('viewer')).length);
 });

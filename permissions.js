@@ -55,6 +55,14 @@
   const ENTRIES = Object.freeze(REGISTRY.flatMap(group => group.permissions));
   const ENTRY_BY_KEY = new Map(ENTRIES.map(entry => [entry.key, entry]));
   const ALL_KEYS = Object.freeze(ENTRIES.map(entry => entry.key));
+  const WRITE_KEYS = Object.freeze([
+    'shipments.create', 'shipments.edit', 'shipments.delete',
+    'client_profiles.edit',
+    'bsgt.operations.edit', 'bsgt.finance.edit',
+    'bsgt.management.edit', 'bsgt.relations.edit',
+    'shipment_documents.delete', 'package.merge',
+    'contracts.edit', 'client_assets.use'
+  ]);
   const PRESETS = Object.freeze({
     operations: Object.freeze({label:'موظف العمليات', keys:Object.freeze(['bsgt.operations.view','bsgt.operations.edit','bsgt.operation_center.view','import_permit.view','client_profiles.view'])}),
     finance: Object.freeze({label:'موظف المالية', keys:Object.freeze(['bsgt.finance.view','bsgt.finance.edit','commercial_collection.view'])}),
@@ -109,13 +117,12 @@
       if (!profile || profile.active === false) return [];
       if (profile.role === 'admin') return ALL_KEYS.slice();
       const explicit = new Map(state.rows.map(row => [String(row?.permission_key || ''), row?.allowed !== false]));
-      const legacy = new Set(legacyKeys(state.portalKeys, state.workspaceRows));
-      if (!['editor', 'staff', 'bsgt_user'].includes(profile.role)) {
-        Array.from(legacy).forEach(key => {
-          if (/^bsgt\.[^.]+\.edit$/.test(key)) legacy.delete(key);
-        });
-      }
-      return normalizeKeys(ALL_KEYS.filter(key => explicit.has(key) ? explicit.get(key) : legacy.has(key)));
+      const initialized = profile.featurePermissionsInitialized === true
+        || profile.feature_permissions_initialized === true;
+      const legacy = initialized ? new Set() : new Set(legacyKeys(state.portalKeys, state.workspaceRows));
+      const selected = normalizeKeys(ALL_KEYS.filter(key => explicit.has(key) ? explicit.get(key) : legacy.has(key)));
+      if (profile.role !== 'viewer') return selected;
+      return selected.filter(key => !WRITE_KEYS.includes(key));
     }
     function can(key) { return allowedKeys().includes(key); }
     const context = Object.freeze({configure, can, canAny:keys=>(keys || []).some(can), canAll:keys=>(keys || []).every(can), allowedKeys, snapshot:()=>({...state, rows:state.rows.slice(), portalKeys:state.portalKeys.slice(), workspaceRows:state.workspaceRows.slice()})});
@@ -124,7 +131,7 @@
 
   const singleton = createContext();
   return Object.freeze({
-    REGISTRY, ENTRIES, ALL_KEYS, PRESETS, normalizeKeys, legacyKeys, createContext,
+    REGISTRY, ENTRIES, ALL_KEYS, WRITE_KEYS, PRESETS, normalizeKeys, legacyKeys, createContext,
     configure: singleton.configure,
     can: singleton.can,
     canAny: singleton.canAny,
