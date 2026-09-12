@@ -66,6 +66,7 @@ async function main(){
     let shipmentFileReads = 0;
     let completeCalls = 0;
     let currentStage = 'operations_draft';
+    await context.route(`${APP_ORIGIN}/api/commodity-image**`, route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({imageUrl:null,thumbnailUrl:null,fallback:true})}));
     await context.route(`${SUPABASE_ORIGIN}/**`, async route=>{
       const request = route.request();
       const url = new URL(request.url());
@@ -92,21 +93,40 @@ async function main(){
     });
 
     const page = await context.newPage();
+    const consoleErrors = [];
+    page.on('console',message=>{if(message.type()==='error') consoleErrors.push(message.text());});
     page.on('dialog', dialog=>dialog.accept());
     await page.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
     await page.locator('.bsgt-operations-row:not(.is-head)').waitFor({timeout:20000});
     assert.strictEqual(await page.locator('.bsgt-operations-row:not(.is-head)').count(), 1);
-    assert.strictEqual((await page.locator('.bsgt-operations-progress').textContent()).replace(/\s+/g,' ').trim(), '7 / 7 متطلبات');
+    assert.strictEqual((await page.locator('.bsgt-operations-row-copy em').textContent()).replace(/\s+/g,' ').trim(), '7/7 متطلبات');
     assert.strictEqual(shipmentFileReads, 1, 'the paginated list must use one bulk file query');
+
+    for(const width of [390,768]){
+      await page.setViewportSize({width,height:900});
+      assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, `${width}px shows the list first`);
+      assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), false, `${width}px hides details before selection`);
+      assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, `${width}px has no horizontal overflow`);
+      await page.locator('[data-bsgt-operation-open]').click();
+      assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, `${width}px opens full detail`);
+      assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
+      await page.locator('#bsgtOperationsMobileBack').click();
+    }
+    await page.setViewportSize({width:1440,height:900});
+    assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, 'desktop shows navigator');
+    assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, 'desktop shows inline detail');
+    assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, 'desktop has no horizontal overflow');
     await page.locator('[data-bsgt-operation-open]').click();
+    await page.locator('[data-bsgt-ops-tab="documents"]').click();
     await page.locator('#bsgtOperationsDocumentsPanel').waitFor();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('7 / 7'));
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم الإرسال للمالية'));
     assert.strictEqual(completeCalls, 1);
-    assert.ok(shipmentFileReads >= 3, 'detail load and submit must re-fetch files');
+    assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');
+    assert.deepStrictEqual(consoleErrors, [], `browser console errors: ${consoleErrors.join(' | ')}`);
     await context.close();
     console.log('BSGT operations list, readiness, re-verification, and submit: passed');
   } finally {

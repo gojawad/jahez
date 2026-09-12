@@ -5853,6 +5853,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="portal-access.js?v=20260912-1"></script>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
 <script src="bsgt-operations.js?v=20260912-1"></script>
+<script src="commodity-images.js?v=20260912-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260912-1"></script>
 <script src="bsgt-relations.js?v=20260912-1"></script>
@@ -9054,9 +9055,22 @@ function switchView(v, options){
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
 
-const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}};
+const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}, selectedId:null, activeTab:'overview', mobileDetail:false, search:'', sort:'newest', kpis:{total:0,draft:0,ready:0}};
 const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], events:[], selected:new Set(), detailId:null};
 let bsgtWorkspaceFormContext = false;
+let bsgtOperationsSearchTimer = null;
+
+const bsgtCommodityImageResolver = window.JahezCommodityImages?.createResolver({
+  fetchImage:async ({itemDesc, hsCode})=>{
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session?.access_token) throw new Error('No active session');
+    const query = new URLSearchParams({q:itemDesc});
+    if(hsCode) query.set('hs', hsCode);
+    const response = await fetch(`/api/commodity-image?${query}`, {headers:{Authorization:`Bearer ${session.access_token}`}});
+    if(!response.ok) throw new Error(`Commodity image request failed (${response.status})`);
+    return response.json();
+  }
+});
 
 function bsgtOperationsPermission(requireEdit = false){
   const permission = window.JahezBsgtWorkspace?.permissionFor('operations', currentAccessProfile(), bsgtWorkspacePermissionRows);
@@ -9072,10 +9086,20 @@ function openBsgtShipFormFromWorkspace(){
 function renderBsgtOperationsShell(canEditOperations){
   return `<section class="bsgt-operations" aria-label="عمليات BSGT">
     <header class="bsgt-operations-head">
-      <div><h3>العمليات</h3><p>إنشاء شحنات بحر سواكن واستكمال مستندات مرحلة العمليات حتى تصبح جاهزة للمالية.</p></div>
+      <div class="bsgt-operations-title"><span class="bsgt-operations-title-icon">${icon('list',20)}</span><div><h3>العمليات</h3><p>إنشاء شحنات بحر سواكن واستكمال مستندات مرحلة العمليات حتى تصبح جاهزة للمالية.</p></div></div>
       ${canEditOperations ? `<button type="button" class="btn bsgt-operations-create" id="bsgtOperationsCreateBtn">${icon('plus',15)} إنشاء شحنة</button>` : '<span class="bsgt-workspace-readonly">عرض فقط</span>'}
     </header>
-    <div class="bsgt-operations-list" id="bsgtOperationsList"><div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div></div>
+    <div class="bsgt-operations-kpis" id="bsgtOperationsKpis" aria-label="ملخص العمليات"></div>
+    <div class="bsgt-operations-workspace" id="bsgtOperationsWorkspace">
+      <aside class="bsgt-operations-navigator">
+        <div class="bsgt-operations-tools">
+          <label class="bsgt-operations-search">${icon('search',14)}<input id="bsgtOperationsSearch" type="search" placeholder="ابحث برقم العملية أو الصنف..." value="${escapeHtml(bsgtOperationsListState.search)}"></label>
+          <select id="bsgtOperationsSort" aria-label="ترتيب الشحنات"><option value="newest" ${bsgtOperationsListState.sort==='newest'?'selected':''}>الأحدث أولاً</option><option value="oldest" ${bsgtOperationsListState.sort==='oldest'?'selected':''}>الأقدم أولاً</option></select>
+        </div>
+        <div class="bsgt-operations-list" id="bsgtOperationsList"><div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div></div>
+      </aside>
+      <main class="bsgt-operations-detail" id="bsgtOperationsDetail"><div class="bsgt-operations-detail-empty">${icon('box',25)}<b>اختر شحنة لعرض تفاصيلها</b><span>ستظهر المعلومات والمستندات هنا دون مغادرة الصفحة.</span></div></main>
+    </div>
   </section>`;
 }
 
@@ -9084,36 +9108,209 @@ function bsgtOperationsStageBadge(stage){
   return `<span class="bsgt-stage-badge${ready?' is-ready':''}">${escapeHtml(window.JahezBsgtOperations.stageLabel(stage))}</span>`;
 }
 
+function bsgtCommodityKey(record){
+  const api = window.JahezCommodityImages;
+  return `${api?.normalizeItemDesc(record?.itemDesc)||''}|${api?.normalizeHsCode(record?.hsCode||record?.hs_code)||''}`;
+}
+
+function renderBsgtCommodityThumb(record, large = false){
+  const key = bsgtCommodityKey(record);
+  return `<span class="bsgt-commodity-thumb${large?' is-large':''}" data-commodity-key="${escapeHtml(key)}" title="صورة توضيحية للصنف"><span class="bsgt-commodity-placeholder">${icon(getShipmentIcon(record.itemDesc||'', record), large?24:18)}</span><img hidden loading="lazy" referrerpolicy="no-referrer" alt="صورة توضيحية للصنف"></span>`;
+}
+
+function applyBsgtCommodityImage(result){
+  const key = `${result.itemDesc}|${result.hsCode}`;
+  document.querySelectorAll('[data-commodity-key]').forEach(host=>{
+    if(host.dataset.commodityKey !== key) return;
+    const image = host.querySelector('img');
+    const placeholder = host.querySelector('.bsgt-commodity-placeholder');
+    if(!image || !result.thumbnailUrl) return;
+    image.onload = ()=>{ image.hidden=false; if(placeholder) placeholder.hidden=true; host.classList.add('has-image'); };
+    image.onerror = ()=>{ image.hidden=true; if(placeholder) placeholder.hidden=false; host.classList.remove('has-image'); };
+    image.title = [result.sourceName, result.attribution].filter(Boolean).join(' · ') || 'صورة توضيحية للصنف';
+    image.src = result.thumbnailUrl;
+  });
+}
+
+function hydrateBsgtCommodityImages(rows){
+  if(!bsgtCommodityImageResolver) return;
+  bsgtCommodityImageResolver.resolveUnique(rows).then(results=>results.forEach(applyBsgtCommodityImage));
+}
+
+function renderBsgtOperationsKpis(){
+  const host = document.getElementById('bsgtOperationsKpis');
+  if(!host) return;
+  const kpis = bsgtOperationsListState.kpis;
+  host.innerHTML = [
+    ['box','إجمالي الشحنات',kpis.total,'is-total'],
+    ['edit','مسودة',kpis.draft,'is-draft'],
+    ['checkCircle','جاهزة للمالية',kpis.ready,'is-ready']
+  ].map(([ic,label,value,cls])=>`<article class="bsgt-operations-kpi ${cls}"><span>${icon(ic,19)}</span><div><b>${Number(value||0).toLocaleString('en-US')}</b><small>${label}</small></div></article>`).join('');
+}
+
+function bsgtOperationsMoney(record){
+  return window.JahezBsgtFinance?.shipmentMoney(record) || {currency:record.currency||'', amount:record.totalAmount||''};
+}
+
+function bsgtOperationsOverviewFields(record){
+  const money = bsgtOperationsMoney(record);
+  return [
+    ['رقم العملية',record.operationNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],
+    ['بلد المنشأ',record.countryOrigin||record.countryOfOrigin],['ميناء الشحن',record.portLoading],['ميناء الوصول',record.portDischarge],
+    ['تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate],['عدد الحاويات',record.containers||record.containerCount||record.containerNo],
+    ['الوزن',record.weight||record.totalWeight||record.grossWeight],['القيمة',money.amount],['العملة',money.currency]
+  ].filter(([,value])=>value!==undefined && value!==null && String(value).trim());
+}
+
+function renderBsgtOperationsStageTrack(record){
+  const stages = [
+    ['operations_draft','مسودة'],['ready_for_finance','جاهزة للمالية'],['sent_to_remitting','الإرسال للبنك المرسل'],
+    ['management_review','مراجعة الإدارة'],['final_accepted','القبول النهائي'],['sent_to_collecting','الإرسال للبنك المحصل']
+  ];
+  const index = Math.max(0, stages.findIndex(([key])=>key===record.bsgtStage));
+  return `<ol class="bsgt-operations-stage-track">${stages.map(([key,label],i)=>`<li class="${i<index?'is-done':i===index?'is-current':''}" data-stage="${key}"><span>${i<index?icon('check',10):i+1}</span><b>${label}</b></li>`).join('')}</ol>`;
+}
+
+function renderBsgtOperationsAttachments(record){
+  const documents = shipmentFilesCache[record.id] || [];
+  const optionalType = window.JahezBsgtOperations.DOCUMENT_TYPES.optionalAttachment;
+  const optional = documents.filter(file=>String(file.document_type||'').toLowerCase()===optionalType);
+  if(!optional.length) return '<div class="bsgt-operations-tab-empty">لا توجد مرفقات اختيارية لهذه الشحنة.</div>';
+  return `<div class="bsgt-operations-attachment-list">${optional.map(file=>`<button type="button" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('folder',15)}<span><b>${escapeHtml(file.name||'ملف اختياري')}</b><small>مرفق اختياري</small></span>${icon('eye',14)}</button>`).join('')}</div>`;
+}
+
+function renderBsgtOperationsDetail(record){
+  const host = document.getElementById('bsgtOperationsDetail');
+  if(!host || !record) return;
+  const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, shipmentFilesCache[record.id] || []);
+  const money = bsgtOperationsMoney(record);
+  const summaries = [
+    ['calendar','تاريخ الإنشاء',formatShipmentAuditDate(record.createdAt)],
+    money.currency?['invoice','العملة',money.currency]:null,
+    money.amount?['bank','القيمة',window.JahezBsgtFinance?.formatMoney(money.currency,money.amount)||money.amount]:null,
+    (record.containers||record.containerCount||record.containerNo)?['box','الحاويات',record.containers||record.containerCount||record.containerNo]:null,
+    (record.weight||record.totalWeight||record.grossWeight)?['tag','الوزن',record.weight||record.totalWeight||record.grossWeight]:null
+  ].filter(Boolean);
+  const fields = bsgtOperationsOverviewFields(record);
+  host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
+    <header class="bsgt-operations-detail-head">
+      <div class="bsgt-operations-detail-identity">${renderBsgtCommodityThumb(record,true)}<div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
+      <div class="bsgt-operations-detail-actions">${isAdmin()?`<button type="button" class="btn btn-ghost btn-small" id="bsgtCommodityImageAdmin">${icon('refresh',13)} تغيير صورة الصنف</button>`:''}<button type="button" class="btn btn-ghost" id="bsgtOperationsOpenForm">${icon('edit',14)} فتح نموذج الشحنة</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-primary" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage==='ready_for_finance')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='ready_for_finance'?'تم الإرسال للمالية':'إرسال للمالية'}</button>`:''}</div>
+    </header>
+    ${summaries.length?`<div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value])=>`<div><span>${icon(ic,14)}</span><small>${label}</small><b>${escapeHtml(String(value))}</b></div>`).join('')}</div>`:''}
+    <nav class="bsgt-operations-tabs" aria-label="أقسام الشحنة">
+      ${[['overview','نظرة عامة'],['documents','المستندات'],['attachments','المرفقات'],['timeline','الجدول الزمني'],['notes','الملاحظات']].map(([key,label])=>`<button type="button" data-bsgt-ops-tab="${key}" class="${bsgtOperationsListState.activeTab===key?'active':''}">${label}</button>`).join('')}
+    </nav>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='overview'?'active':''}" data-bsgt-ops-panel="overview">
+      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من 7 متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/7*100)}%</b></header><div class="bsgt-operations-progress-bar"><i style="width:${evaluation.completedCount/7*100}%"></i></div>${renderBsgtOperationsStageTrack(record)}</div>
+      <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/7</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
+    </section>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsDocumentsPanel">${renderBsgtOperationsDocuments(record)}</div></section>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='attachments'?'active':''}" data-bsgt-ops-panel="attachments" id="bsgtOperationsAttachments">${renderBsgtOperationsAttachments(record)}</section>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='timeline'?'active':''}" data-bsgt-ops-panel="timeline"><div class="bsgt-timeline"><div id="stlList" class="stl-list"><div class="sf-loading">جاري تحميل الجدول الزمني…</div></div></div></section>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='notes'?'active':''}" data-bsgt-ops-panel="notes"><div id="bsgtOperationsNotes" class="bsgt-operations-notes"><div class="sf-loading">جاري تحميل الملاحظات…</div></div>${bsgtOperationsPermission(true)?`<div class="bsgt-operations-note-form"><textarea id="bsgtOperationsNoteInput" rows="2" placeholder="أضف ملاحظة على الشحنة..."></textarea><button type="button" class="btn btn-primary" id="bsgtOperationsNoteSend">حفظ</button></div>`:''}</section>`;
+  wireBsgtOperationsDetail(record);
+  hydrateBsgtCommodityImages([record]);
+}
+
+async function loadBsgtOperationsNotes(record){
+  const host = document.getElementById('bsgtOperationsNotes');
+  if(!host) return;
+  try{
+    const {data,error}=await sb.from('shipment_comments').select('*').eq('shipment_id',record.id).order('created_at');
+    if(error) throw error;
+    host.innerHTML=(data||[]).length?(data||[]).map(comment=>`<article><header><b>${escapeHtml(shipmentAuditUserName(comment.author_id))}</b><time>${escapeHtml(formatShipmentAuditDate(comment.created_at))}</time></header><p>${escapeHtml(comment.body||'')}</p></article>`).join(''):'<div class="bsgt-operations-tab-empty">لا توجد ملاحظات بعد.</div>';
+  }catch(error){ host.innerHTML='<div class="bsgt-operations-tab-empty">تعذر تحميل الملاحظات.</div>'; }
+}
+
+function wireBsgtOperationsDetail(record){
+  wireBsgtOperationsPanel(record);
+  document.getElementById('bsgtOperationsOpenForm')?.addEventListener('click',()=>{ bsgtWorkspaceFormContext=true; openBsgtShipForm(record.id); });
+  const send=document.getElementById('bsgtOperationsQuickSend');
+  if(send&&!send.disabled) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
+  document.getElementById('bsgtCommodityImageAdmin')?.addEventListener('click',()=>changeBsgtCommodityImage(record));
+  document.getElementById('bsgtOperationsMobileBack')?.addEventListener('click',()=>{
+    bsgtOperationsListState.mobileDetail=false;
+    document.getElementById('bsgtOperationsWorkspace')?.classList.remove('show-detail');
+  });
+  document.querySelectorAll('[data-bsgt-ops-tab]').forEach(button=>button.addEventListener('click',()=>{
+    bsgtOperationsListState.activeTab=button.dataset.bsgtOpsTab;
+    document.querySelectorAll('[data-bsgt-ops-tab]').forEach(item=>item.classList.toggle('active',item===button));
+    document.querySelectorAll('[data-bsgt-ops-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.bsgtOpsPanel===button.dataset.bsgtOpsTab));
+  }));
+  hostFileButtons(document.getElementById('bsgtOperationsDetail'), record);
+  loadShipmentTimeline(record);
+  loadBsgtOperationsNotes(record);
+  document.getElementById('bsgtOperationsNoteSend')?.addEventListener('click',async ()=>{
+    const input=document.getElementById('bsgtOperationsNoteInput'), body=input?.value.trim();
+    if(!body){ input?.focus(); return; }
+    if(await addComment(record.id,body,'note')){ input.value=''; await loadBsgtOperationsNotes(record); toast('تم حفظ الملاحظة.'); }
+    else toast('تعذر حفظ الملاحظة.','err');
+  });
+}
+
+async function changeBsgtCommodityImage(record){
+  const imageUrl=prompt('ألصق رابط صورة HTTPS، أو اتركه فارغاً لإعادة البحث عن الصنف:','');
+  if(imageUrl===null) return;
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.access_token) return toast('انتهت جلسة الدخول.','err');
+  const query=new URLSearchParams({q:record.itemDesc||''});
+  if(record.hsCode) query.set('hs',record.hsCode);
+  try{
+    const response=await fetch(`/api/commodity-image?${query}`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify(imageUrl.trim()?{action:'override',imageUrl:imageUrl.trim()}:{action:'refresh'})});
+    const result=await response.json();
+    if(!response.ok) throw new Error(result.error||'تعذر تغيير الصورة.');
+    bsgtCommodityImageResolver?.invalidate(record);
+    const resolved=await bsgtCommodityImageResolver?.resolveCommodityImage(record);
+    if(resolved) applyBsgtCommodityImage(resolved);
+    toast(imageUrl.trim()?'تم تغيير صورة الصنف.':'تمت إعادة البحث عن صورة الصنف.');
+  }catch(error){ toast(error.message||'تعذر تغيير الصورة.','err'); }
+}
+
+function hostFileButtons(host, record){
+  host?.querySelectorAll('#bsgtOperationsAttachments [data-bsgt-file-open]').forEach(button=>button.addEventListener('click',()=>{
+    const file=(shipmentFilesCache[record.id]||[]).find(item=>item.id===button.dataset.bsgtFileOpen);
+    if(file) openShipmentFile(file.path,file.name);
+  }));
+}
+
 function renderBsgtOperationsRows(){
   const host = document.getElementById('bsgtOperationsList');
   if(!host) return;
   const state = bsgtOperationsListState;
   if(!state.rows.length){
     host.innerHTML = '<div class="bsgt-operations-empty">لا توجد شحنات BSGT في مرحلة العمليات بعد.</div>';
+    const detail=document.getElementById('bsgtOperationsDetail');
+    if(detail) detail.innerHTML='<div class="bsgt-operations-detail-empty">'+icon('box',25)+'<b>لا توجد نتائج لعرضها</b><span>جرّب تعديل عبارة البحث.</span></div>';
     return;
   }
   const rows = state.rows.map(record=>{
     const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, state.filesByShipment[record.id] || []);
     const tradeContext=state.tradeContextByShipment[record.id];
-    return `<article class="bsgt-operations-row">
-      <div data-label="رقم العملية"><b>${escapeHtml(record.operationNo||'—')}</b><small>${escapeHtml(record.invoiceNo||record.proformaNo||'')}</small>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span><small>${escapeHtml(tradeContext.note||'راجع ملاحظات الإدارة.')}</small>`:''}</div>
-      <div data-label="المرسل إليه"><b>${escapeHtml(record.consignee||'—')}</b></div>
-      <div data-label="الصنف"><b>${escapeHtml(record.itemDesc||'—')}</b></div>
-      <div data-label="تاريخ الإنشاء"><b>${escapeHtml(formatShipmentAuditDate(record.createdAt))}</b></div>
-      <div data-label="حالة المرحلة">${bsgtOperationsStageBadge(record.bsgtStage)}</div>
-      <div class="bsgt-operations-progress" data-label="اكتمال المستندات"><span>${evaluation.completedCount}</span> / 7 متطلبات</div>
-      <button type="button" class="btn btn-ghost btn-small" data-bsgt-operation-open="${escapeHtml(record.id)}">فتح</button>
+    return `<article class="bsgt-operations-row${state.selectedId===record.id?' is-selected':''}" data-bsgt-operation-open="${escapeHtml(record.id)}" tabindex="0">
+      ${renderBsgtCommodityThumb(record)}
+      <div class="bsgt-operations-row-copy"><div><b>${escapeHtml(record.operationNo||'—')}</b>${bsgtOperationsStageBadge(record.bsgtStage)}</div><strong>${escapeHtml(record.itemDesc||'—')}</strong><small>${escapeHtml(record.consignee||'—')}</small><span class="bsgt-operations-progress"><i style="width:${evaluation.completedCount/7*100}%"></i></span><em>${evaluation.completedCount}/7 متطلبات</em>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span>`:''}</div>
+      <span class="bsgt-operations-row-arrow">${icon('arrow',13)}</span>
     </article>`;
   }).join('');
   const pages = Math.max(1, Math.ceil(state.total / state.pageSize));
-  host.innerHTML = `<div class="bsgt-operations-row is-head"><span>رقم العملية</span><span>المرسل إليه</span><span>الصنف</span><span>تاريخ الإنشاء</span><span>حالة المرحلة</span><span>اكتمال المستندات</span><span>الإجراء</span></div>
-    ${rows}
+  host.innerHTML = `${rows}
     <footer class="bsgt-operations-pager"><span>${state.total} شحنة · صفحة ${state.page} من ${pages}</span><div><button type="button" data-bsgt-page="${state.page-1}" ${state.page<=1?'disabled':''}>السابق</button><button type="button" data-bsgt-page="${state.page+1}" ${state.page>=pages?'disabled':''}>التالي</button></div></footer>`;
-  host.querySelectorAll('[data-bsgt-operation-open]').forEach(button=>button.addEventListener('click', ()=>openDetail(button.dataset.bsgtOperationOpen)));
+  host.querySelectorAll('[data-bsgt-operation-open]').forEach(row=>{
+    const open=()=>{
+      state.selectedId=row.dataset.bsgtOperationOpen; state.mobileDetail=true; state.activeTab='overview';
+      renderBsgtOperationsRows();
+      renderBsgtOperationsDetail(state.rows.find(record=>record.id===state.selectedId));
+      document.getElementById('bsgtOperationsWorkspace')?.classList.add('show-detail');
+    };
+    row.addEventListener('click',open);
+    row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open();}});
+  });
   host.querySelectorAll('[data-bsgt-page]').forEach(button=>button.addEventListener('click', ()=>{
     bsgtOperationsListState.page = Number(button.dataset.bsgtPage) || 1;
     loadBsgtOperationsPage();
   }));
+  hydrateBsgtCommodityImages(state.rows);
 }
 
 async function loadBsgtOperationsPage(){
@@ -9129,19 +9326,28 @@ async function loadBsgtOperationsPage(){
   const from = (bsgtOperationsListState.page - 1) * bsgtOperationsListState.pageSize;
   const to = from + bsgtOperationsListState.pageSize - 1;
   try{
-    const {data, count, error} = await sb.from('shipments')
+    let pageQuery = sb.from('shipments')
       .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,created_at,updated_at,data', {count:'exact'})
-      .eq('company_id', companyId)
-      .order('created_at', {ascending:false})
-      .range(from, to);
+      .eq('company_id', companyId);
+    const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
+    if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);
+    pageQuery=pageQuery.order('created_at', {ascending:bsgtOperationsListState.sort==='oldest'}).range(from,to);
+    const [pageResult,draftResult,readyResult] = await Promise.all([
+      pageQuery,
+      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft'),
+      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')
+    ]);
+    const {data,count,error}=pageResult;
     if(error) throw error;
+    if(draftResult.error) throw draftResult.error;
+    if(readyResult.error) throw readyResult.error;
     if(requestId !== bsgtOperationsListState.requestId) return;
     const pageRecords = (data || []).map(rowToRecord);
     const ids = pageRecords.map(record=>record.id);
     let fileRows = [], tradeLinks=[];
     if(ids.length){
       const [fileResult,linkResult]=await Promise.all([
-        sb.from('shipment_files').select('id,shipment_id,document_type,label').in('shipment_id', ids),
+        sb.from('shipment_files').select('*').in('shipment_id', ids).order('created_at',{ascending:false}),
         sb.from('trade_collection_file_shipments').select('trade_file_id,shipment_id').in('shipment_id', ids)
       ]);
       if(fileResult.error) throw fileResult.error;
@@ -9167,11 +9373,16 @@ async function loadBsgtOperationsPage(){
     bsgtOperationsListState.total = count || 0;
     bsgtOperationsListState.filesByShipment = filesByShipment;
     bsgtOperationsListState.tradeContextByShipment = tradeContextByShipment;
+    bsgtOperationsListState.kpis = {total:count||0,draft:draftResult.count||0,ready:readyResult.count||0};
+    if(!pageRecords.some(record=>record.id===bsgtOperationsListState.selectedId)) bsgtOperationsListState.selectedId=pageRecords[0]?.id||null;
     pageRecords.forEach(record=>{
       const index = records.findIndex(existing=>existing.id===record.id);
       if(index >= 0) records[index] = record; else records.push(record);
     });
+    Object.entries(filesByShipment).forEach(([id,files])=>shipmentFilesCache[id]=files);
+    renderBsgtOperationsKpis();
     renderBsgtOperationsRows();
+    if(bsgtOperationsListState.selectedId) renderBsgtOperationsDetail(pageRecords.find(record=>record.id===bsgtOperationsListState.selectedId));
   }catch(error){
     console.error('load BSGT operations', error);
     if(requestId === bsgtOperationsListState.requestId) host.innerHTML = `<div class="bsgt-operations-error">تعذر تحميل العمليات: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;
@@ -9646,6 +9857,19 @@ function renderBsgtWorkspace(requestedSection){
   if(activeSection === 'operations'){
     content.innerHTML = renderBsgtOperationsShell(Boolean(permission?.canEdit));
     document.getElementById('bsgtOperationsCreateBtn')?.addEventListener('click', openBsgtShipFormFromWorkspace);
+    document.getElementById('bsgtOperationsSearch')?.addEventListener('input',event=>{
+      clearTimeout(bsgtOperationsSearchTimer);
+      bsgtOperationsSearchTimer=setTimeout(()=>{
+        bsgtOperationsListState.search=event.target.value;
+        bsgtOperationsListState.page=1;
+        loadBsgtOperationsPage();
+      },300);
+    });
+    document.getElementById('bsgtOperationsSort')?.addEventListener('change',event=>{
+      bsgtOperationsListState.sort=event.target.value;
+      bsgtOperationsListState.page=1;
+      loadBsgtOperationsPage();
+    });
     loadBsgtOperationsPage();
   }else if(activeSection === 'finance'){
     content.innerHTML = renderBsgtFinanceShell();
@@ -16131,6 +16355,9 @@ async function loadShipmentTimeline(r){
   const isBsgtAudit = isBsgtRecord(r);
   const ownerName = shipmentAuditUserName(r.ownerId);
   const items = [{kind:'create', title:isBsgtAudit ? 'إنشاء العملية' : 'إنشاء الشحنة', time:r.createdAt, note:isBsgtAudit ? `أنشأها: ${ownerName}` : ''}];
+  if(isBsgtAudit && r.operationsCompletedAt){
+    items.push({kind:'approve', title:'اكتملت مرحلة العمليات', time:new Date(r.operationsCompletedAt).getTime(), note:'أصبحت الشحنة جاهزة للمالية'});
+  }
   try{
     let query = sb.from('shipment_comments').select('*').eq('shipment_id', r.id);
     if(!isBsgtAudit) query = query.in('kind', ['submit','approve','return']);
@@ -16393,7 +16620,7 @@ function openBsgtGeneratedDocument(r, key){
   chooseDocLang(r, lang=>printSingle(r, key, lang));
 }
 
-async function submitBsgtOperationsToFinance(id, button){
+async function submitBsgtOperationsToFinance(id, button, stayInline = false){
   if(!bsgtOperationsPermission(true)) return;
   if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
   button.disabled = true;
@@ -16422,8 +16649,8 @@ async function submitBsgtOperationsToFinance(id, button){
     if(index >= 0) records[index] = saved; else records.push(saved);
     shipmentFilesCache[id] = filesResult.data || [];
     toast('تم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.');
-    openDetail(id);
-    loadBsgtOperationsPage();
+    if(stayInline) await loadBsgtOperationsPage();
+    else { openDetail(id); loadBsgtOperationsPage(); }
   }catch(error){
     console.error('complete BSGT operations', error);
     toast(error.message || 'تعذر إرسال الشحنة للمالية.', 'err');
@@ -16443,7 +16670,7 @@ function wireBsgtOperationsPanel(r){
     if(file) openShipmentFile(file.path, file.name);
   }));
   const submit = document.getElementById('bsgtSendToFinanceBtn');
-  if(submit && !submit.disabled) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit));
+  if(submit && !submit.disabled) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit, Boolean(submit.closest('#bsgtOperationsDetail'))));
 }
 
 function renderBsgtDetail(r){

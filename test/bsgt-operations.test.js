@@ -56,7 +56,7 @@ assert.ok(html.includes(".eq('company_id', companyId)"));
 assert.ok(html.includes(".in('shipment_id', ids)"));
 assert.ok(!html.includes("state.rows.map(async"));
 assert.ok(html.includes('function renderBsgtOperationsDocuments(r)'));
-assert.ok(html.includes('function submitBsgtOperationsToFinance(id, button)'));
+assert.ok(html.includes('function submitBsgtOperationsToFinance(id, button'));
 assert.ok(html.includes("sb.rpc('complete_bsgt_operations'"));
 assert.ok(html.includes("documentType:window.JahezBsgtOperations.DOCUMENT_TYPES[key]"));
 assert.ok(html.includes("key === 'optionalAttachment'"));
