@@ -1,0 +1,167 @@
+.bsgt-workspace {
+  display: grid;
+  gap: 18px;
+  color: var(--ink);
+}
+
+.bsgt-workspace-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 150px;
+  padding: 28px 32px;
+  border: 1px solid rgba(234, 27, 35, .18);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(105deg, rgba(255,255,255,.97) 0 54%, rgba(255,245,246,.92) 100%),
+    repeating-linear-gradient(135deg, transparent 0 16px, rgba(234,27,35,.035) 16px 17px);
+  box-shadow: var(--shadow-sm);
+}
+
+.bsgt-workspace-hero::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: -70px;
+  top: -105px;
+  width: 270px;
+  height: 270px;
+  border: 42px solid rgba(234, 27, 35, .07);
+  border-radius: 50%;
+}
+
+.bsgt-workspace-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bsgt-workspace-hero h2 {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(24px, 2.2vw, 34px);
+  font-weight: 900;
+}
+
+.bsgt-workspace-hero h2 span {
+  color: var(--brand);
+}
+
+.bsgt-workspace-hero p {
+  max-width: 700px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.bsgt-workspace-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  color: #fff;
+  background: linear-gradient(135deg, #EA1B23 0%, #D01119 100%);
+  box-shadow: 0 14px 30px rgba(208, 17, 25, .2);
+}
+
+.bsgt-workspace-mark .ic { width: 34px; height: 34px; }
+
+.bsgt-workspace-shell {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.bsgt-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  background: #fafafa;
+}
+
+.bsgt-workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #475569;
+  background: transparent;
+  font: 700 14px/1.4 inherit;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.bsgt-workspace-tab:hover { color: var(--brand); background: var(--brand-light); }
+.bsgt-workspace-tab.active {
+  color: #fff;
+  background: linear-gradient(135deg, #EA1B23 0%, #D01119 100%);
+  box-shadow: 0 7px 16px rgba(208, 17, 25, .17);
+}
+.bsgt-workspace-tab .ic { width: 18px; height: 18px; }
+
+.bsgt-workspace-content {
+  display: grid;
+  place-items: center;
+  min-height: 330px;
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.bsgt-workspace-placeholder { max-width: 590px; }
+.bsgt-workspace-placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 18px;
+  border-radius: 20px;
+  color: var(--brand);
+  background: var(--brand-light);
+}
+.bsgt-workspace-placeholder-icon .ic { width: 30px; height: 30px; }
+.bsgt-workspace-placeholder h3 { margin: 0 0 8px; font-size: 21px; color: #172033; }
+.bsgt-workspace-placeholder p { margin: 0; color: var(--muted); font-size: 14px; }
+.bsgt-workspace-readonly {
+  display: inline-flex;
+  margin-top: 18px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: #fafafa;
+  font-size: 11px;
+  font-weight: 700;
+}
+.bsgt-workspace-denied { color: var(--brand-dark); }
+
+@media (max-width: 760px) {
+  .bsgt-workspace-hero { align-items: flex-start; min-height: 0; padding: 22px; }
+  .bsgt-workspace-mark { width: 58px; height: 58px; flex-basis: 58px; border-radius: 16px; }
+  .bsgt-workspace-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bsgt-workspace-content { min-height: 280px; padding: 34px 18px; }
+}
+
+@media (max-width: 460px) {
+  .bsgt-workspace-hero { display: block; }
+  .bsgt-workspace-mark { margin-top: 18px; }
+  .bsgt-workspace-tabs { grid-template-columns: 1fr; }
+}

@@ -10,6 +10,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap"></noscript>
 <link rel="preload" as="style" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"></noscript>
+<link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
 <style>
 
 :root{
@@ -2694,7 +2695,7 @@ try{
     <button class="navtab" data-view="createShip" id="navCreateShip" data-ic="plus">انشاء عملية</button>
     <button class="navtab" data-view="records" id="navOperations" data-ic="list">العمليات</button>
     <button class="navtab" data-view="operationCenter" id="navOperationCenter" data-ic="folder">مركز العملية</button>
-    <button class="navtab" data-view="bsgt" id="navBsgt" data-ic="ship">شحنات BSGT</button>
+    <button class="navtab" data-view="bsgtWorkspace" id="navBsgt" data-ic="ship">مساحة BSGT</button>
     <button class="navtab" data-view="activityLog" id="navActivityLog" data-ic="history">سجل العمليات</button>
     <button class="navtab" data-view="review" id="navReview" data-ic="checkCircle" style="display:none;">الاعتمادات <span class="nav-badge review" id="reviewBadge">0</span></button>
     <button class="navtab" data-view="money" id="navMoney" data-ic="bank" style="display:none;">التحصيل <span class="nav-badge money" id="moneyBadge">0</span></button>
@@ -2906,6 +2907,24 @@ try{
       </div>
     </div>
 
+  </div>
+
+  <!-- ===== مساحة BSGT: Phase 1 shell only ===== -->
+  <div class="view" id="viewBsgtWorkspace">
+    <section class="bsgt-workspace" aria-labelledby="bsgtWorkspaceTitle">
+      <header class="bsgt-workspace-hero">
+        <div>
+          <span class="bsgt-workspace-kicker" data-ic="building">بحر سواكن</span>
+          <h2 id="bsgtWorkspaceTitle">مساحة <span>BSGT</span></h2>
+          <p>مسار موحد لإدارة عمليات ومستندات ومعاملات بحر سواكن.</p>
+        </div>
+        <div class="bsgt-workspace-mark" data-ic="ship" aria-hidden="true"></div>
+      </header>
+      <div class="bsgt-workspace-shell">
+        <nav class="bsgt-workspace-tabs" id="bsgtWorkspaceTabs" aria-label="أقسام مساحة BSGT"></nav>
+        <div class="bsgt-workspace-content" id="bsgtWorkspaceContent" aria-live="polite"></div>
+      </div>
+    </section>
   </div>
 
   <!-- ===== سجل العمليات ===== -->
@@ -5827,6 +5846,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="portal-access.js?v=20260912-1"></script>
+<script src="bsgt-workspace.js?v=20260912-1"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
 <script src="contract-client-assets.js?v=20260912-1"></script>
@@ -6471,6 +6491,8 @@ let users = [];
 let currentUser = null;
 let currentPortal = null;
 let currentPortals = [];
+let bsgtWorkspacePermissionRows = [];
+let bsgtWorkspacePermissionsLoaded = false;
 const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
 const PORTAL_ACCESS_MESSAGE_KEY = window.JahezPortalAccess?.ACCESS_MESSAGE_KEY || 'jahez:portal-access-message';
 
@@ -6551,18 +6573,41 @@ function resolveUserPortals(profile, permissions){
 function canAccessCurrentPortal(portalKey){
   return Boolean(window.JahezPortalAccess?.canAccessPortal(portalKey, currentAccessProfile()));
 }
+function resolveBsgtCompanyId(){
+  return window.JahezBsgtWorkspace?.resolveBsgtCompanyId(companies) || null;
+}
+async function getBsgtWorkspacePermissions(userId){
+  if(!currentUser || !userId || userId !== currentUser.id) return [];
+  if(currentUser.role === 'admin'){
+    bsgtWorkspacePermissionRows = [];
+    bsgtWorkspacePermissionsLoaded = true;
+    return window.JahezBsgtWorkspace?.resolvePermissions(currentAccessProfile(), []) || [];
+  }
+  const {data, error} = await sb.rpc('get_bsgt_workspace_permissions', {p_user_id:userId});
+  if(error) throw error;
+  bsgtWorkspacePermissionRows = Array.isArray(data) ? data : [];
+  bsgtWorkspacePermissionsLoaded = true;
+  return window.JahezBsgtWorkspace?.resolvePermissions(currentAccessProfile(), bsgtWorkspacePermissionRows) || [];
+}
+function bsgtWorkspaceSections(){
+  return window.JahezBsgtWorkspace?.allowedSections(currentAccessProfile(), bsgtWorkspacePermissionRows) || [];
+}
+function canAccessBsgtWorkspace(){
+  return Boolean(bsgtWorkspacePermissionsLoaded && bsgtWorkspaceSections().length);
+}
 function roleLabel(role){
   return {admin:'مدير النظام', editor:'محرر', viewer:'مشاهد فقط', staff:'موظف', bsgt_user:'مستخدم بوابة BSGT'}[role] || 'مستخدم';
 }
 const APP_VIEW_ACCESS = Object.freeze({
-  admin: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','review','money','wallet','clientProfiles','admin','shipForm','sea','issued','drafts','document-editor']),
-  editor: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','activityLog','money','wallet','clientProfiles','shipForm','sea','issued','drafts']),
-  staff: Object.freeze(['dashboard','tasks','records','clientProfiles','shipForm']),
-  viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','activityLog','clientProfiles','sea','issued','drafts']),
-  bsgt_user: Object.freeze(['dashboard','bsgt'])
+  admin: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','bsgtWorkspace','activityLog','review','money','wallet','clientProfiles','admin','shipForm','sea','issued','drafts','document-editor']),
+  editor: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','bsgtWorkspace','activityLog','money','wallet','clientProfiles','shipForm','sea','issued','drafts']),
+  staff: Object.freeze(['dashboard','tasks','records','clientProfiles','shipForm','bsgtWorkspace']),
+  viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','bsgtWorkspace','activityLog','clientProfiles','sea','issued','drafts']),
+  bsgt_user: Object.freeze(['dashboard','bsgt','bsgtWorkspace'])
 });
 function canAccessAppView(view){
   if(!currentUser) return false;
+  if(view === 'bsgtWorkspace') return canAccessBsgtWorkspace();
   if(currentUser.role==='staff' && view==='records') return Boolean(allowStaffRecords);
   return Boolean((APP_VIEW_ACCESS[currentUser.role] || []).includes(view));
 }
@@ -6938,7 +6983,8 @@ async function bootData(){
     step('المهام', loadTasks),
     step('الدفعات', loadPayments),
     step('حسابات العملاء', loadLedger),
-    step('الشركات', () => loadCompanies(true))
+    step('الشركات', () => loadCompanies(true)),
+    step('صلاحيات مساحة BSGT', () => getBsgtWorkspacePermissions(currentUser.id))
   ]);
   await syncConsigneeClientsFromApp();
   // بيانات ثقيلة (شعارات وأختام وصور نماذج مضمَّنة base64) — تُحمَّل في الخلفية بلا
@@ -7025,6 +7071,8 @@ async function lockApp(){
   currentUser = null;
   currentPortal = null;
   currentPortals = [];
+  bsgtWorkspacePermissionRows = [];
+  bsgtWorkspacePermissionsLoaded = false;
   const employeeNav = document.getElementById('employeeTopNav');
   if(employeeNav) employeeNav.hidden = true;
   closeAllOverlays();
@@ -8890,16 +8938,17 @@ backTop.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'
 
 // ===== التنقل بين الشاشات =====
 // حفظ/قراءة "أنت فين" في رابط المتصفح — يسمح بالرجوع لنفس الصفحة بعد تحديث (F5)
-function updateHash(v, id){
-  const h = 'v=' + v + (id ? ('&id=' + id) : '');
+function updateHash(v, id, section){
+  const h = 'v=' + v + (id ? ('&id=' + encodeURIComponent(id)) : '') +
+    (section ? ('&section=' + encodeURIComponent(section)) : '');
   if(location.hash.slice(1) !== h) history.replaceState(null, '', '#' + h);
 }
 function parseHash(){
   const p = new URLSearchParams(location.hash.slice(1));
-  return { v: p.get('v'), id: p.get('id'), doc: p.get('doc') };
+  return { v: p.get('v'), id: p.get('id'), doc: p.get('doc'), section: p.get('section') };
 }
 function restoreFromHash(){
-  const {v, id, doc} = parseHash();
+  const {v, id, doc, section} = parseHash();
   const fallback = 'dashboard';
   if(!v){ switchView(fallback); return; }
   if(v === 'document-editor'){
@@ -8923,15 +8972,16 @@ function restoreFromHash(){
     switchView(fallback);
     return;
   }
-  switchView(v);
+  switchView(v, {section});
   if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id);
   if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id), 0);
 }
 window.addEventListener('hashchange', restoreFromHash);
 
-function switchView(v){
+function switchView(v, options){
   closeAllOverlays();
   const requestedView = v;
+  const requestedSection = options?.section || (v === 'bsgtWorkspace' ? parseHash().section : null);
   let accessDenied = false;
   if(!canAccessAppView(v)){ v='dashboard'; accessDenied=true; }
   const navKey = v; // قبل تحويلات التوافقية تحت، عشان تظليل القائمة الجانبية والعنوان يفضلوا صح
@@ -8953,7 +9003,8 @@ function switchView(v){
   document.getElementById('viewWallet').classList.toggle('active', v==='wallet');
   document.getElementById('viewClientProfiles').classList.toggle('active', v==='clientProfiles');
   document.getElementById('viewActivityLog').classList.toggle('active', v==='activityLog');
-  const names = {dashboard:'لوحة المعلومات', operationCenter:'مركز العملية', records:'الشحنات', bsgt:'شحنات BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', clientProfiles:'بروفايل الشركات', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
+  document.getElementById('viewBsgtWorkspace').classList.toggle('active', v==='bsgtWorkspace');
+  const names = {dashboard:'لوحة المعلومات', operationCenter:'مركز العملية', records:'الشحنات', bsgt:'شحنات BSGT', bsgtWorkspace:'مساحة BSGT', createShip:'إنشاء شحنة', shipForm:'إدخال بيانات الشحنة', tasks:'المهام', review:'الاعتماد', money:'التحصيل والمستحقات', wallet:'محفظة العملاء', clientProfiles:'بروفايل الشركات', admin:'لوحة التحكم', activityLog:'سجل العمليات'};
   document.getElementById('crumbCurrent').textContent = names[navKey] || names[v] || '';
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('commercial_collection')) ? 'inline-flex' : 'none';
@@ -8974,12 +9025,49 @@ function switchView(v){
   if(v==='wallet') renderWallet();
   if(v==='clientProfiles') window.ClientCompanyProfiles?.open();
   if(v==='activityLog') renderLog();
+  let workspaceSection = null;
+  if(v==='bsgtWorkspace') workspaceSection = renderBsgtWorkspace(requestedSection);
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
   const activeRoute = parseHash();
   const preservedId = v === 'clientProfiles' && activeRoute.v === 'clientProfiles' ? activeRoute.id : null;
-  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId);
+  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId, workspaceSection);
   syncEmployeeNavigationState();
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
+}
+
+function renderBsgtWorkspace(requestedSection){
+  const api = window.JahezBsgtWorkspace;
+  const tabs = document.getElementById('bsgtWorkspaceTabs');
+  const content = document.getElementById('bsgtWorkspaceContent');
+  if(!api || !tabs || !content) return null;
+  const allowed = bsgtWorkspaceSections();
+  const activeSection = api.resolveSection(requestedSection, currentAccessProfile(), bsgtWorkspacePermissionRows);
+  if(!activeSection){
+    tabs.replaceChildren();
+    content.innerHTML = '<div class="bsgt-workspace-placeholder bsgt-workspace-denied"><h3>لا توجد أقسام مسندة إلى حسابك</h3><p>راجع مدير النظام لإسناد القسم المطلوب داخل مساحة BSGT.</p></div>';
+    return null;
+  }
+  tabs.innerHTML = allowed.map(section => `
+    <button type="button" class="bsgt-workspace-tab ${section.key===activeSection?'active':''}"
+      data-bsgt-section="${section.key}" aria-selected="${section.key===activeSection?'true':'false'}"
+      data-ic="${section.icon}">${section.label}</button>`).join('');
+  const section = api.SECTIONS.find(item => item.key === activeSection);
+  const permission = api.permissionFor(activeSection, currentAccessProfile(), bsgtWorkspacePermissionRows);
+  content.innerHTML = `
+    <div class="bsgt-workspace-placeholder">
+      <div class="bsgt-workspace-placeholder-icon" data-ic="${section.icon}"></div>
+      <h3>${section.label}</h3>
+      <p>${section.message}</p>
+      ${permission?.canEdit ? '' : '<span class="bsgt-workspace-readonly">عرض فقط</span>'}
+    </div>`;
+  tabs.querySelectorAll('[data-bsgt-section]').forEach(button=>{
+    button.addEventListener('click', ()=>switchView('bsgtWorkspace', {section:button.dataset.bsgtSection}));
+  });
+  hydrateIcons();
+  if(requestedSection && requestedSection !== activeSection){
+    setTimeout(()=>toast('تم فتح أول قسم متاح وفق صلاحيات حسابك.', 'err'), 0);
+  }
+  return activeSection;
 }
 
 function renderOperationCenter(){
