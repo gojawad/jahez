@@ -17,6 +17,12 @@ const ROLE_PORTALS = {
   viewer:[],
   bsgt_user:['بوابة التحصيل التجاري']
 };
+const ROLE_PORTAL_KEYS = {
+  editor:['import_permit'],
+  staff:['import_permit'],
+  viewer:[],
+  bsgt_user:['commercial_collection']
+};
 const SHIPMENTS = Array.from({length:6}, (_, index) => ({
   id:`00000000-0000-4000-8000-${String(index + 1).padStart(12,'0')}`,
   status:index < 4 ? 'sent' : 'draft',
@@ -69,6 +75,13 @@ async function prepareRoleContext(browser, role) {
       expires_in:3600, token_type:'bearer', user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}
     }));
   }, {profile, expiresAt, token:fakeJwt(expiresAt)});
+  for(const pattern of [
+    'https://fonts.googleapis.com/**',
+    'https://fonts.gstatic.com/**',
+    'https://unpkg.com/**'
+  ]){
+    await context.route(pattern, route=>route.fulfill({status:200,body:'',contentType:'text/css'}));
+  }
   await context.route(`${SUPABASE_ORIGIN}/**`, async route=>{
     const request = route.request();
     const url = new URL(request.url());
@@ -79,6 +92,10 @@ async function prepareRoleContext(browser, role) {
       'Content-Type':'application/json'
     };
     if(request.method()==='OPTIONS') return route.fulfill({status:204,headers,body:''});
+    if(url.pathname==='/rest/v1/rpc/get_user_portal_permissions'){
+      const rows=(ROLE_PORTAL_KEYS[role]||[]).map(portal_key=>({portal_key,can_view:true}));
+      return route.fulfill({status:200,headers,body:JSON.stringify(rows)});
+    }
     if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
     if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200,headers,body:JSON.stringify([{id:'bsgt-company',name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',settings:{}}])});
     if(url.pathname==='/rest/v1/shipments') return route.fulfill({status:200,headers,body:JSON.stringify(SHIPMENTS)});

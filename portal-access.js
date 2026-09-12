@@ -13,7 +13,7 @@
       label: 'بوابة التحصيل التجاري',
       href: '/experiments/bs-collection/',
       icon: 'bank',
-      allowedRoles: Object.freeze(['admin', 'bsgt_user'])
+      allowedRoles: Object.freeze(['admin', 'editor', 'staff', 'viewer', 'bsgt_user'])
     }),
     import_permit: Object.freeze({
       key: 'import_permit',
@@ -24,8 +24,8 @@
     })
   });
 
-  // The assignment picks top-navigation shortcuts. allowedRoles remains the
-  // authorization boundary when a user opens a portal URL directly.
+  // Kept for migration/backfill compatibility. Runtime navigation resolves
+  // registered portals directly so a new portal only needs one registration.
   const ROLE_PORTALS = Object.freeze({
     admin: Object.freeze(['commercial_collection', 'import_permit']),
     editor: Object.freeze(['import_permit']),
@@ -39,15 +39,19 @@
   }
 
   function hasExplicitPermission(portalKey, permissions) {
-    if (!permissions || !Array.isArray(permissions.portalKeys)) return true;
+    if (!permissions || !Array.isArray(permissions.portalKeys)) return false;
     return permissions.portalKeys.includes(portalKey);
+  }
+
+  function isAdmin(profile) {
+    return activeProfile(profile) && profile.role === 'admin';
   }
 
   function canAccessPortal(portalKey, profile, permissions) {
     const portal = PORTALS[portalKey];
+    if (!portal || !activeProfile(profile)) return false;
+    if (isAdmin(profile)) return true;
     return Boolean(
-      portal &&
-      activeProfile(profile) &&
       portal.allowedRoles.includes(profile.role) &&
       hasExplicitPermission(portalKey, permissions)
     );
@@ -65,7 +69,7 @@
 
   function resolveUserPortals(profile, permissions) {
     if (!activeProfile(profile)) return [];
-    return (ROLE_PORTALS[profile.role] || [])
+    return Object.keys(PORTALS)
       .filter(key => canAccessPortal(key, profile, permissions))
       .map(key => publicPortal(PORTALS[key]));
   }
@@ -78,6 +82,7 @@
     ACCESS_MESSAGE_KEY,
     PORTALS,
     ROLE_PORTALS,
+    isAdmin,
     canAccessPortal,
     resolveUserPortal,
     resolveUserPortals

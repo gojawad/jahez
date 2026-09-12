@@ -7,7 +7,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vthcmqqiexaedukduquv.s
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const DATA_DIR = process.env.JAHEZ_DATA_DIR || path.join(__dirname, '..', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'import-permit-invoices.json');
-const ALLOWED_ROLES = new Set(['admin', 'editor', 'staff', 'bsgt_user']);
+const ALLOWED_ROLES = new Set(['editor', 'staff', 'bsgt_user']);
 const MAX_ITEMS = 10;
 const PAGE_SIZES = new Set([10, 25, 50, 100]);
 let writeQueue = Promise.resolve();
@@ -51,7 +51,24 @@ async function authorize(req) {
   const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?${profileQuery}`, { headers: serviceHeaders() });
   if (!profileResponse.ok) throw new Error(`Profile lookup failed (${profileResponse.status}).`);
   const [profile] = await profileResponse.json();
-  if (!profile || profile.active === false || !ALLOWED_ROLES.has(profile.role)) {
+  if (!profile || profile.active === false) {
+    throw Object.assign(new Error('ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.'), { status: 403 });
+  }
+  if (profile.role === 'admin') return profile;
+  if (!ALLOWED_ROLES.has(profile.role)) {
+    throw Object.assign(new Error('ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.'), { status: 403 });
+  }
+  const permissionQuery = new URLSearchParams({
+    select: 'portal_key,can_view',
+    user_id: `eq.${profile.id}`,
+    portal_key: 'eq.import_permit',
+    can_view: 'eq.true',
+    limit: '1'
+  });
+  const permissionResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_portal_permissions?${permissionQuery}`, { headers: serviceHeaders() });
+  if (!permissionResponse.ok) throw new Error(`Portal permission lookup failed (${permissionResponse.status}).`);
+  const permissions = await permissionResponse.json();
+  if (!permissions.length) {
     throw Object.assign(new Error('ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.'), { status: 403 });
   }
   return profile;

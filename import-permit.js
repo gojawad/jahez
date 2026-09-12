@@ -45,24 +45,28 @@
   }
 
   function canUsePortal(){
+    if(window.JahezAccess) return window.JahezAccess.canAccessPortal('import_permit');
     if(!window.JahezPortalAccess || typeof currentAccessProfile !== 'function') return false;
-    return window.JahezPortalAccess.canAccessPortal('import_permit', currentAccessProfile());
+    const permissions = typeof currentPortalPermissions === 'object' ? currentPortalPermissions : {portalKeys:[]};
+    return window.JahezPortalAccess.canAccessPortal('import_permit', currentAccessProfile(), permissions);
   }
 
   function denyStandalonePortalAccess(){
     const message = 'ليس لديك صلاحية للوصول إلى هذه البوابة.';
     try{ sessionStorage.setItem(window.JahezPortalAccess?.ACCESS_MESSAGE_KEY || 'jahez:portal-access-message', message); }catch(error){}
-    window.location.replace('/#v=dashboard');
+    history.replaceState(null, '', '/#v=dashboard');
+    if(typeof switchView === 'function') switchView('dashboard');
   }
 
   async function portalApi(path, options){
-    const {data:{session}} = await sb.auth.getSession();
-    if(!session?.access_token) throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
-    const response = await fetch(path, {
+    const request = await window.JahezSessionNavigation.fetchWithSessionRetry(sb, fetch, path, {
       ...options,
-      headers: {...(options?.headers || {}), Authorization:`Bearer ${session.access_token}`, 'Content-Type':'application/json'}
+      headers: {...(options?.headers || {}), 'Content-Type':'application/json'}
     });
+    if(request.status === 'unauthenticated') throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
+    const response = request.response;
     const result = await response.json().catch(() => ({}));
+    if(response.status === 403) throw new Error(result.error || 'ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.');
     if(!response.ok) throw new Error(result.error || 'تعذر الاتصال بخدمة فواتير إذن الاستيراد.');
     return result;
   }
@@ -775,6 +779,7 @@
   };
 
   window.openImportPermitRecords = openRecordsInNewTab;
+  window.openImportPermitHistory = openRecordsPortal;
 
   async function openRecordsPortal(){
     if(!portalIsReady()) return false;
@@ -968,7 +973,7 @@
 
   async function openStandaloneRegister(){
     if(!standaloneRegister || standaloneRegisterOpened) return;
-    if(!byId('lockScreen').classList.contains('hidden')) return;
+    if(window.JahezAccess) await window.JahezAccess.ready();
     if(!canUsePortal()){
       standaloneRegisterOpened = true;
       denyStandalonePortalAccess();
@@ -981,16 +986,12 @@
   }
 
   function scheduleStandaloneRegister(){
-    setTimeout(openStandaloneRegister, 0);
+    setTimeout(()=>openStandaloneRegister().catch(error=>console.error('import permit initialization', error)), 0);
   }
 
-  window.addEventListener('jahez:session-ready', scheduleStandaloneRegister);
+  window.addEventListener('jahez:access-ready', scheduleStandaloneRegister, {once:true});
   if(standaloneRegister){
     scheduleStandaloneRegister();
-    const waitForSession = setInterval(() => {
-      scheduleStandaloneRegister();
-      if(standaloneRegisterOpened) clearInterval(waitForSession);
-    }, 300);
     setTimeout(() => {
       if(standaloneRegisterOpened) return;
       const message = byId('importPermitRouteLoader')?.querySelector('small');

@@ -12,6 +12,7 @@ const importPermit = fs.readFileSync(path.join(root, 'import-permit.js'), 'utf8'
 const collectionHtml = fs.readFileSync(path.join(root, 'experiments', 'bs-collection', 'index.html'), 'utf8');
 const collectionJs = fs.readFileSync(path.join(root, 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
 const bsgtSql = fs.readFileSync(path.join(root, 'supabase', '24_مستخدم_بوابة_BSGT.sql'), 'utf8');
+const portalSql = fs.readFileSync(path.join(root, 'supabase', '36_user_portal_permissions.sql'), 'utf8');
 const dashboardRenderer = appHtml.slice(appHtml.indexOf('function renderTargetDashboard(){'), appHtml.indexOf('function renderDashboard(){'));
 
 let checks = 0;
@@ -61,8 +62,9 @@ check('enterprise dashboard remains isolated and responsive', () => {
 });
 
 check('bsgt_user gets only the commercial collection shortcut', () => {
-  assert.deepStrictEqual(portalAccess.resolveUserPortals(profile('bsgt_user')).map(item => item.key), ['commercial_collection']);
-  assert.strictEqual(portalAccess.resolveUserPortal(profile('bsgt_user')).label, 'بوابة التحصيل التجاري');
+  const permissions = {portalKeys:['commercial_collection']};
+  assert.deepStrictEqual(portalAccess.resolveUserPortals(profile('bsgt_user'), permissions).map(item => item.key), ['commercial_collection']);
+  assert.strictEqual(portalAccess.resolveUserPortal(profile('bsgt_user'), permissions).label, 'بوابة التحصيل التجاري');
 });
 
 check('non-BSGT roles do not receive the collection shortcut', () => {
@@ -87,14 +89,15 @@ check('inactive profiles cannot resolve or directly access portals', () => {
 });
 
 check('direct commercial collection access is role guarded', () => {
-  assert.strictEqual(portalAccess.canAccessPortal('commercial_collection', profile('bsgt_user')), true);
-  assert.strictEqual(portalAccess.canAccessPortal('commercial_collection', profile('editor')), false);
-  assert.ok(collectionJs.includes("canAccessPortal('commercial_collection',portalContext.profile)"));
+  assert.strictEqual(portalAccess.canAccessPortal('commercial_collection', profile('bsgt_user'), {portalKeys:['commercial_collection']}), true);
+  assert.strictEqual(portalAccess.canAccessPortal('commercial_collection', profile('bsgt_user'), {portalKeys:[]}), false);
+  assert.strictEqual(portalAccess.canAccessPortal('commercial_collection', profile('editor'), {portalKeys:['commercial_collection']}), true);
+  assert.ok(collectionJs.includes("canAccessPortal('commercial_collection',portalContext.profile,portalContext.permissions)"));
   assert.ok(collectionJs.includes("window.location.replace('/#v=dashboard')"));
 });
 
 check('direct import permit access uses the same central resolver', () => {
-  assert.ok(importPermit.includes("canAccessPortal('import_permit', currentAccessProfile())"));
+  assert.ok(importPermit.includes("window.JahezAccess.canAccessPortal('import_permit')"));
   assert.ok(importPermit.includes('denyStandalonePortalAccess()'));
   assert.strictEqual(portalAccess.canAccessPortal('import_permit', profile('viewer')), false);
 });
@@ -125,6 +128,13 @@ check('refresh routes are preserved while unauthorized routes return to dashboar
   assert.ok(appHtml.includes('if(!canAccessAppView(v)){ v=\'dashboard\'; accessDenied=true; }'));
   assert.ok(appHtml.includes("toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err')"));
   assert.ok(collectionJs.includes('rememberPortalLocation()'));
+});
+
+check('portal assignments are persisted with RLS and a compatibility backfill', () => {
+  assert.ok(portalSql.includes('create table if not exists public.user_portal_permissions'));
+  assert.ok(portalSql.includes('public.is_admin() or user_id = auth.uid()'));
+  assert.ok(portalSql.includes("where role in ('editor', 'staff') and active"));
+  assert.ok(portalSql.includes("where role = 'bsgt_user' and active"));
 });
 
 assert.ok(checks >= 17);

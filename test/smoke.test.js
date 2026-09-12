@@ -353,9 +353,9 @@ async function main() {
       assert.ok(permitSource.includes("url.searchParams.set('portal', 'import-permit-records')"));
       assert.ok(permitSource.includes("url.searchParams.set('permitView', 'history')"));
       assert.ok(permitSource.includes("window.open(url.href, 'jahezImportPermitRecords')"));
-      assert.ok(permitSource.includes("window.addEventListener('jahez:session-ready', scheduleStandaloneRegister)"));
-      assert.ok(permitSource.includes("setTimeout(openStandaloneRegister, 0)"));
-      assert.ok(permitSource.includes("byId('lockScreen').classList.contains('hidden')"));
+      assert.ok(permitSource.includes("window.addEventListener('jahez:access-ready', scheduleStandaloneRegister, {once:true})"));
+      assert.ok(permitSource.includes('setTimeout(()=>openStandaloneRegister()'));
+      assert.ok(permitSource.includes('if(window.JahezAccess) await window.JahezAccess.ready()'));
       assert.ok(permitSource.includes('pageSize:String(recordPageSize)'));
       assert.ok(permitSource.includes('queueRecordLoad(380)'));
       assert.ok(permitSource.includes("byId('importPermitRouteLoader')?.classList.add('hidden')"));
@@ -501,7 +501,8 @@ async function main() {
       assert.ok(collectionJs.includes('function saveCurrentDocumentLayout()'));
       assert.ok(collectionJs.includes("paper.classList.toggle('has-layout-overflow',overflow)"));
       assert.ok(!collectionJs.includes('offset.y+correction'));
-      assert.ok(collectionJs.includes("window.location.assign('/#v=dashboard')"));
+      assert.ok(collectionJs.includes('window.JahezSessionNavigation.navigateBackToJahez({fallback:'));
+      assert.ok(!collectionJs.includes('window.history.back()'));
       assert.ok(collectionJs.includes('class="undertaking-refs"'));
       assert.ok(collectionJs.includes('data-text-style-id="undertaking-ref-label"'));
       assert.ok(collectionJs.includes('undertaking-invoice-${index}'));
@@ -528,17 +529,19 @@ async function main() {
     await check('login requires explicit submit while internal portal routes preserve session restore', async () => {
       assert.ok(appHtml.includes('let loginSubmitIntent = false;'));
       assert.ok(appHtml.includes("loginError('اضغط زر تسجيل الدخول للمتابعة.');"));
-      assert.ok(appHtml.includes('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }'));
-      assert.ok(appHtml.indexOf('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }') < appHtml.lastIndexOf('await getRestorableSession()'));
+      assert.ok(!appHtml.includes('if(isPublicLandingRequest()){\n    showLanding();\n    return;\n  }'));
+      assert.ok(appHtml.indexOf('await getRestorableSession()') < appHtml.lastIndexOf('if(isPublicLandingRequest()) showLanding();'));
       assert.ok(appHtml.includes("const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';"));
       assert.ok(appHtml.includes('const status = await afterSignIn(data.user);'));
       assert.ok(appHtml.includes("if(status === 'ok') restoreAuthenticatedLocation();"));
-      assert.ok(appHtml.includes('const {session, error:sessionError} = await getRestorableSession();'));
+      assert.ok(appHtml.includes('const {session, error:sessionError, status:sessionStatus} = await getRestorableSession();'));
       assert.ok(appHtml.includes("if(status === 'ok'){\n        restoreAuthenticatedLocation();"));
       assert.ok(appHtml.includes('rememberAuthReturnPath();\n    await initLock();'));
       assert.ok(!appHtml.includes("else await initLock();\n  switchShipTab('land');\n  switchView(isStaffRole() ? 'tasks' : 'dashboard');"));
       const collectionSessionSource = await (await fetch(`${BASE}/experiments/bs-collection/collection-lab.js`)).text();
-      assert.ok(collectionSessionSource.includes('const session=await restorePortalSession();'));
+      assert.ok(collectionSessionSource.includes('const auth=await restorePortalSession();'));
+      assert.ok(collectionSessionSource.includes("if(auth.status==='network_error'){ showPortalSessionRecovery(auth.error); return; }"));
+      assert.ok(collectionSessionSource.includes("if(auth.status!=='authenticated' || !auth.session){ redirectPortalToLogin(); return; }"));
       assert.ok(collectionSessionSource.includes("window.location.replace('/?login=1')"));
       assert.ok(collectionSessionSource.includes('sessionStorage.setItem(AUTH_RETURN_PATH_KEY, location.pathname + location.search + location.hash)'));
       assert.ok(appHtml.includes('>بوابة التحصيل التجاري</button>'));
@@ -608,6 +611,7 @@ async function main() {
       global.fetch = async url => {
         if(String(url).includes('/auth/v1/user')) return new Response(JSON.stringify({id:'user-1'}), {status:200});
         if(String(url).includes('/rest/v1/profiles')) return new Response(JSON.stringify([{id:'user-1',email:'editor@example.test',display_name:'Editor',role:'editor',active:true}]), {status:200});
+        if(String(url).includes('/rest/v1/user_portal_permissions')) return new Response(JSON.stringify([{portal_key:'import_permit',can_view:true}]), {status:200});
         throw new Error(`unexpected fetch ${url}`);
       };
       const call = async (method, body, query = {}) => {

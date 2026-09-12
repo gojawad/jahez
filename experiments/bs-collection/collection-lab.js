@@ -171,18 +171,7 @@ function denyPortalAccess(){
   window.location.replace('/#v=dashboard');
 }
 async function restorePortalSession(attempts=3){
-  let lastError=null;
-  for(let attempt=0;attempt<attempts;attempt++){
-    try{
-      const {data,error}=await sb.auth.getSession();
-      if(data?.session?.user) return data.session;
-      if(!error) return null;
-      lastError=error;
-    }catch(error){ lastError=error; }
-    if(attempt<attempts-1) await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
-  }
-  if(lastError) console.warn('collection portal session restore',lastError);
-  return null;
+  return window.JahezSessionNavigation.restoreSession(sb,{attempts});
 }
 async function loadPortalHeader(user){
   let lastError=null;
@@ -193,12 +182,36 @@ async function loadPortalHeader(user){
     ]);
     if(!profileError){
       if(brandingError) console.warn('portal branding',brandingError);
-      return {profile, branding:branding?.value};
+      if(profile?.role==='admin'){
+        return {
+          profile,
+          branding:branding?.value,
+          permissions:{portalKeys:Object.keys(window.JahezPortalAccess?.PORTALS||{})}
+        };
+      }
+
+      const permissionResult=await sb.rpc('get_user_portal_permissions',{p_user_id:user.id});
+      if(!permissionResult.error){
+        const portalKeys=(permissionResult.data||[])
+          .filter(row=>row.can_view!==false)
+          .map(row=>row.portal_key);
+        return {profile, branding:branding?.value, permissions:{portalKeys}};
+      }
+      lastError=permissionResult.error;
+    }else{
+      lastError=profileError;
     }
-    lastError=profileError;
     if(attempt<2) await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
   }
   throw lastError;
+}
+
+function showPortalSessionRecovery(error){
+  console.warn('collection portal session recovery',error);
+  const loader=$('portalAccessLoader');
+  if(!loader) return;
+  loader.innerHTML='<strong>تعذر تحديث الجلسة مؤقتاً.</strong><small>لم يتم تسجيل خروجك. تحقق من الشبكة ثم أعد المحاولة.</small><button type="button" id="portalSessionRetry">إعادة المحاولة</button>';
+  $('portalSessionRetry')?.addEventListener('click',()=>location.reload(),{once:true});
 }
 function localCollectionBrandingSettings(){
   try { return JSON.parse(localStorage.getItem('baharSwakenInvoicePreviewSettings') || '{}'); }
@@ -908,8 +921,10 @@ async function recordCollection(){
   }finally{ buttons.forEach((button,index)=>{button.disabled=false;button.innerHTML=originals[index];}); }
 }
 async function init(){
-  const session=await restorePortalSession();
-  if(!session){ redirectPortalToLogin(); return; }
+  const auth=await restorePortalSession();
+  if(auth.status==='network_error'){ showPortalSessionRecovery(auth.error); return; }
+  if(auth.status!=='authenticated' || !auth.session){ redirectPortalToLogin(); return; }
+  const session=auth.session;
   let portalContext;
   try{ portalContext=await loadPortalHeader(session.user); }
   catch(error){
@@ -918,10 +933,7 @@ async function init(){
     if(loader) loader.innerHTML='<strong>تعذّر التحقق من صلاحية البوابة. حدّث الصفحة وحاول مرة أخرى.</strong>';
     return;
   }
-  let financeContextAllowed=false;
-  try{ financeContextAllowed=await financeTradeContextAllowed(portalContext?.profile); }
-  catch(error){ console.error('trade file finance permission',error); }
-  if(!portalContext?.profile || (!window.JahezPortalAccess?.canAccessPortal('commercial_collection',portalContext.profile)&&!financeContextAllowed)){
+  if(!portalContext?.profile || !window.JahezPortalAccess?.canAccessPortal('commercial_collection',portalContext.profile,portalContext.permissions)){
     denyPortalAccess();
     return;
   }
@@ -988,7 +1000,7 @@ $('resetBtn').addEventListener('click',()=>{state.selected.clear();state.activeO
 $('printBtn').addEventListener('click',()=>window.print());
 $('recordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('portalBackBtn').addEventListener('click',()=>{
-  if(window.history.length>1) window.history.back(); else window.location.assign('/#v=dashboard');
+  window.JahezSessionNavigation.navigateBackToJahez({fallback:requestedTradeFileId?'/#v=bsgtWorkspace&section=finance':'/#v=dashboard'});
 });
 $('portalLogoutBtn').addEventListener('click',logoutPortal);
 document.querySelectorAll('[data-collapse-section]').forEach(button=>button.addEventListener('click',()=>{

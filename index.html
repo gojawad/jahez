@@ -2040,6 +2040,11 @@ body:has(#viewRecords.bsgt-shipment-view) .ship-tab.active .st-badge{background:
   background:var(--teal-light);color:var(--teal-dark);
 }
 .user-badge.admin{background:var(--brand-light);color:var(--brand);}
+.user-portal-assignments{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.user-portal-assignment,.user-full-access{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:11px;color:var(--ink)}
+.user-portal-assignment input{accent-color:var(--brand)}
+.user-portal-assignment.is-unavailable{opacity:.48;background:#f3f4f6}
+.user-full-access{border-color:#fecaca;background:#fff1f2;color:#b91c1c;font-weight:800}
 .user-badge.off{background:#EEE;color:#888;}
 .user-acts{display:flex;gap:6px;flex-wrap:wrap;}
 
@@ -2474,6 +2479,11 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   .shipment-dashboard .db-hero-stats{padding:12px;border-radius:20px;}
   .shipment-dashboard .db-hero{min-height:150px;}
 }
+.auth-restore-screen{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#f8fafc;color:#14213d;padding:24px;text-align:center}
+.auth-restore-screen[hidden]{display:none}
+.auth-restore-card{width:min(420px,100%);padding:26px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 18px 48px rgba(20,33,61,.1)}
+.auth-restore-spinner{display:block;width:34px;height:34px;margin:0 auto 14px;border:3px solid #fee2e2;border-top-color:#ea1b23;border-radius:50%;animation:spin .8s linear infinite}
+.auth-restore-card strong,.auth-restore-card small{display:block}.auth-restore-card small{margin-top:7px;color:#6b7280}.auth-restore-card button{margin-top:16px}
 </style>
   <link rel="stylesheet" href="wizard.css">
   <link rel="stylesheet" href="company-wizard.css">
@@ -2490,6 +2500,15 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
 </head>
 <body class="landing-active">
+
+<div class="auth-restore-screen" id="authRestoreScreen" role="status" aria-live="polite">
+  <div class="auth-restore-card">
+    <span class="auth-restore-spinner" aria-hidden="true"></span>
+    <strong id="authRestoreTitle">جاري استرجاع جلسة الدخول</strong>
+    <small id="authRestoreMessage">لحظات ونفتح نفس الصفحة التي كنت تعمل عليها.</small>
+    <button type="button" class="btn btn-primary" id="authRestoreRetry" hidden>إعادة المحاولة</button>
+  </div>
+</div>
 
 <script>
 try{
@@ -5851,6 +5870,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="portal-access.js?v=20260912-1"></script>
+<script src="session-navigation.js?v=20260912-1"></script>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
 <script src="bsgt-operations.js?v=20260912-1"></script>
 <script src="commodity-images.js?v=20260912-1"></script>
@@ -6252,13 +6272,20 @@ async function loadUsers(){
   try{
     const {data, error} = await sb.from('profiles').select('*').order('created_at');
     if(error) throw error;
+    let portalRows = [];
+    if(currentUser?.role === 'admin'){
+      const portalResult = await sb.from('user_portal_permissions').select('user_id,portal_key,can_view');
+      if(portalResult.error) throw portalResult.error;
+      portalRows = portalResult.data || [];
+    }
     users = (data||[]).map(p=>({
       id:p.id, username:p.email, email:p.email,
       displayName:p.display_name || (p.email||'').split('@')[0],
       role:p.role, active:p.active !== false,
       photo:p.photo_url || '',
       lastLogin:p.last_login ? new Date(p.last_login).getTime() : null,
-      createdAt:p.created_at ? new Date(p.created_at).getTime() : null
+      createdAt:p.created_at ? new Date(p.created_at).getTime() : null,
+      portalKeys: portalRows.filter(row=>row.user_id===p.id && row.can_view!==false).map(row=>row.portal_key)
     }));
   }catch(e){ dbError(e, 'تعذّر تحميل المستخدمين'); users = []; }
   finally{ netEnd(); }
@@ -6511,20 +6538,18 @@ let users = [];
 let currentUser = null;
 let currentPortal = null;
 let currentPortals = [];
+let currentPortalPermissions = {portalKeys:[]};
+let portalPermissionsLoaded = false;
 let bsgtWorkspacePermissionRows = [];
 let bsgtWorkspacePermissionsLoaded = false;
 const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
 const PORTAL_ACCESS_MESSAGE_KEY = window.JahezPortalAccess?.ACCESS_MESSAGE_KEY || 'jahez:portal-access-message';
+let resolveAccessReady;
+const accessReadyPromise = new Promise(resolve=>{ resolveAccessReady = resolve; });
+let accessReadyResolved = false;
 
 function safeAuthReturnPath(value){
-  if(!value || typeof value !== 'string') return '';
-  try{
-    const target = new URL(value, location.origin);
-    if(target.origin !== location.origin || target.pathname === '/') return '';
-    return target.pathname + target.search + target.hash;
-  }catch(error){
-    return '';
-  }
+  return window.JahezSessionNavigation?.safeInternalPath(value, location.origin) || '';
 }
 
 function rememberAuthReturnPath(path){
@@ -6544,26 +6569,21 @@ function takeAuthReturnPath(){
 }
 
 async function getRestorableSession(attempts = 3){
-  let lastError = null;
-  for(let attempt = 0; attempt < attempts; attempt++){
-    try{
-      const {data, error} = await sb.auth.getSession();
-      if(data?.session?.user) return {session:data.session, error:null};
-      if(!error) return {session:null, error:null};
-      lastError = error;
-    }catch(error){
-      lastError = error;
-    }
-    if(attempt < attempts - 1) await new Promise(resolve=>setTimeout(resolve, 450 * (attempt + 1)));
-  }
-  return {session:null, error:lastError};
+  const result = await window.JahezSessionNavigation.restoreSession(sb, {attempts});
+  return {session:result.session, error:result.error, status:result.status};
 }
 
 function restoreAuthenticatedLocation(){
   const target = takeAuthReturnPath();
   const current = location.pathname + location.search + location.hash;
   if(target && target !== current){
-    location.replace(target);
+    const parsed = new URL(target, location.origin);
+    if(parsed.pathname === '/' || /\/index\.html$/i.test(parsed.pathname)){
+      history.replaceState(null, '', target);
+      restoreFromHash();
+    }else{
+      location.assign(target);
+    }
     return;
   }
   restoreFromHash();
@@ -6591,7 +6611,20 @@ function resolveUserPortals(profile, permissions){
   return window.JahezPortalAccess?.resolveUserPortals(profile, permissions) || [];
 }
 function canAccessCurrentPortal(portalKey){
-  return Boolean(window.JahezPortalAccess?.canAccessPortal(portalKey, currentAccessProfile()));
+  return Boolean(portalPermissionsLoaded && window.JahezPortalAccess?.canAccessPortal(portalKey, currentAccessProfile(), currentPortalPermissions));
+}
+async function getPortalPermissions(userId){
+  if(!currentUser || !userId || userId !== currentUser.id) return [];
+  if(isAdmin()){
+    currentPortalPermissions = {portalKeys:Object.keys(window.JahezPortalAccess?.PORTALS || {})};
+    portalPermissionsLoaded = true;
+    return currentPortalPermissions.portalKeys;
+  }
+  const {data, error} = await sb.rpc('get_user_portal_permissions', {p_user_id:userId});
+  if(error) throw error;
+  currentPortalPermissions = {portalKeys:(data || []).filter(row=>row.can_view !== false).map(row=>row.portal_key)};
+  portalPermissionsLoaded = true;
+  return currentPortalPermissions.portalKeys;
 }
 function resolveBsgtCompanyId(){
   return window.JahezBsgtWorkspace?.resolveBsgtCompanyId(companies) || null;
@@ -6618,15 +6651,22 @@ function canAccessBsgtWorkspace(){
 function roleLabel(role){
   return {admin:'مدير النظام', editor:'محرر', viewer:'مشاهد فقط', staff:'موظف', bsgt_user:'مستخدم بوابة BSGT'}[role] || 'مستخدم';
 }
+const APP_VIEW_ALIASES = Object.freeze({bsgt:'records', sea:'records', issued:'records', drafts:'records'});
+function isRegisteredAppView(view){
+  if(view === 'document-editor') return Boolean(document.getElementById('tplEditorOverlay'));
+  const target = APP_VIEW_ALIASES[view] || view;
+  const id = `view${target.charAt(0).toUpperCase()}${target.slice(1)}`;
+  return Boolean(document.getElementById(id)?.classList.contains('view'));
+}
 const APP_VIEW_ACCESS = Object.freeze({
-  admin: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','bsgtWorkspace','activityLog','review','money','wallet','clientProfiles','admin','shipForm','sea','issued','drafts','document-editor']),
   editor: Object.freeze(['dashboard','tasks','createShip','records','operationCenter','bsgt','bsgtWorkspace','activityLog','money','wallet','clientProfiles','shipForm','sea','issued','drafts']),
   staff: Object.freeze(['dashboard','tasks','records','clientProfiles','shipForm','bsgtWorkspace']),
   viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','bsgtWorkspace','activityLog','clientProfiles','sea','issued','drafts']),
   bsgt_user: Object.freeze(['dashboard','bsgt','bsgtWorkspace'])
 });
 function canAccessAppView(view){
-  if(!currentUser) return false;
+  if(!currentUser || !isRegisteredAppView(view)) return false;
+  if(isAdmin()) return true;
   if(view === 'bsgtWorkspace') return canAccessBsgtWorkspace();
   if(currentUser.role==='staff' && view==='records') return Boolean(allowStaffRecords);
   return Boolean((APP_VIEW_ACCESS[currentUser.role] || []).includes(view));
@@ -6656,8 +6696,9 @@ function renderEmployeeNavigation(){
   currentPortals = [];
   currentPortal = null;
   if(!currentUser) return;
-  currentPortals = resolveUserPortals(currentAccessProfile());
-  currentPortal = resolveUserPortal(currentAccessProfile());
+  if(!portalPermissionsLoaded) return;
+  currentPortals = resolveUserPortals(currentAccessProfile(), currentPortalPermissions);
+  currentPortal = resolveUserPortal(currentAccessProfile(), currentPortalPermissions);
   currentPortals.forEach(portal=>{
     const link = document.createElement('a');
     link.href = portal.href;
@@ -6666,6 +6707,15 @@ function renderEmployeeNavigation(){
     const label = document.createElement('span');
     label.textContent = portal.label;
     link.appendChild(label);
+    if(portal.key === 'import_permit'){
+      link.addEventListener('click', event=>{
+        event.preventDefault();
+        window.openImportPermitHistory?.();
+      });
+    }else{
+      const returnTo = location.pathname + location.search + location.hash;
+      link.href = window.JahezSessionNavigation.buildPortalUrl(portal.href, returnTo, location.origin);
+    }
     links.appendChild(link);
   });
   const dashboardButton = document.getElementById('employeeDashboardNav');
@@ -6673,6 +6723,16 @@ function renderEmployeeNavigation(){
   syncEmployeeNavigationState();
   nav.hidden = false;
 }
+
+window.JahezAccess = Object.freeze({
+  ready:()=>accessReadyPromise,
+  isAdmin:()=>isAdmin(),
+  canViewAppRoute:view=>canAccessAppView(view),
+  canAccessPortal:key=>canAccessCurrentPortal(key),
+  canAccessBsgtSection:section=>Boolean(window.JahezBsgtWorkspace?.permissionFor(section, currentAccessProfile(), bsgtWorkspacePermissionRows)),
+  profile:()=>currentAccessProfile(),
+  portalPermissions:()=>currentPortalPermissions
+});
 function showPendingPortalAccessMessage(){
   let message = '';
   try{
@@ -6867,7 +6927,35 @@ function showLanding(){
   if(landing) landing.hidden = false;
   if(lock) lock.classList.add('hidden');
   if(back) back.hidden = true;
+  document.getElementById('authRestoreScreen').hidden = true;
   closeLandingMenu();
+}
+
+function showAuthRestoring(message){
+  const screen = document.getElementById('authRestoreScreen');
+  screen.hidden = false;
+  document.getElementById('authRestoreTitle').textContent = 'جاري استرجاع جلسة الدخول';
+  document.getElementById('authRestoreMessage').textContent = message || 'لحظات ونفتح نفس الصفحة التي كنت تعمل عليها.';
+  document.getElementById('authRestoreRetry').hidden = true;
+}
+
+function showAuthRecovery(error){
+  const screen = document.getElementById('authRestoreScreen');
+  screen.hidden = false;
+  document.getElementById('authRestoreTitle').textContent = 'تعذر تحديث الجلسة مؤقتاً';
+  document.getElementById('authRestoreMessage').textContent = 'اتصال الشبكة غير مستقر. لم يتم تسجيل خروجك ويمكنك إعادة المحاولة.';
+  document.getElementById('authRestoreRetry').hidden = false;
+  if(error) console.warn('auth recovery pending', error);
+}
+
+function showAuthAccessDenied(message){
+  const screen = document.getElementById('authRestoreScreen');
+  screen.hidden = false;
+  document.getElementById('authRestoreTitle').textContent = 'تعذر فتح الحساب داخل النظام';
+  document.getElementById('authRestoreMessage').textContent = message || 'جلسة الدخول موجودة، لكن تعذر تحميل الملف الشخصي أو الصلاحيات.';
+  const retry = document.getElementById('authRestoreRetry');
+  retry.hidden = false;
+  retry.textContent = 'إعادة المحاولة';
 }
 
 async function openLoginFromLanding(){
@@ -6881,6 +6969,7 @@ async function initLock(){
   document.body.classList.add('login-active');
   document.getElementById('landingPage').hidden = true;
   document.getElementById('lockScreen').classList.remove('hidden');
+  document.getElementById('authRestoreScreen').hidden = true;
   document.getElementById('lockSub').textContent = 'مرتبطة بخدمات BSGT لتجربة لوجستية متكاملة';
   document.getElementById('lockBtnTxt').textContent = 'تسجيل الدخول';
   try{
@@ -6954,11 +7043,12 @@ async function afterSignIn(authUser){
   }
   if(!prof){
     const netIssue = lastErr && /Failed to fetch|NetworkError|timeout/i.test(lastErr.message||'');
+    const invalidSession = window.JahezSessionNavigation.isInvalidSessionError(lastErr);
     loginError(netIssue
       ? 'تعذّر الاتصال بالخادم. تأكد من الإنترنت وحاول تاني.'
       : 'تعذّر قراءة صلاحياتك. كلّم مدير النظام.');
-    if(!netIssue) await sb.auth.signOut();   // لا نطرد المستخدم بسبب الشبكة
-    return netIssue ? 'network' : 'failed';
+    if(invalidSession){ await sb.auth.signOut(); return 'unauthenticated'; }
+    return netIssue ? 'network' : 'denied';
   }
   if(prof.active === false){
     loginError('هذا الحساب موقوف. راجع مدير النظام.');
@@ -6973,11 +7063,24 @@ async function afterSignIn(authUser){
     lastLogin: prof.last_login ? new Date(prof.last_login).getTime() : null,
     profile: prof
   };
+  try{
+    await getPortalPermissions(currentUser.id);
+  }catch(error){
+    console.error('portal permissions', error);
+    portalPermissionsLoaded = false;
+    if(window.JahezSessionNavigation.isInvalidSessionError(error)){ await sb.auth.signOut(); return 'unauthenticated'; }
+    return window.JahezSessionNavigation.isTransientError(error) ? 'network' : 'denied';
+  }
   sb.from('profiles').update({last_login:new Date().toISOString()}).eq('id', prof.id).then(()=>{});
 
   await bootData();
   unlockApp();
+  if(!accessReadyResolved){
+    accessReadyResolved = true;
+    resolveAccessReady(window.JahezAccess);
+  }
   window.dispatchEvent(new CustomEvent('jahez:session-ready'));
+  window.dispatchEvent(new CustomEvent('jahez:access-ready'));
   addLog('add', 'تسجيل دخول: ' + currentUser.displayName);
   return 'ok';
 }
@@ -7054,6 +7157,7 @@ function unlockApp(){
   document.body.classList.remove('landing-active');
   document.getElementById('landingPage').hidden = true;
   document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('authRestoreScreen').hidden = true;
   document.getElementById('loginPass').value = '';
   document.getElementById('lockErr').textContent = '';
   const roleAr = roleLabel(currentUser.role);
@@ -7091,6 +7195,8 @@ async function lockApp(){
   currentUser = null;
   currentPortal = null;
   currentPortals = [];
+  currentPortalPermissions = {portalKeys:[]};
+  portalPermissionsLoaded = false;
   bsgtWorkspacePermissionRows = [];
   bsgtWorkspacePermissionsLoaded = false;
   const employeeNav = document.getElementById('employeeTopNav');
@@ -7646,6 +7752,7 @@ function renderUsers(){
   const el = document.getElementById('usersList');
   if(!el || !currentUser) return;
   document.getElementById('usersCount').textContent = `(${users.length})`;
+  const portalEntries = Object.values(window.JahezPortalAccess?.PORTALS || {});
   el.innerHTML = users.map(u=>`
     <div class="user-row" data-uid="${u.id}">
       <div class="user-av">${avatarHtml(u)}</div>
@@ -7655,6 +7762,15 @@ function renderUsers(){
           ${u.active===false?'<span class="user-badge off">موقوف</span>':''}
         </div>
         <div class="um">${escapeHtml(u.email||'')} · آخر دخول: ${u.lastLogin? timeAgo(u.lastLogin):'—'}</div>
+        <div class="user-portal-assignments">
+          ${u.role==='admin'
+            ? '<span class="user-full-access">صلاحية كاملة — مدير النظام</span>'
+            : portalEntries.map(portal=>{
+                const allowed = portal.allowedRoles.includes(u.role);
+                const checked = (u.portalKeys || []).includes(portal.key);
+                return `<label class="user-portal-assignment ${allowed?'':'is-unavailable'}"><input class="portal-assignment" type="checkbox" data-portal-key="${portal.key}" ${checked?'checked':''} ${allowed?'':'disabled'}> ${escapeHtml(portal.label)}</label>`;
+              }).join('')}
+        </div>
       </div>
       <div class="user-acts">
         <button class="btn btn-ghost btn-small act-pass">إعادة تعيين كلمة المرور</button>
@@ -7674,6 +7790,31 @@ document.getElementById('usersList').addEventListener('click', async (e)=>{
   if(!u) return;
 
   if(e.target.closest('.user-av')){ openUserDashboard(u.id); return; }
+
+  const portalAssignment = e.target.closest('.portal-assignment');
+  if(portalAssignment){
+    if(u.role === 'admin') return;
+    const portalKey = portalAssignment.dataset.portalKey;
+    portalAssignment.disabled = true;
+    try{
+      if(portalAssignment.checked){
+        const {error} = await sb.from('user_portal_permissions').upsert({user_id:u.id, portal_key:portalKey, can_view:true}, {onConflict:'user_id,portal_key'});
+        if(error) throw error;
+        u.portalKeys = [...new Set([...(u.portalKeys || []), portalKey])];
+      }else{
+        const {error} = await sb.from('user_portal_permissions').delete().eq('user_id',u.id).eq('portal_key',portalKey);
+        if(error) throw error;
+        u.portalKeys = (u.portalKeys || []).filter(key=>key!==portalKey);
+      }
+      addLog('edit',`${portalAssignment.checked?'منح':'إزالة'} صلاحية ${window.JahezPortalAccess.PORTALS[portalKey]?.label || portalKey}: ${u.email}`);
+    }catch(err){
+      portalAssignment.checked = !portalAssignment.checked;
+      dbError(err,'تعذّر تحديث صلاحية البوابة');
+    }finally{
+      portalAssignment.disabled = false;
+    }
+    return;
+  }
 
   if(e.target.classList.contains('act-pass')){
     if(!confirm(`إرسال رابط إعادة تعيين كلمة المرور إلى ${u.email}؟`)) return;
@@ -7728,6 +7869,11 @@ document.getElementById('addUserBtn').addEventListener('click', async ()=>{
     if(created && displayName){
       try{
         await dbUpdateProfile(created.id, {display_name: displayName, role: bsgtOnly ? 'bsgt_user' : created.role});
+        if(bsgtOnly){
+          const {error:portalError} = await sb.from('user_portal_permissions').upsert({user_id:created.id, portal_key:'commercial_collection', can_view:true}, {onConflict:'user_id,portal_key'});
+          if(portalError) throw portalError;
+          created.portalKeys = ['commercial_collection'];
+        }
         created.displayName = displayName;
         if(bsgtOnly) created.role = 'bsgt_user';
         renderUsers();
@@ -9062,13 +9208,25 @@ let bsgtOperationsSearchTimer = null;
 
 const bsgtCommodityImageResolver = window.JahezCommodityImages?.createResolver({
   fetchImage:async ({itemDesc, hsCode})=>{
-    const {data:{session}} = await sb.auth.getSession();
-    if(!session?.access_token) throw new Error('No active session');
     const query = new URLSearchParams({q:itemDesc});
     if(hsCode) query.set('hs', hsCode);
-    const response = await fetch(`/api/commodity-image?${query}`, {headers:{Authorization:`Bearer ${session.access_token}`}});
+    const request = await window.JahezSessionNavigation.fetchWithSessionRetry(sb, fetch, `/api/commodity-image?${query}`);
+    if(!request.response) throw new Error('No active session');
+    const response = request.response;
     if(!response.ok) throw new Error(`Commodity image request failed (${response.status})`);
     return response.json();
+  }
+});
+document.getElementById('authRestoreRetry').addEventListener('click', ()=>initializeAuthentication());
+
+sb.auth.onAuthStateChange((event, session)=>{
+  if(event !== 'SIGNED_OUT' || session) return;
+  currentUser = null;
+  currentPortalPermissions = {portalKeys:[]};
+  portalPermissionsLoaded = false;
+  if(!isPublicLandingRequest()){
+    rememberAuthReturnPath();
+    setTimeout(()=>initLock(), 0);
   }
 });
 
@@ -9252,12 +9410,12 @@ function wireBsgtOperationsDetail(record){
 async function changeBsgtCommodityImage(record){
   const imageUrl=prompt('ألصق رابط صورة HTTPS، أو اتركه فارغاً لإعادة البحث عن الصنف:','');
   if(imageUrl===null) return;
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session?.access_token) return toast('انتهت جلسة الدخول.','err');
   const query=new URLSearchParams({q:record.itemDesc||''});
   if(record.hsCode) query.set('hs',record.hsCode);
   try{
-    const response=await fetch(`/api/commodity-image?${query}`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify(imageUrl.trim()?{action:'override',imageUrl:imageUrl.trim()}:{action:'refresh'})});
+    const request=await window.JahezSessionNavigation.fetchWithSessionRetry(sb,fetch,`/api/commodity-image?${query}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(imageUrl.trim()?{action:'override',imageUrl:imageUrl.trim()}:{action:'refresh'})});
+    if(!request.response) throw new Error('انتهت جلسة الدخول.');
+    const response=request.response;
     const result=await response.json();
     if(!response.ok) throw new Error(result.error||'تعذر تغيير الصورة.');
     bsgtCommodityImageResolver?.invalidate(record);
@@ -9484,7 +9642,8 @@ function renderBsgtTradeFileDetail(){
   const returnEvent=bsgtFinanceState.events.find(event=>event.trade_file_id===file.id&&['returned_to_operations','returned_to_finance'].includes(event.event_type));
   const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
   const profile=currentAccessProfile(), creator=file.created_by===profile?.id?(profile.display_name||profile.email||'الحساب الحالي'):String(file.created_by||'—').slice(0,8);
-  host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
+  const collectionUrl=window.JahezSessionNavigation.buildPortalUrl(window.JahezBsgtFinance.collectionPortalUrl(file.id),location.pathname+location.search+location.hash,location.origin);
+  host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(collectionUrl)}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
     <div class="bsgt-finance-summary"><div class="bsgt-finance-stat"><span>رقم الملف</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-finance-stat"><span>عدد الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-finance-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-finance-stat"><span>تاريخ الإنشاء</span><b>${escapeHtml(formatShipmentAuditDate(file.created_at))}</b></div></div>
     ${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. لا يمكن إرسال الملف للبنك المرسل.</div>':''}
     ${returnEvent?`<div class="bsgt-finance-warning"><b>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}:</b> ${escapeHtml(returnEvent.note||'راجع ملاحظات الإدارة.')}</div>`:''}
@@ -15730,7 +15889,10 @@ document.getElementById('bsgtCollectionLabBtn').addEventListener('click', ()=>{
     toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err');
     return;
   }
-  window.open('/experiments/bs-collection/', '_blank', 'noopener');
+  const returnTo = location.pathname + location.search + location.hash;
+  window.JahezSessionNavigation.rememberPortalReturn(returnTo);
+  const portalUrl = window.JahezSessionNavigation.buildPortalUrl('/experiments/bs-collection/', returnTo, location.origin);
+  window.open(portalUrl, '_blank', 'noopener');
 });
 document.getElementById('bsgtShipCloseX').addEventListener('click', ()=>{
   bsgtWorkspaceFormContext = false;
@@ -16515,7 +16677,7 @@ function renderCommercialCollectionHistory(r){
   if(!operations.length) return '';
   const statusLabels = {sent:'بانتظار التحصيل', collected:'تم التحصيل', cancelled:'ملغاة'};
   return `<details class="bsgt-doc-order" open><summary class="sf-head"><span>${icon('bank',14)} عمليات التحصيل التجاري (${operations.length})</span></summary><div class="bsgt-operation-audit">${operations.map(operation=>`
-    <div><span>${escapeHtml(statusLabels[operation.status]||operation.status||'محفوظة')}</span><b>${escapeHtml(operation.operationNo||'—')}</b><small>${escapeHtml(formatShipmentAuditDate(operation.sentAt||operation.completedAt))} · مستبعدة من QR</small><a class="btn btn-ghost btn-small" href="${escapeHtml(`/experiments/bs-collection/?shipment=${encodeURIComponent(r.id)}&operation=${encodeURIComponent(operation.operationNo||'')}`)}" target="_blank" rel="noopener">${icon('eye',13)} معاينة المستندات</a></div>
+    <div><span>${escapeHtml(statusLabels[operation.status]||operation.status||'محفوظة')}</span><b>${escapeHtml(operation.operationNo||'—')}</b><small>${escapeHtml(formatShipmentAuditDate(operation.sentAt||operation.completedAt))} · مستبعدة من QR</small><a class="btn btn-ghost btn-small" href="${escapeHtml(window.JahezSessionNavigation.buildPortalUrl(`/experiments/bs-collection/?shipment=${encodeURIComponent(r.id)}&operation=${encodeURIComponent(operation.operationNo||'')}`, location.pathname+location.search+location.hash, location.origin))}" target="_blank" rel="noopener">${icon('eye',13)} معاينة المستندات</a></div>
   `).join('')}</div></details>`;
 }
 
@@ -21220,23 +21382,20 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
   }
 });
 
-(async function init(){
+async function initializeAuthentication(){
   hydrateIcons();
   applyBranding();
+  showAuthRestoring();
   // جلب الهوية (الشعار/الألوان/صورة شاشة الدخول) بدون انتظار — تظهر شاشة القفل فوراً بالوضع
   // الافتراضي ثم تُحدَّث تلقائياً فور وصول الهوية الحقيقية، حتى قبل تسجيل الدخول (يحتاج ملف SQL رقم 17)
   loadBranding().then(applyBranding).catch(e=>console.warn('early branding load failed', e));
   try{ lastSeenAt = +(localStorage.getItem('lastSeenAt')||0); }catch(e){}
-  // The public root is an explicit landing/login entry. Do not restore a saved
-  // session behind the visible login screen; authentication starts only after submit.
-  // Internal routes (for example /#v=dashboard) still restore the shared session.
-  if(isPublicLandingRequest()){
-    showLanding();
-    return;
-  }
   try{
-    const {session, error:sessionError} = await getRestorableSession();
-    if(sessionError) throw sessionError;
+    const {session, error:sessionError, status:sessionStatus} = await getRestorableSession();
+    if(sessionStatus === 'network_error'){
+      showAuthRecovery(sessionError);
+      return;
+    }
     if(session && session.user){
       // استرجاع الجلسة بيحصل والمتصفح لسه بيحمّل الملف الضخم بمكتباته —
       // لو afterSignIn فشلت بسبب الشبكة، نعيد المحاولة كاملة قبل ما نستسلم لشاشة الدخول
@@ -21249,18 +21408,27 @@ document.getElementById('tplResetBtn').addEventListener('click', ()=>{
         restoreAuthenticatedLocation();
         return;
       }
-      // فشلت فعلياً بعد كل المحاولات (أو غياب صلاحية) — تفضل شاشة الدخول ظاهرة
+      if(status === 'network'){
+        showAuthRecovery(sessionError);
+        return;
+      }
+      if(status === 'denied'){
+        showAuthAccessDenied();
+        return;
+      }
     }
   }catch(e){
     console.error('session restore failed', e);
-    loginError('تعذّر استرجاع الجلسة. سجّل دخول من جديد.');
+    showAuthRecovery(e);
+    return;
   }
   if(isPublicLandingRequest()) showLanding();
   else{
     rememberAuthReturnPath();
     await initLock();
   }
-})();
+}
+initializeAuthentication();
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
