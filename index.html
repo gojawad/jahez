@@ -2496,7 +2496,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-master-detail-2">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-document-delete-1">
 </head>
 <body class="landing-active">
 
@@ -5871,7 +5871,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="portal-access.js?v=20260912-1"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
-<script src="bsgt-operations.js?v=20260912-master-detail-2"></script>
+<script src="bsgt-operations.js?v=20260912-document-delete-1"></script>
 <script src="commodity-images.js?v=20260912-master-detail-2"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260912-1"></script>
@@ -10392,7 +10392,7 @@ function refreshSignedDocumentsPanel(r){
 
 let activeShipmentWorkflowDialogCloser = null;
 
-function showShipmentWorkflowDialog({title, message, confirmLabel = '', cancelLabel = 'إلغاء'} = {}){
+function showShipmentWorkflowDialog({title, message, details = [], confirmLabel = '', cancelLabel = 'إلغاء', danger = false} = {}){
   activeShipmentWorkflowDialogCloser?.(false);
   return new Promise(resolve=>{
     document.getElementById('shipmentWorkflowDialog')?.remove();
@@ -10401,11 +10401,13 @@ function showShipmentWorkflowDialog({title, message, confirmLabel = '', cancelLa
     dialog.className = 'overlay open bsgt-top-layer workflow-dialog-overlay';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
+    const detailRows = Array.isArray(details) ? details.filter(item=>item?.label && item?.value) : [];
     dialog.innerHTML = `<div class="workflow-dialog-card">
       <h3>${escapeHtml(title || 'تنبيه')}</h3>
       <p>${escapeHtml(message || '')}</p>
+      ${detailRows.length?`<dl class="bsgt-operation-delete-details">${detailRows.map(item=>`<div><dt>${escapeHtml(item.label)}</dt><dd>${escapeHtml(item.value)}</dd></div>`).join('')}</dl>`:''}
       <div class="workflow-dialog-actions">
-        ${confirmLabel ? `<button type="button" class="btn btn-primary" data-workflow-dialog="confirm">${escapeHtml(confirmLabel)}</button><button type="button" class="btn btn-ghost" data-workflow-dialog="cancel">${escapeHtml(cancelLabel)}</button>` : `<button type="button" class="btn btn-primary" data-workflow-dialog="cancel">حسناً</button>`}
+        ${confirmLabel ? `<button type="button" class="btn ${danger?'btn-danger':'btn-primary'}" data-workflow-dialog="confirm">${escapeHtml(confirmLabel)}</button><button type="button" class="btn btn-ghost" data-workflow-dialog="cancel">${escapeHtml(cancelLabel)}</button>` : `<button type="button" class="btn btn-primary" data-workflow-dialog="cancel">حسناً</button>`}
       </div>
     </div>`;
     let finished = false;
@@ -16695,6 +16697,7 @@ function renderBsgtOperationsDocuments(r){
   const documents = shipmentFilesCache[r.id] || [];
   const evaluation = api.evaluateBsgtOperationsReadiness(r, documents);
   const canEditOperations = bsgtOperationsPermission(true);
+  const canEditDocuments = api.canEditUploadedDocuments(r, canEditOperations);
   const generatedMeta = [
     ['contract','doc','العقد'],
     ['proforma','invoice','الفاتورة المبدئية'],
@@ -16708,7 +16711,7 @@ function renderBsgtOperationsDocuments(r){
   ];
   const generatedCards = generatedMeta.map(([key,docIcon,label])=>{
     const ready = evaluation.generated[key];
-    return `<div class="bsgt-operation-doc-card">
+    return `<div class="bsgt-operation-doc-card" data-bsgt-document-kind="generated">
       <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${ready?'جاهز للمعاينة والطباعة':'يحتاج استكمال بيانات الشحنة'}</small></span>
       <span class="bsgt-operation-doc-status${ready?' is-ready':''}">${ready?'جاهز':'غير مكتمل'}</span>
@@ -16717,21 +16720,22 @@ function renderBsgtOperationsDocuments(r){
   }).join('');
   const uploadedCards = uploadedMeta.map(([key,docIcon,label])=>{
     const file = bsgtOperationsUploadedFile(documents, key);
-    return `<div class="bsgt-operation-doc-card">
+    return `<div class="bsgt-operation-doc-card" data-bsgt-document-kind="uploaded"${file?` data-bsgt-file-id="${escapeHtml(file.id)}"`:''}>
       <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${file?escapeHtml(file.name):'لم يُرفع بعد'}</small></span>
-      <span class="bsgt-operation-doc-status${file?' is-ready':''}">${file?'مرفوع':'مطلوب'}</span>
+      <span class="bsgt-operation-doc-status${file?' is-ready':''}">${file?'مرفوع':'غير مرفوع'}</span>
       <span class="bsgt-operation-doc-actions">
         ${file?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>`:''}
-        ${canEditOperations?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
+        ${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
+        ${file&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
       </span>
     </div>`;
   }).join('');
   const optionalFiles = documents.filter(file=>String(file.document_type||'').toLowerCase()===api.DOCUMENT_TYPES.optionalAttachment);
-  const optionalCards = optionalFiles.map(file=>`<div class="bsgt-operation-doc-card">
+  const optionalCards = optionalFiles.map(file=>`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="uploaded" data-bsgt-file-id="${escapeHtml(file.id)}">
     <span class="bsgt-operation-doc-icon">${icon('folder',15)}</span>
     <span class="bsgt-operation-doc-info"><b>ملف اختياري</b><small>${escapeHtml(file.name)}</small></span>
-    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button></span>
+    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} استبدال</button><button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}</span>
   </div>`).join('');
   const alreadyReady = r.bsgtStage === 'ready_for_finance';
   return `<div class="bsgt-operations-docs">
@@ -16742,7 +16746,7 @@ function renderBsgtOperationsDocuments(r){
     </div>
     <div class="bsgt-operations-groups">
       <div class="bsgt-operations-group"><h4>المستندات المولدة تلقائياً</h4>${generatedCards}</div>
-      <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditOperations?`<div class="bsgt-operation-doc-card"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} رفع</button></span></div>`:''}</div>
+      <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditDocuments?`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="upload-control"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} رفع</button></span></div>`:''}</div>
     </div>
     ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة الإلزامية.</div>':`<div class="bsgt-operations-missing"><b>ناقص:</b> ${evaluation.missing.map(escapeHtml).join('، ')}</div>`}
     <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${(!evaluation.completed||alreadyReady)?'disabled':''}>${icon('arrow',14)} ${alreadyReady?'تم الإرسال للمالية':'إرسال للمالية'}</button>`:''}</div>
@@ -16756,8 +16760,73 @@ function refreshBsgtOperationsPanel(r){
   wireBsgtOperationsPanel(r);
 }
 
+function rerenderBsgtOperationsDocumentState(r){
+  const workspace = document.getElementById('bsgtOperationsWorkspace');
+  if(!workspace) return;
+  bsgtOperationsListState.filesByShipment[r.id] = shipmentFilesCache[r.id] || [];
+  renderBsgtOperationsRows();
+  if(bsgtOperationsListState.selectedId === r.id) renderBsgtOperationsDetail(r);
+}
+
+function bsgtOperationsDocumentLabel(file){
+  const type = String(file?.document_type || '').toLowerCase();
+  const labels = {
+    import_permit:'إذن الاستيراد',
+    certificate_of_origin:'شهادة المنشأ',
+    bill_of_lading:'بوليصة الشحن',
+    optional_attachment:'ملف اختياري'
+  };
+  return labels[type] || String(file?.label || 'المستند');
+}
+
+const bsgtOperationsDeleteInFlight = new Set();
+
+async function deleteBsgtOperationsDocument(r, file, triggerButton, options = {}){
+  const api = window.JahezBsgtOperations;
+  const currentFile = (shipmentFilesCache[r.id] || []).find(item=>item.id===file?.id && item.shipment_id===r.id);
+  if(!currentFile || !api.canDeleteUploadedDocument(r,currentFile,bsgtOperationsPermission(true))){
+    if(!options.silentDenied) toast('لا يمكن حذف هذا المستند في المرحلة الحالية.', 'err');
+    return false;
+  }
+  if(bsgtOperationsDeleteInFlight.has(currentFile.id)) return false;
+  if(!options.skipConfirmation){
+    const approved = await showShipmentWorkflowDialog({
+      title:'هل تريد حذف هذا المستند؟',
+      message:'سيتم إزالة الملف من هذه الشحنة.',
+      details:[{label:'المستند',value:bsgtOperationsDocumentLabel(currentFile)},{label:'اسم الملف',value:currentFile.name || '—'}],
+      confirmLabel:'حذف المستند',
+      danger:true
+    });
+    if(!approved) return false;
+  }
+  const originalHtml = triggerButton?.innerHTML || '';
+  bsgtOperationsDeleteInFlight.add(currentFile.id);
+  if(triggerButton){triggerButton.disabled=true;triggerButton.setAttribute('aria-busy','true');triggerButton.textContent='جارٍ الحذف…';}
+  netStart();
+  try{
+    const {error:storageError}=await sb.storage.from('shipment-files').remove([currentFile.path]);
+    if(storageError) throw storageError;
+    const {data,error}=await sb.rpc('delete_bsgt_operations_document',{p_shipment_id:r.id,p_file_id:currentFile.id});
+    if(error) throw error;
+    if(!data || data.id!==currentFile.id || data.shipment_id!==r.id) throw new Error('تعذر التحقق من المستند المحذوف.');
+    await loadShipmentFiles(r.id);
+    rerenderBsgtOperationsDocumentState(r);
+    if(!options.silentSuccess) toast(options.successMessage || 'تم حذف المستند.');
+    return true;
+  }catch(error){
+    console.error('delete BSGT operations document',error);
+    toast(options.failureMessage || 'تعذر حذف المستند.', 'err');
+    return false;
+  }finally{
+    bsgtOperationsDeleteInFlight.delete(currentFile.id);
+    netEnd();
+    if(triggerButton?.isConnected){triggerButton.disabled=false;triggerButton.removeAttribute('aria-busy');triggerButton.innerHTML=originalHtml;}
+  }
+}
+
 function triggerBsgtOperationsUpload(r, key){
-  if(!bsgtOperationsPermission(true)) return;
+  const api = window.JahezBsgtOperations;
+  if(!api.canEditUploadedDocuments(r,bsgtOperationsPermission(true))) return toast('المستندات للقراءة فقط في المرحلة الحالية.', 'err');
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg';
@@ -16768,7 +16837,10 @@ function triggerBsgtOperationsUpload(r, key){
     const invalid = files.find(file=>!window.JahezBsgtOperations.isSupportedFile(file));
     if(invalid){ alert('الملفات المدعومة: PDF أو PNG أو JPG/JPEG فقط.'); input.remove(); return; }
     const labels = {importPermit:'إذن الاستيراد',certificateOfOrigin:'شهادة المنشأ (بحر سواكن)',billOfLading:'بوليصة الشحن (بحر سواكن)',optionalAttachment:'ملف إضافي اختياري'};
-    if(files.length) await uploadShipmentFiles(r.id, files, labels[key], {documentType:window.JahezBsgtOperations.DOCUMENT_TYPES[key], isRequired:key!=='optionalAttachment'});
+    if(files.length){
+      const uploaded = await uploadShipmentFiles(r.id, files, labels[key], {documentType:api.DOCUMENT_TYPES[key], isRequired:key!=='optionalAttachment'});
+      if(uploaded) rerenderBsgtOperationsDocumentState(r);
+    }
     input.remove();
   });
   document.body.append(input);
@@ -16828,6 +16900,10 @@ function wireBsgtOperationsPanel(r){
   panel.querySelectorAll('[data-bsgt-file-open]').forEach(button=>button.addEventListener('click', ()=>{
     const file = (shipmentFilesCache[r.id] || []).find(item=>item.id===button.dataset.bsgtFileOpen);
     if(file) openShipmentFile(file.path, file.name);
+  }));
+  panel.querySelectorAll('[data-bsgt-file-delete]').forEach(button=>button.addEventListener('click', ()=>{
+    const file = (shipmentFilesCache[r.id] || []).find(item=>item.id===button.dataset.bsgtFileDelete);
+    if(file) deleteBsgtOperationsDocument(r,file,button);
   }));
   const submit = document.getElementById('bsgtSendToFinanceBtn');
   if(submit && !submit.disabled) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit, Boolean(submit.closest('#bsgtOperationsDetail'))));

@@ -36,6 +36,8 @@
     billOfLading: 'بوليصة الشحن'
   });
 
+  const DELETABLE_DOCUMENT_TYPES = Object.freeze(Object.values(DOCUMENT_TYPES));
+
   function hasValue(value) {
     return String(value || '').trim().length > 0;
   }
@@ -102,15 +104,35 @@
     return ['application/pdf', 'image/png', 'image/jpeg'].includes(mime) || /\.(pdf|png|jpe?g)$/i.test(name);
   }
 
+  function isUploadedOperationsDocument(file) {
+    const type = fileType(file);
+    if (DELETABLE_DOCUMENT_TYPES.includes(type)) return true;
+    const label = String(file?.label || '').trim();
+    return Object.values(LEGACY_LABELS).flat().includes(label) || label === 'ملف إضافي اختياري';
+  }
+
+  function canEditUploadedDocuments(shipment, hasEditPermission) {
+    const stage = String(shipment?.bsgtStage || shipment?.bsgt_stage || '').trim();
+    return hasEditPermission === true && stage === 'operations_draft';
+  }
+
+  function canDeleteUploadedDocument(shipment, file, hasEditPermission) {
+    return canEditUploadedDocuments(shipment, hasEditPermission) && isUploadedOperationsDocument(file);
+  }
+
   return Object.freeze({
     STAGES,
     DOCUMENT_TYPES,
     GENERATED_LABELS,
     UPLOADED_LABELS,
+    DELETABLE_DOCUMENT_TYPES,
     generatedReadiness,
     hasDocument,
     evaluateBsgtOperationsReadiness,
     stageLabel,
-    isSupportedFile
+    isSupportedFile,
+    isUploadedOperationsDocument,
+    canEditUploadedDocuments,
+    canDeleteUploadedDocument
   });
 });
