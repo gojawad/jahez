@@ -4,7 +4,8 @@ const SB_KEY = 'sb_publishable_kYEMmAQ2KTETIabDTMz2ig_fNB8vo02';
 const sb = supabase.createClient(SB_URL, SB_KEY, {auth:{storageKey:'shipdocs-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
 const $ = id => document.getElementById(id);
 const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
-const state = {shipments:[], payments:{}, selected:new Set(), overrides:{}, preview:'letter', activeOperationNo:'', convertToAed:false, exchangeRate:3.6725, settings:{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of  Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING LLC',authorizedPerson:'JAWAD ELMASRI',title:'MANAGER',draweeAddress:''}};
+const state = {shipments:[], payments:{}, selected:new Set(), overrides:{}, preview:'letter', activeOperationNo:'', tradeFile:null, convertToAed:false, exchangeRate:3.6725, settings:{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of  Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING LLC',authorizedPerson:'JAWAD ELMASRI',title:'MANAGER',draweeAddress:''}};
+const requestedTradeFileId = new URLSearchParams(location.search).get('tradeFileId');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const collectionListStorageKey = 'bsCollectionDataLists';
 const collectionTextOffsetStorageKey = 'bsCollectionTextOffsets';
@@ -591,7 +592,7 @@ function renderCollectionListManager(){
     return `<span class="collection-list-value"><span title="${esc(text)}">${esc(text)}</span><button type="button" title="حذف" data-remove-list-index="${index}">×</button></span>`;
   }).join(''):'<small>لا توجد قيم محفوظة بعد.</small>';
 }
-const rowToShipment = row => Object.assign({}, row.data||{}, JahezShipmentWorkflow.fromRow(row), {id:row.id,status:row.status,companyId:row.company_id,shipmentNo:row.data?.operationNo||row.task_ref||row.id.slice(0,8)});
+const rowToShipment = row => Object.assign({}, row.data||{}, JahezShipmentWorkflow.fromRow(row), {id:row.id,status:row.status,companyId:row.company_id,bsgtStage:row.bsgt_stage||null,operationsCompletedAt:row.operations_completed_at||null,shipmentNo:row.data?.operationNo||row.task_ref||row.id.slice(0,8)});
 function shipmentDataForUpdate(shipment){
   const data=Object.assign({},shipment);
   ['id','status','companyId','shipmentNo','workflowStage','workflowUpdatedAt','bankSentAt','signedAt','acceptedAt','acceptedBy'].forEach(key=>delete data[key]);
@@ -711,9 +712,9 @@ function renderCollectionSummary(){
 function renderPicker(){
   const search=$('searchInput').value.trim().toLowerCase(), cur=$('currencyFilter').value, consignee=$('consigneeFilter').value;
   const list=state.shipments.filter(s=>{const m=moneyInfo(s.totalAmount);const hay=[s.shipmentNo,s.itemDesc,s.invoiceNo,s.billNo,s.consignee].join(' ').toLowerCase();return (!search||hay.includes(search))&&(!cur||m.currency===cur)&&(!consignee||s.consignee===consignee);});
-  $('shipmentCount').textContent=`${list.length} شحنة BSGT متاحة للقراءة`;
-  $('shipmentList').innerHTML=list.length?list.map(s=>{const m=moneyInfo(s.totalAmount),status=collectionState(s),paid=paidOf(s.id);const statusTag=status==='settled'?'<span class="collection-status settled">تم التحصيل بالكامل</span>':status==='partial'?`<span class="collection-status partial">تحصيل جزئي: ${esc(formatMoney(m.currency,paid))}</span>`:'';return `<label class="shipment-card ${state.selected.has(s.id)?'is-selected':''}"><input type="checkbox" data-select="${esc(s.id)}" ${state.selected.has(s.id)?'checked':''}><div><h3>${esc(s.itemDesc||'-')}</h3><p>${esc(s.consignee||'-')}</p><div class="shipment-meta"><span class="shipment-ref">${esc(s.shipmentNo)}</span><span>${esc(s.invoiceNo||'-')}</span><span>${esc(m.currency)} ${m.number?m.number.toLocaleString('en-US'):'-'}</span></div>${statusTag}</div></label>`}).join(''):'<div class="empty-state">لا توجد نتائج مطابقة.</div>';
-  document.querySelectorAll('[data-select]').forEach(input=>input.addEventListener('change',()=>{input.checked?state.selected.add(input.dataset.select):state.selected.delete(input.dataset.select);state.activeOperationNo='';renderAll();}));
+  $('shipmentCount').textContent=state.tradeFile?`${list.length} شحنة مرتبطة بالملف ${state.tradeFile.operation_no} — الاختيار مقفل`:`${list.length} شحنة BSGT متاحة للقراءة`;
+  $('shipmentList').innerHTML=list.length?list.map(s=>{const m=moneyInfo(s.totalAmount),status=collectionState(s),paid=paidOf(s.id);const statusTag=status==='settled'?'<span class="collection-status settled">تم التحصيل بالكامل</span>':status==='partial'?`<span class="collection-status partial">تحصيل جزئي: ${esc(formatMoney(m.currency,paid))}</span>`:'';return `<label class="shipment-card ${state.selected.has(s.id)?'is-selected':''}"><input type="checkbox" data-select="${esc(s.id)}" ${state.selected.has(s.id)?'checked':''} ${state.tradeFile?'disabled':''}><div><h3>${esc(s.itemDesc||'-')}</h3><p>${esc(s.consignee||'-')}</p><div class="shipment-meta"><span class="shipment-ref">${esc(s.shipmentNo)}</span><span>${esc(s.invoiceNo||'-')}</span><span>${esc(m.currency)} ${m.number?m.number.toLocaleString('en-US'):'-'}</span></div>${statusTag}</div></label>`}).join(''):'<div class="empty-state">لا توجد نتائج مطابقة.</div>';
+  if(!state.tradeFile) document.querySelectorAll('[data-select]').forEach(input=>input.addEventListener('change',()=>{input.checked?state.selected.add(input.dataset.select):state.selected.delete(input.dataset.select);state.activeOperationNo='';renderAll();}));
 }
 function renderDraft(){
   const {rows,currencies,consignees,totals}=detected(); $('selectionHint').textContent=rows.length?`${rows.length} شحنة مختارة في مسودة الإرسال المحلية.`:'اختر شحنة واحدة أو أكثر لبدء المعاينة.';
@@ -821,16 +822,55 @@ async function sendToRemittingBank(){
   const total=collectionTotal(rows);
   if(!confirm(`سيتم تجهيز ${rows.length} شحنة للإرسال إلى ${state.settings.remittingBank}.\n${formatMoney(total.currency,total.number)}\n\nهل تؤكد الإرسال؟`)) return;
   const sentAt=new Date();
-  const batch={id:crypto.randomUUID?crypto.randomUUID():`send-${sentAt.getTime()}`,operationNo:createCollectionOperationNo(sentAt),shipmentIds:rows.map(row=>row.id),snapshotsByShipment:Object.fromEntries(rows.map(row=>[row.id,collectionShipmentSnapshot(row)])),remittingBank:state.settings.remittingBank,amount:formatMoney(total.currency,total.number),sentAt:sentAt.toISOString(),documentSettings:{...state.settings},documentKinds:collectionDocumentKinds(),convertToAed:state.convertToAed,exchangeRate:state.exchangeRate,qrIncluded:false};
+  const batch={id:state.tradeFile?.id||(crypto.randomUUID?crypto.randomUUID():`send-${sentAt.getTime()}`),operationNo:state.tradeFile?.operation_no||createCollectionOperationNo(sentAt),shipmentIds:rows.map(row=>row.id),snapshotsByShipment:Object.fromEntries(rows.map(row=>[row.id,collectionShipmentSnapshot(row)])),remittingBank:state.settings.remittingBank,amount:formatMoney(total.currency,total.number),sentAt:sentAt.toISOString(),documentSettings:{...state.settings},documentKinds:collectionDocumentKinds(),convertToAed:state.convertToAed,exchangeRate:state.exchangeRate,qrIncluded:false};
   try{
-    await saveShipmentCollectionState(rows,'sent',batch);
+    if(state.tradeFile){
+      if(state.tradeFile.status!=='draft') throw new Error('تم إرسال ملف العملية مسبقاً وأصبح للقراءة فقط.');
+      const metadata={documentSettings:batch.documentSettings,documentKinds:batch.documentKinds,amountSnapshot:total.number,currency:total.currency,shipmentNumbers:rows.map(row=>row.shipmentNo),convertToAed:batch.convertToAed,exchangeRate:batch.exchangeRate,qrIncluded:false};
+      const {data,error}=await sb.rpc('send_bsgt_trade_file_to_remitting',{p_trade_file_id:state.tradeFile.id,p_remitting_bank:batch.remittingBank,p_metadata:metadata});
+      if(error) throw error;
+      state.tradeFile=Object.assign({},state.tradeFile,data||{},{status:'sent_to_remitting',sent_to_remitting_at:sentAt.toISOString(),remitting_bank:batch.remittingBank,metadata});
+      state.shipments=state.shipments.map(shipment=>Object.assign({},shipment,{bsgtStage:'sent_to_remitting'}));
+    }else await saveShipmentCollectionState(rows,'sent',batch);
     state.activeOperationNo=batch.operationNo;
-    rebuildRemittingBatches(); renderAll();
+    if(!state.tradeFile) rebuildRemittingBatches(); renderAll();
     showCollectionNotice(`تم إنشاء عملية التحصيل التجاري ${batch.operationNo}. المستندات مرتبطة بالشحنات ومُستبعدة من حزمة QR.`);
     document.querySelector('.collection-portal-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   }catch(error){
     alert(`تعذّر حفظ حالة الإرسال للشحنات. ${error?.message||error}`);
   }
+}
+
+async function financeTradeContextAllowed(profile){
+  if(!requestedTradeFileId) return false;
+  if(profile?.role==='admin') return true;
+  const {data,error}=await sb.rpc('get_bsgt_workspace_permissions',{});
+  if(error) throw error;
+  return (data||[]).some(permission=>permission.section==='finance'&&permission.can_view);
+}
+
+async function loadTradeFileContext(){
+  const {data:file,error:fileError}=await sb.from('trade_collection_files').select('*').eq('id',requestedTradeFileId).single();
+  if(fileError) throw fileError;
+  const {data:links,error:linkError}=await sb.from('trade_collection_file_shipments').select('shipment_id').eq('trade_file_id',requestedTradeFileId);
+  if(linkError) throw linkError;
+  const ids=(links||[]).map(link=>link.shipment_id);
+  if(!ids.length) throw new Error('ملف العملية لا يحتوي على شحنات مرتبطة.');
+  const [{data:rows,error:shipmentError},{data:paymentRows,error:paymentError}]=await Promise.all([
+    sb.from('shipments').select('*').in('id',ids),
+    sb.from('payments').select('*').in('shipment_id',ids).order('paid_on')
+  ]);
+  if(shipmentError) throw shipmentError; if(paymentError) console.warn('payments',paymentError);
+  state.tradeFile=file;
+  state.shipments=(rows||[]).map(rowToShipment);
+  state.selected=new Set(state.shipments.map(shipment=>shipment.id));
+  state.activeOperationNo=file.operation_no;
+  if(file.metadata?.documentSettings) Object.assign(state.settings,file.metadata.documentSettings);
+  if(file.remitting_bank) state.settings.remittingBank=file.remitting_bank;
+  state.payments={}; (paymentRows||[]).forEach(payment=>(state.payments[payment.shipment_id]??=[]).push(payment));
+  document.body.classList.add('trade-file-context');
+  document.querySelector('[data-step-section="settings-section"]')?.classList.remove('admin-document-settings');
+  document.querySelector('.settings-section')?.classList.remove('admin-document-settings');
 }
 function renderAll(){renderPicker();renderDraft();renderCollectionSummary();renderPreview();updateConversionControls();renderCollectionPortal();updateActiveCollectionOperationRef();renderDebug();}
 function fillFilters(){const currencies=[...new Set(state.shipments.map(s=>moneyInfo(s.totalAmount).currency).filter(c=>c!=='—'))].sort(), consignees=[...new Set(state.shipments.map(s=>s.consignee).filter(Boolean))].sort();$('currencyFilter').innerHTML='<option value="">كل العملات</option>'+currencies.map(v=>`<option>${esc(v)}</option>`).join('');$('consigneeFilter').innerHTML='<option value="">كل المستوردين</option>'+consignees.map(v=>`<option>${esc(v)}</option>`).join('');}
@@ -878,7 +918,10 @@ async function init(){
     if(loader) loader.innerHTML='<strong>تعذّر التحقق من صلاحية البوابة. حدّث الصفحة وحاول مرة أخرى.</strong>';
     return;
   }
-  if(!portalContext?.profile || !window.JahezPortalAccess?.canAccessPortal('commercial_collection',portalContext.profile)){
+  let financeContextAllowed=false;
+  try{ financeContextAllowed=await financeTradeContextAllowed(portalContext?.profile); }
+  catch(error){ console.error('trade file finance permission',error); }
+  if(!portalContext?.profile || (!window.JahezPortalAccess?.canAccessPortal('commercial_collection',portalContext.profile)&&!financeContextAllowed)){
     denyPortalAccess();
     return;
   }
@@ -898,7 +941,7 @@ async function init(){
     const input = $('settingsForm').elements[key];
     if(input) input.value = value;
   });
-  try{const [{data:companies,error:ce},{data:rows,error:se},{data:paymentRows,error:pe}]=await Promise.all([sb.from('companies').select('*'),sb.from('shipments').select('*').order('updated_at',{ascending:false}),sb.from('payments').select('*').order('paid_on')]);if(ce)throw ce;if(se)throw se;if(pe)console.warn('payments',pe);state.payments={};(paymentRows||[]).forEach(payment=>(state.payments[payment.shipment_id]??=[]).push(payment));const bsgt=(companies||[]).find(c=>/بحر\s*سواكن|bahar\s*swaken/i.test(`${c.name_ar||''} ${c.name_en||''}`));if(!bsgt)throw new Error('لم يتم العثور على شركة بحر سواكن في بيانات الشركات.');await loadSharedCollectionBranding(bsgt);state.shipments=(rows||[]).map(rowToShipment).filter(s=>s.companyId===bsgt.id);await migrateLegacyRemittingBatches(legacyRemittingBatches);rebuildRemittingBatches();fillFilters();renderAll();restoreRequestedCollectionOperation();}catch(error){$('shipmentList').innerHTML=`<div class="empty-state">تعذّر تحميل بوابة التحصيل التجاري: ${esc(error.message||error)}. تأكد من تسجيل الدخول في النظام الأساسي أولاً.</div>`;$('shipmentCount').textContent='لم تُحمّل البيانات';}}
+  try{const {data:companies,error:ce}=await sb.from('companies').select('*');if(ce)throw ce;const bsgt=(companies||[]).find(c=>/بحر\s*سواكن|bahar\s*swaken/i.test(`${c.name_ar||''} ${c.name_en||''}`));if(!bsgt)throw new Error('لم يتم العثور على شركة بحر سواكن في بيانات الشركات.');await loadSharedCollectionBranding(bsgt);if(requestedTradeFileId){await loadTradeFileContext();}else{const [{data:rows,error:se},{data:paymentRows,error:pe}]=await Promise.all([sb.from('shipments').select('*').order('updated_at',{ascending:false}),sb.from('payments').select('*').order('paid_on')]);if(se)throw se;if(pe)console.warn('payments',pe);state.payments={};(paymentRows||[]).forEach(payment=>(state.payments[payment.shipment_id]??=[]).push(payment));state.shipments=(rows||[]).map(rowToShipment).filter(s=>s.companyId===bsgt.id);await migrateLegacyRemittingBatches(legacyRemittingBatches);rebuildRemittingBatches();}fillFilters();renderAll();if(!requestedTradeFileId)restoreRequestedCollectionOperation();}catch(error){$('shipmentList').innerHTML=`<div class="empty-state">تعذّر تحميل بوابة التحصيل التجاري: ${esc(error.message||error)}. تأكد من تسجيل الدخول في النظام الأساسي أولاً.</div>`;$('shipmentCount').textContent='لم تُحمّل البيانات';}}
 ['searchInput','currencyFilter','consigneeFilter'].forEach(id=>$(id).addEventListener('input',renderPicker));
 $('settingsForm').addEventListener('input',event=>{if(!event.target.name)return;state.settings[event.target.name]=event.target.value;renderPreview();renderDebug();});
 $('settingsForm').addEventListener('change',event=>{

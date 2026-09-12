@@ -12,6 +12,8 @@
 <noscript><link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"></noscript>
 <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
 <link rel="stylesheet" href="bsgt-operations.css?v=20260912-1">
+<link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
+<link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
 <style>
 
 :root{
@@ -5849,6 +5851,8 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="portal-access.js?v=20260912-1"></script>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
 <script src="bsgt-operations.js?v=20260912-1"></script>
+<script src="bsgt-finance.js?v=20260912-1"></script>
+<script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
 <script src="contract-client-assets.js?v=20260912-1"></script>
@@ -9047,6 +9051,7 @@ function switchView(v, options){
 }
 
 const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}};
+const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], selected:new Set(), detailId:null};
 let bsgtWorkspaceFormContext = false;
 
 function bsgtOperationsPermission(requireEdit = false){
@@ -9152,6 +9157,162 @@ async function loadBsgtOperationsPage(){
   }
 }
 
+function bsgtFinancePermission(requireEdit = false){
+  const permission = window.JahezBsgtWorkspace?.permissionFor('finance', currentAccessProfile(), bsgtWorkspacePermissionRows);
+  return Boolean(permission && (!requireEdit || permission.canEdit));
+}
+
+function renderBsgtFinanceShell(){
+  return `<section class="bsgt-finance" aria-label="مالية BSGT">
+    <section class="bsgt-finance-section">
+      <header class="bsgt-finance-head"><div><h3>شحنات جاهزة للمالية</h3><p>الشحنات المكتملة في العمليات والمتاحة لإنشاء ملف عملية تجاري.</p></div><div class="bsgt-finance-selection"><span>المحدد</span><b id="bsgtFinanceSelectedCount">0</b>${bsgtFinancePermission(true)?`<button type="button" class="btn bsgt-finance-create" id="bsgtFinanceCreateBtn" disabled>${icon('plus',14)} إنشاء ملف عملية تجاري</button>`:'<span class="bsgt-workspace-readonly">عرض فقط</span>'}</div></header>
+      <div id="bsgtFinanceReady" class="bsgt-finance-table"><div class="bsgt-finance-loading">جاري تحميل الشحنات الجاهزة…</div></div>
+    </section>
+    <section class="bsgt-finance-section">
+      <header class="bsgt-finance-head"><div><h3>ملفات العمليات التجارية</h3><p>ملفات التحصيل المستقلة المرتبطة بشحنات BSGT.</p></div></header>
+      <div id="bsgtFinanceFiles" class="bsgt-finance-files"><div class="bsgt-finance-loading">جاري تحميل الملفات…</div></div>
+    </section>
+    <div id="bsgtFinanceDetail"></div>
+    <div class="bsgt-finance-modal" id="bsgtFinanceConfirm" hidden><div class="bsgt-finance-modal-card" role="dialog" aria-modal="true" aria-labelledby="bsgtFinanceConfirmTitle"><h3 id="bsgtFinanceConfirmTitle">تأكيد إنشاء ملف العملية التجاري</h3><div id="bsgtFinanceConfirmBody"></div><div class="bsgt-finance-modal-actions"><button type="button" class="btn btn-ghost" id="bsgtFinanceConfirmCancel">إلغاء</button><button type="button" class="btn bsgt-finance-create" id="bsgtFinanceConfirmSubmit">تأكيد الإنشاء</button></div></div></div>
+  </section>`;
+}
+
+function bsgtFinanceLinkedSet(){ return new Set(bsgtFinanceState.links.map(link=>link.shipment_id)); }
+function bsgtFinanceAllRows(){
+  const map=new Map([...bsgtFinanceState.readyRows,...bsgtFinanceState.linkedRows].map(row=>[row.id,row]));
+  return [...map.values()];
+}
+
+function renderBsgtFinanceReady(){
+  const host=document.getElementById('bsgtFinanceReady'); if(!host) return;
+  const linked=bsgtFinanceLinkedSet(), rows=bsgtFinanceState.readyRows;
+  if(!rows.length){ host.innerHTML='<div class="bsgt-finance-empty">لا توجد شحنات جاهزة للمالية حالياً.</div>'; return; }
+  host.innerHTML=`<div class="bsgt-finance-row is-head"><span></span><span>رقم العملية</span><span>المرسل إليه</span><span>الصنف</span><span>العملة</span><span>القيمة</span><span>اكتمال العمليات</span><span>الحالة</span></div>${rows.map(row=>{
+    const money=window.JahezBsgtFinance.shipmentMoney(row), isLinked=linked.has(row.id);
+    return `<div class="bsgt-finance-row"><input class="bsgt-finance-check" type="checkbox" data-bsgt-finance-select="${escapeHtml(row.id)}" ${bsgtFinanceState.selected.has(row.id)?'checked':''} ${isLinked?'disabled':''}><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.invoiceNo||'')}</small></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div><span class="bsgt-finance-status">${isLinked?'مرتبطة بملف':'جاهزة للمالية'}</span></div></div>`;
+  }).join('')}`;
+  host.querySelectorAll('[data-bsgt-finance-select]').forEach(input=>input.addEventListener('change',()=>{
+    if(input.checked) bsgtFinanceState.selected.add(input.dataset.bsgtFinanceSelect); else bsgtFinanceState.selected.delete(input.dataset.bsgtFinanceSelect);
+    updateBsgtFinanceSelection();
+  }));
+}
+
+function updateBsgtFinanceSelection(){
+  const count=document.getElementById('bsgtFinanceSelectedCount'), button=document.getElementById('bsgtFinanceCreateBtn');
+  if(count) count.textContent=bsgtFinanceState.selected.size;
+  if(button) button.disabled=!bsgtFinanceState.selected.size;
+}
+
+function renderBsgtFinanceFiles(){
+  const host=document.getElementById('bsgtFinanceFiles'); if(!host) return;
+  const rowsById=new Map(bsgtFinanceAllRows().map(row=>[row.id,row]));
+  if(!bsgtFinanceState.files.length){ host.innerHTML='<div class="bsgt-finance-empty">لا توجد ملفات عمليات تجارية بعد.</div>'; return; }
+  host.innerHTML=bsgtFinanceState.files.map(file=>{
+    const ids=bsgtFinanceState.links.filter(link=>link.trade_file_id===file.id).map(link=>link.shipment_id);
+    const shipments=ids.map(id=>rowsById.get(id)).filter(Boolean), summary=window.JahezBsgtFinance.summarizeShipments(shipments);
+    const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
+    return `<article class="bsgt-finance-file"><div class="bsgt-finance-file-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-finance-file-status${file.status==='sent_to_remitting'?' is-sent':''}">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span></div><p>${escapeHtml(formatShipmentAuditDate(file.created_at))}</p><div class="bsgt-finance-file-meta"><span>${ids.length} شحنة</span><span>${escapeHtml(total)}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-trade-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
+  }).join('');
+  host.querySelectorAll('[data-bsgt-trade-open]').forEach(button=>button.addEventListener('click',()=>openBsgtTradeFile(button.dataset.bsgtTradeOpen)));
+}
+
+function selectedBsgtFinanceRows(){ return bsgtFinanceState.readyRows.filter(row=>bsgtFinanceState.selected.has(row.id)); }
+function openBsgtFinanceConfirmation(){
+  const rows=selectedBsgtFinanceRows(); if(!rows.length) return;
+  const summary=window.JahezBsgtFinance.summarizeShipments(rows), totals=Object.entries(summary.totals).map(([currency,amount])=>window.JahezBsgtFinance.formatMoney(currency,amount)).join('، ');
+  document.getElementById('bsgtFinanceConfirmBody').innerHTML=`<p><b>${rows.length}</b> شحنة: ${rows.map(row=>escapeHtml(row.operationNo||'—')).join('، ')}</p><p>الإجمالي: <b>${escapeHtml(totals||'—')}</b></p>${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. يمكن إنشاء المسودة، لكن لن يمكن إرسالها للبنك قبل توحيد العملة.</div>':''}`;
+  document.getElementById('bsgtFinanceConfirm').hidden=false;
+}
+
+async function createBsgtTradeFile(){
+  if(!bsgtFinancePermission(true)) return;
+  const ids=[...bsgtFinanceState.selected]; if(!ids.length) return;
+  const button=document.getElementById('bsgtFinanceConfirmSubmit'); button.disabled=true; netStart();
+  try{
+    const {data,error}=await sb.rpc('create_bsgt_trade_collection_file',{p_shipment_ids:ids}); if(error) throw error;
+    document.getElementById('bsgtFinanceConfirm').hidden=true; bsgtFinanceState.selected.clear();
+    toast(`تم إنشاء ملف العملية ${data.operation_no}.`); await loadBsgtFinance(); openBsgtTradeFile(data.id);
+  }catch(error){ console.error('create BSGT trade file',error); toast(error.message||'تعذر إنشاء ملف العملية التجاري.','err'); }
+  finally{ netEnd(); if(button?.isConnected) button.disabled=false; }
+}
+
+function openBsgtTradeFile(id){
+  bsgtFinanceState.detailId=id; renderBsgtTradeFileDetail();
+  setTimeout(()=>document.getElementById('bsgtFinanceDetail')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+}
+
+function renderBsgtTradeFileDetail(){
+  const host=document.getElementById('bsgtFinanceDetail'); if(!host) return;
+  const file=bsgtFinanceState.files.find(item=>item.id===bsgtFinanceState.detailId); if(!file){ host.replaceChildren(); return; }
+  const rowMap=new Map(bsgtFinanceAllRows().map(row=>[row.id,row]));
+  const links=bsgtFinanceState.links.filter(link=>link.trade_file_id===file.id), shipments=links.map(link=>rowMap.get(link.shipment_id)).filter(Boolean);
+  const summary=window.JahezBsgtFinance.summarizeShipments(shipments), isDraft=file.status==='draft', canEdit=bsgtFinancePermission(true);
+  const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
+  const profile=currentAccessProfile(), creator=file.created_by===profile?.id?(profile.display_name||profile.email||'الحساب الحالي'):String(file.created_by||'—').slice(0,8);
+  host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
+    <div class="bsgt-finance-summary"><div class="bsgt-finance-stat"><span>رقم الملف</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-finance-stat"><span>عدد الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-finance-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-finance-stat"><span>تاريخ الإنشاء</span><b>${escapeHtml(formatShipmentAuditDate(file.created_at))}</b></div></div>
+    ${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. لا يمكن إرسال الملف للبنك المرسل.</div>':''}
+    <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>الشحنات المرتبطة</h3><p>أرقام الشحنات الأصلية لا تتغير داخل الملف التجاري.</p></div>${canEdit&&isDraft&&bsgtFinanceState.selected.size?`<button type="button" class="btn btn-ghost" id="bsgtTradeAddSelected">إضافة المحدد (${bsgtFinanceState.selected.size})</button>`:''}</header><div class="bsgt-finance-table">${shipments.map(row=>{const money=window.JahezBsgtFinance.shipmentMoney(row);return `<div class="bsgt-finance-row"><span></span><div><b>${escapeHtml(row.operationNo||'—')}</b></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div>${canEdit&&isDraft?`<button type="button" class="btn btn-danger btn-small" data-bsgt-trade-remove="${escapeHtml(row.id)}">إزالة</button>`:'<span class="bsgt-finance-status">مرتبط</span>'}</div></div>`;}).join('')||'<div class="bsgt-finance-empty">لا توجد شحنات مرتبطة.</div>'}</div></section>
+    <section class="bsgt-finance-bank"><label>البنك المرسل<input id="bsgtTradeRemittingBank" value="${escapeHtml(file.remitting_bank||'Abu Dhabi Islamic Bank')}" ${(!canEdit||!isDraft)?'readonly':''}></label>${canEdit&&isDraft?`<button type="button" class="btn bsgt-finance-send" id="bsgtTradeSend" ${(!shipments.length||!summary.sameCurrency)?'disabled':''}>${icon('arrow',14)} إرسال للبنك المرسل</button>`:'<span class="bsgt-finance-file-status is-sent">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>'}</section>
+    <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>مستندات التحصيل</h3><p>خطاب التحصيل · خطاب التعهد · الكمبيالة، وجميعها مستبعدة من QR.</p></div></header></section>
+    <section class="bsgt-finance-timeline"><div class="bsgt-finance-event"><b>تم إنشاء الملف</b><small>${escapeHtml(formatShipmentAuditDate(file.created_at))}</small></div><div class="bsgt-finance-event"><b>تم ربط ${shipments.length} شحنات</b><small>داخل ${escapeHtml(file.operation_no)}</small></div>${file.sent_to_remitting_at?`<div class="bsgt-finance-event"><b>تم الإرسال للبنك المرسل</b><small>${escapeHtml(formatShipmentAuditDate(file.sent_to_remitting_at))}</small></div>`:''}</section>
+  </section>`;
+  document.getElementById('bsgtTradeClose')?.addEventListener('click',()=>{bsgtFinanceState.detailId=null;host.replaceChildren();});
+  document.getElementById('bsgtTradeAddSelected')?.addEventListener('click',()=>addSelectedToBsgtTradeFile(file.id));
+  host.querySelectorAll('[data-bsgt-trade-remove]').forEach(button=>button.addEventListener('click',()=>removeFromBsgtTradeFile(file.id,button.dataset.bsgtTradeRemove)));
+  document.getElementById('bsgtTradeSend')?.addEventListener('click',()=>sendBsgtTradeFile(file,shipments,summary));
+}
+
+async function addSelectedToBsgtTradeFile(tradeFileId){
+  if(!bsgtFinancePermission(true)) return;
+  const ids=[...bsgtFinanceState.selected]; if(!ids.length) return;
+  try{ netStart(); const {error}=await sb.rpc('add_bsgt_shipments_to_trade_file',{p_trade_file_id:tradeFileId,p_shipment_ids:ids}); if(error) throw error; bsgtFinanceState.selected.clear(); toast('تمت إضافة الشحنات إلى الملف.'); await loadBsgtFinance(); openBsgtTradeFile(tradeFileId); }
+  catch(error){ toast(error.message||'تعذرت إضافة الشحنات.','err'); } finally{ netEnd(); }
+}
+
+async function removeFromBsgtTradeFile(tradeFileId,shipmentId){
+  if(!bsgtFinancePermission(true)||!confirm('إزالة الشحنة من ملف المسودة؟ لن تتغير مرحلتها.')) return;
+  try{ netStart(); const {error}=await sb.rpc('remove_bsgt_shipment_from_trade_file',{p_trade_file_id:tradeFileId,p_shipment_id:shipmentId}); if(error) throw error; toast('تمت إزالة الشحنة من الملف.'); await loadBsgtFinance(); openBsgtTradeFile(tradeFileId); }
+  catch(error){ toast(error.message||'تعذرت إزالة الشحنة.','err'); } finally{ netEnd(); }
+}
+
+async function sendBsgtTradeFile(file,shipments,summary){
+  if(!bsgtFinancePermission(true)||!summary.sameCurrency) return;
+  const bank=document.getElementById('bsgtTradeRemittingBank')?.value.trim(); if(!bank) return toast('أدخل اسم البنك المرسل.','err');
+  if(!confirm(`إرسال ${shipments.length} شحنة ضمن ${file.operation_no} إلى ${bank}؟`)) return;
+  const metadata={documentSettings:{remittingBank:bank},documentKinds:['letter','undertaking','exchange'],amountSnapshot:summary.amount,currency:summary.currency,shipmentNumbers:shipments.map(row=>row.operationNo),qrIncluded:false};
+  try{ netStart(); const {error}=await sb.rpc('send_bsgt_trade_file_to_remitting',{p_trade_file_id:file.id,p_remitting_bank:bank,p_metadata:metadata}); if(error) throw error; toast('تم إرسال ملف العملية للبنك المرسل.'); await loadBsgtFinance(); openBsgtTradeFile(file.id); }
+  catch(error){ toast(error.message||'تعذر إرسال الملف للبنك المرسل.','err'); } finally{ netEnd(); }
+}
+
+async function loadBsgtFinance(){
+  const readyHost=document.getElementById('bsgtFinanceReady'), filesHost=document.getElementById('bsgtFinanceFiles');
+  if(!readyHost||!filesHost||!bsgtFinancePermission(false)) return;
+  const companyId=resolveBsgtCompanyId(); if(!companyId){ readyHost.innerHTML='<div class="bsgt-finance-error">تعذر تحديد شركة بحر سواكن.</div>'; return; }
+  const requestId=++bsgtFinanceState.requestId;
+  try{
+    const [readyResult,fileResult]=await Promise.all([
+      sb.from('shipments').select('*').eq('company_id',companyId).eq('bsgt_stage','ready_for_finance').order('operations_completed_at',{ascending:false}).limit(200),
+      sb.from('trade_collection_files').select('*').eq('company_id',companyId).order('created_at',{ascending:false}).limit(200)
+    ]);
+    if(readyResult.error) throw readyResult.error; if(fileResult.error) throw fileResult.error;
+    const files=fileResult.data||[], fileIds=files.map(file=>file.id);
+    let links=[]; if(fileIds.length){ const result=await sb.from('trade_collection_file_shipments').select('id,trade_file_id,shipment_id,created_at').in('trade_file_id',fileIds); if(result.error) throw result.error; links=result.data||[]; }
+    const linkedIds=[...new Set(links.map(link=>link.shipment_id))];
+    let linkedRows=[]; if(linkedIds.length){ const result=await sb.from('shipments').select('*').in('id',linkedIds); if(result.error) throw result.error; linkedRows=(result.data||[]).map(rowToRecord); }
+    if(requestId!==bsgtFinanceState.requestId) return;
+    bsgtFinanceState.readyRows=(readyResult.data||[]).map(rowToRecord); bsgtFinanceState.files=files; bsgtFinanceState.links=links; bsgtFinanceState.linkedRows=linkedRows;
+    const validReady=new Set(bsgtFinanceState.readyRows.map(row=>row.id)); bsgtFinanceState.selected=new Set([...bsgtFinanceState.selected].filter(id=>validReady.has(id)));
+    renderBsgtFinanceReady(); renderBsgtFinanceFiles(); updateBsgtFinanceSelection(); if(bsgtFinanceState.detailId) renderBsgtTradeFileDetail();
+  }catch(error){ console.error('load BSGT finance',error); readyHost.innerHTML=`<div class="bsgt-finance-error">تعذر تحميل المالية: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`; filesHost.innerHTML='<div class="bsgt-finance-error">تعذر تحميل ملفات العمليات التجارية.</div>'; }
+}
+
+function wireBsgtFinanceShell(){
+  document.getElementById('bsgtFinanceCreateBtn')?.addEventListener('click',openBsgtFinanceConfirmation);
+  document.getElementById('bsgtFinanceConfirmCancel')?.addEventListener('click',()=>document.getElementById('bsgtFinanceConfirm').hidden=true);
+  document.getElementById('bsgtFinanceConfirmSubmit')?.addEventListener('click',createBsgtTradeFile);
+}
+
 function renderBsgtWorkspace(requestedSection){
   const api = window.JahezBsgtWorkspace;
   const tabs = document.getElementById('bsgtWorkspaceTabs');
@@ -9174,6 +9335,10 @@ function renderBsgtWorkspace(requestedSection){
     content.innerHTML = renderBsgtOperationsShell(Boolean(permission?.canEdit));
     document.getElementById('bsgtOperationsCreateBtn')?.addEventListener('click', openBsgtShipFormFromWorkspace);
     loadBsgtOperationsPage();
+  }else if(activeSection === 'finance'){
+    content.innerHTML = renderBsgtFinanceShell();
+    wireBsgtFinanceShell();
+    loadBsgtFinance();
   }else{
     content.innerHTML = `
       <div class="bsgt-workspace-placeholder">

@@ -61,5 +61,5 @@ assert.ok(html.includes("sb.rpc('complete_bsgt_operations'"));
 assert.ok(html.includes("documentType:window.JahezBsgtOperations.DOCUMENT_TYPES[key]"));
 assert.ok(html.includes("key === 'optionalAttachment'"));
 assert.ok(html.includes("if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\\nهل تريد المتابعة؟'))"));
-assert.ok(!html.includes('function renderBsgtFinance'));
+assert.ok(html.includes('function renderBsgtFinanceShell'));
 console.log('BSGT operations readiness and migration: passed');

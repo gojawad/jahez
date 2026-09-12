@@ -270,6 +270,10 @@ body, .lab-header, .lab-shell, button, input, select, textarea { font-family: 'I
 .role-collection-preview-only .admin-document-settings,
 .role-collection-preview-only .document-editor-panel { display: none !important; }
 .role-collection-preview-only .document-editor-shell { grid-template-columns: minmax(0,1fr); }
+.trade-file-context .picker-section .filters{display:none!important}
+.trade-file-context .shipment-card{cursor:default}
+.trade-file-context .shipment-card input:disabled{opacity:1;cursor:not-allowed}
+.trade-file-context #resetBtn{display:none!important}
 
 @media (max-width: 1120px) {
   .document-editor-heading { align-items: stretch; flex-direction: column; }
