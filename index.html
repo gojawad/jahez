@@ -11,6 +11,7 @@
 <link rel="preload" as="style" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"></noscript>
 <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
+<link rel="stylesheet" href="bsgt-operations.css?v=20260912-1">
 <style>
 
 :root{
@@ -5847,6 +5848,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="portal-access.js?v=20260912-1"></script>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
+<script src="bsgt-operations.js?v=20260912-1"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
 <script src="contract-client-assets.js?v=20260912-1"></script>
@@ -6051,6 +6053,10 @@ function rowToRecord(row){
   r.bolTemplateId = row.bol_template_id || null;
   r.creditDays = row.credit_days;
   r.dueFrom = row.due_from || '';
+  r.bsgtStage = row.bsgt_stage || null;
+  r.bsgtStageUpdatedAt = row.bsgt_stage_updated_at || null;
+  r.operationsCompletedAt = row.operations_completed_at || null;
+  r.operationsCompletedBy = row.operations_completed_by || null;
   r.createdAt = row.created_at ? new Date(row.created_at).getTime() : Date.now();
   r.updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
   return r;
@@ -6059,9 +6065,14 @@ function recordToRow(r){
   const data = Object.assign({}, r);
   ['id','status','ownerId','createdAt','updatedAt','reviewNote','__saved',
    'dueDate','creditDays','dueFrom','taskRef','companyId','bolTemplateId',
-   'workflowStage','workflowUpdatedAt','bankSentAt','signedAt','acceptedAt','acceptedBy'].forEach(k=>delete data[k]);
+   'workflowStage','workflowUpdatedAt','bankSentAt','signedAt','acceptedAt','acceptedBy',
+   'bsgtStage','bsgtStageUpdatedAt','operationsCompletedAt','operationsCompletedBy'].forEach(k=>delete data[k]);
   const row = { status: r.status === 'draft' ? 'draft' : 'sent', data };
   Object.assign(row, JahezShipmentWorkflow.toRow(r));
+  if(r.bsgtStage !== undefined) row.bsgt_stage = r.bsgtStage || null;
+  if(r.bsgtStageUpdatedAt !== undefined) row.bsgt_stage_updated_at = r.bsgtStageUpdatedAt || null;
+  if(r.operationsCompletedAt !== undefined) row.operations_completed_at = r.operationsCompletedAt || null;
+  if(r.operationsCompletedBy !== undefined) row.operations_completed_by = r.operationsCompletedBy || null;
   if(r.taskRef !== undefined) row.task_ref = r.taskRef || null;
   if(r.dueDate) row.due_date = r.dueDate;
   if(r.creditDays) row.credit_days = +r.creditDays;
@@ -9035,6 +9046,112 @@ function switchView(v, options){
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
 
+const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}};
+let bsgtWorkspaceFormContext = false;
+
+function bsgtOperationsPermission(requireEdit = false){
+  const permission = window.JahezBsgtWorkspace?.permissionFor('operations', currentAccessProfile(), bsgtWorkspacePermissionRows);
+  return Boolean(permission && (!requireEdit || permission.canEdit));
+}
+
+function openBsgtShipFormFromWorkspace(){
+  if(!bsgtOperationsPermission(true)) return toast('هذا القسم متاح للعرض فقط.', 'err');
+  bsgtWorkspaceFormContext = true;
+  openBsgtShipForm(null);
+}
+
+function renderBsgtOperationsShell(canEditOperations){
+  return `<section class="bsgt-operations" aria-label="عمليات BSGT">
+    <header class="bsgt-operations-head">
+      <div><h3>العمليات</h3><p>إنشاء شحنات بحر سواكن واستكمال مستندات مرحلة العمليات حتى تصبح جاهزة للمالية.</p></div>
+      ${canEditOperations ? `<button type="button" class="btn bsgt-operations-create" id="bsgtOperationsCreateBtn">${icon('plus',15)} إنشاء شحنة</button>` : '<span class="bsgt-workspace-readonly">عرض فقط</span>'}
+    </header>
+    <div class="bsgt-operations-list" id="bsgtOperationsList"><div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div></div>
+  </section>`;
+}
+
+function bsgtOperationsStageBadge(stage){
+  const ready = stage === 'ready_for_finance';
+  return `<span class="bsgt-stage-badge${ready?' is-ready':''}">${escapeHtml(window.JahezBsgtOperations.stageLabel(stage))}</span>`;
+}
+
+function renderBsgtOperationsRows(){
+  const host = document.getElementById('bsgtOperationsList');
+  if(!host) return;
+  const state = bsgtOperationsListState;
+  if(!state.rows.length){
+    host.innerHTML = '<div class="bsgt-operations-empty">لا توجد شحنات BSGT في مرحلة العمليات بعد.</div>';
+    return;
+  }
+  const rows = state.rows.map(record=>{
+    const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, state.filesByShipment[record.id] || []);
+    return `<article class="bsgt-operations-row">
+      <div data-label="رقم العملية"><b>${escapeHtml(record.operationNo||'—')}</b><small>${escapeHtml(record.invoiceNo||record.proformaNo||'')}</small></div>
+      <div data-label="المرسل إليه"><b>${escapeHtml(record.consignee||'—')}</b></div>
+      <div data-label="الصنف"><b>${escapeHtml(record.itemDesc||'—')}</b></div>
+      <div data-label="تاريخ الإنشاء"><b>${escapeHtml(formatShipmentAuditDate(record.createdAt))}</b></div>
+      <div data-label="حالة المرحلة">${bsgtOperationsStageBadge(record.bsgtStage)}</div>
+      <div class="bsgt-operations-progress" data-label="اكتمال المستندات"><span>${evaluation.completedCount}</span> / 7 متطلبات</div>
+      <button type="button" class="btn btn-ghost btn-small" data-bsgt-operation-open="${escapeHtml(record.id)}">فتح</button>
+    </article>`;
+  }).join('');
+  const pages = Math.max(1, Math.ceil(state.total / state.pageSize));
+  host.innerHTML = `<div class="bsgt-operations-row is-head"><span>رقم العملية</span><span>المرسل إليه</span><span>الصنف</span><span>تاريخ الإنشاء</span><span>حالة المرحلة</span><span>اكتمال المستندات</span><span>الإجراء</span></div>
+    ${rows}
+    <footer class="bsgt-operations-pager"><span>${state.total} شحنة · صفحة ${state.page} من ${pages}</span><div><button type="button" data-bsgt-page="${state.page-1}" ${state.page<=1?'disabled':''}>السابق</button><button type="button" data-bsgt-page="${state.page+1}" ${state.page>=pages?'disabled':''}>التالي</button></div></footer>`;
+  host.querySelectorAll('[data-bsgt-operation-open]').forEach(button=>button.addEventListener('click', ()=>openDetail(button.dataset.bsgtOperationOpen)));
+  host.querySelectorAll('[data-bsgt-page]').forEach(button=>button.addEventListener('click', ()=>{
+    bsgtOperationsListState.page = Number(button.dataset.bsgtPage) || 1;
+    loadBsgtOperationsPage();
+  }));
+}
+
+async function loadBsgtOperationsPage(){
+  const host = document.getElementById('bsgtOperationsList');
+  if(!host || !bsgtOperationsPermission(false)) return;
+  const companyId = resolveBsgtCompanyId();
+  if(!companyId){
+    host.innerHTML = '<div class="bsgt-operations-error">تعذر تحديد شركة بحر سواكن من بيانات الشركات.</div>';
+    return;
+  }
+  const requestId = ++bsgtOperationsListState.requestId;
+  host.innerHTML = '<div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div>';
+  const from = (bsgtOperationsListState.page - 1) * bsgtOperationsListState.pageSize;
+  const to = from + bsgtOperationsListState.pageSize - 1;
+  try{
+    const {data, count, error} = await sb.from('shipments')
+      .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,created_at,updated_at,data', {count:'exact'})
+      .eq('company_id', companyId)
+      .order('created_at', {ascending:false})
+      .range(from, to);
+    if(error) throw error;
+    if(requestId !== bsgtOperationsListState.requestId) return;
+    const pageRecords = (data || []).map(rowToRecord);
+    const ids = pageRecords.map(record=>record.id);
+    let fileRows = [];
+    if(ids.length){
+      const result = await sb.from('shipment_files')
+        .select('id,shipment_id,document_type,label')
+        .in('shipment_id', ids);
+      if(result.error) throw result.error;
+      fileRows = result.data || [];
+    }
+    const filesByShipment = {};
+    fileRows.forEach(file=>(filesByShipment[file.shipment_id] ||= []).push(file));
+    bsgtOperationsListState.rows = pageRecords;
+    bsgtOperationsListState.total = count || 0;
+    bsgtOperationsListState.filesByShipment = filesByShipment;
+    pageRecords.forEach(record=>{
+      const index = records.findIndex(existing=>existing.id===record.id);
+      if(index >= 0) records[index] = record; else records.push(record);
+    });
+    renderBsgtOperationsRows();
+  }catch(error){
+    console.error('load BSGT operations', error);
+    if(requestId === bsgtOperationsListState.requestId) host.innerHTML = `<div class="bsgt-operations-error">تعذر تحميل العمليات: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;
+  }
+}
+
 function renderBsgtWorkspace(requestedSection){
   const api = window.JahezBsgtWorkspace;
   const tabs = document.getElementById('bsgtWorkspaceTabs');
@@ -9053,13 +9170,19 @@ function renderBsgtWorkspace(requestedSection){
       data-ic="${section.icon}">${section.label}</button>`).join('');
   const section = api.SECTIONS.find(item => item.key === activeSection);
   const permission = api.permissionFor(activeSection, currentAccessProfile(), bsgtWorkspacePermissionRows);
-  content.innerHTML = `
-    <div class="bsgt-workspace-placeholder">
-      <div class="bsgt-workspace-placeholder-icon" data-ic="${section.icon}"></div>
-      <h3>${section.label}</h3>
-      <p>${section.message}</p>
-      ${permission?.canEdit ? '' : '<span class="bsgt-workspace-readonly">عرض فقط</span>'}
-    </div>`;
+  if(activeSection === 'operations'){
+    content.innerHTML = renderBsgtOperationsShell(Boolean(permission?.canEdit));
+    document.getElementById('bsgtOperationsCreateBtn')?.addEventListener('click', openBsgtShipFormFromWorkspace);
+    loadBsgtOperationsPage();
+  }else{
+    content.innerHTML = `
+      <div class="bsgt-workspace-placeholder">
+        <div class="bsgt-workspace-placeholder-icon" data-ic="${section.icon}"></div>
+        <h3>${section.label}</h3>
+        <p>${section.message}</p>
+        ${permission?.canEdit ? '' : '<span class="bsgt-workspace-readonly">عرض فقط</span>'}
+      </div>`;
+  }
   tabs.querySelectorAll('[data-bsgt-section]').forEach(button=>{
     button.addEventListener('click', ()=>switchView('bsgtWorkspace', {section:button.dataset.bsgtSection}));
   });
@@ -9243,7 +9366,10 @@ async function loadShipmentFiles(id){
   }
   renderShipmentFiles(id);
   const r = records.find(item=>item.id===id);
-  if(r) refreshSignedDocumentsPanel(r);
+  if(r){
+    refreshSignedDocumentsPanel(r);
+    if(isBsgtRecord(r)) refreshBsgtOperationsPanel(r);
+  }
 }
 async function uploadShipmentFiles(id, files, label, attributes = {}){
   if(!files || !files.length) return;
@@ -9625,19 +9751,20 @@ const BAHAR_DOC_LABELS = {
   bol:'بوليصة الشحن (بحر سواكن)'
 };
 const BAHAR_EXTERNAL_DOC_META = {
-  importPermit:{label:'إذن الاستيراد', icon:'folder', btnId:'btnBaharImportPermit'},
-  cert:{label:'شهادة المنشأ', icon:'award', btnId:'btnBaharCert'},
-  bol:{label:'بوليصة الشحن', icon:'truck', btnId:'btnBaharBol'}
+  importPermit:{label:'إذن الاستيراد', icon:'folder', btnId:'btnBaharImportPermit', documentType:'import_permit'},
+  cert:{label:'شهادة المنشأ', icon:'award', btnId:'btnBaharCert', documentType:'certificate_of_origin'},
+  bol:{label:'بوليصة الشحن', icon:'truck', btnId:'btnBaharBol', documentType:'bill_of_lading'}
 };
 function baharUploadedDoc(r, key){
   const label = BAHAR_DOC_LABELS[key];
+  const documentType = BAHAR_EXTERNAL_DOC_META[key]?.documentType;
   const list = shipmentFilesCache[r.id] || [];
-  return list.find(f=>f.label===label) || null;
+  return list.find(f=>f.document_type===documentType || f.label===label) || null;
 }
 function triggerBaharDocUpload(r, key){
   if(!canManageShipmentFiles(r)) return;
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'application/pdf,image/*'; input.style.display = 'none';
+  input.type = 'file'; input.accept = 'application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg'; input.style.display = 'none';
   input.addEventListener('change', async function(){
     const files = Array.from(this.files||[]);
     if(files.length) await uploadBaharDocument(r, key, files[0]);
@@ -9648,16 +9775,17 @@ function triggerBaharDocUpload(r, key){
 }
 async function uploadBaharDocument(r, key, file){
   if(!file || !canManageShipmentFiles(r)) return;
-  if(!(file.type==='application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g|webp)$/i.test(file.name||''))){
-    alert('ارفع ملف PDF أو صورة فقط.');
+  if(!window.JahezBsgtOperations.isSupportedFile(file)){
+    alert('ارفع ملف PDF أو PNG أو JPG/JPEG فقط.');
     return;
   }
   const card = document.getElementById(BAHAR_EXTERNAL_DOC_META[key].btnId+'Wrap');
-  const previous = (shipmentFilesCache[r.id] || []).filter(item=>item.label===BAHAR_DOC_LABELS[key]);
+  const documentType = BAHAR_EXTERNAL_DOC_META[key].documentType;
+  const previous = (shipmentFilesCache[r.id] || []).filter(item=>item.document_type===documentType || item.label===BAHAR_DOC_LABELS[key]);
   card?.classList.add('is-uploading');
   const status = card?.querySelector('.s');
   if(status) status.textContent = `جارٍ رفع ${file.name}...`;
-  await uploadShipmentFiles(r.id, [file], BAHAR_DOC_LABELS[key]);
+  await uploadShipmentFiles(r.id, [file], BAHAR_DOC_LABELS[key], {documentType, isRequired:true});
   const latest = baharUploadedDoc(r, key);
   if(latest && !previous.some(item=>item.id===latest.id) && previous.length){
     try{
@@ -9672,7 +9800,8 @@ async function uploadBaharDocument(r, key, file){
 async function deleteBaharDocument(r, key){
   if(!canManageShipmentFiles(r)) return;
   const label = BAHAR_DOC_LABELS[key];
-  const files = (shipmentFilesCache[r.id] || []).filter(item=>item.label===label);
+  const documentType = BAHAR_EXTERNAL_DOC_META[key].documentType;
+  const files = (shipmentFilesCache[r.id] || []).filter(item=>item.document_type===documentType || item.label===label);
   if(!files.length) return;
   if(!confirm(`حذف ملف ${label}؟ ستبقى الخانة فارغة ويمكنك رفع ملف جديد لاحقاً.`)) return;
   const card = document.getElementById(BAHAR_EXTERNAL_DOC_META[key].btnId+'Wrap');
@@ -9686,6 +9815,7 @@ async function deleteBaharDocument(r, key){
     const {error} = await sb.from('shipment_files').delete().in('id', files.map(item=>item.id));
     if(error) throw error;
     shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.label!==label);
+    shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.document_type!==documentType);
     refreshDocActionsGrid(r);
     if(typeof toast === 'function') toast(`تم حذف ${label}`);
   }catch(error){
@@ -14874,8 +15004,14 @@ document.getElementById('bsgtCollectionLabBtn').addEventListener('click', ()=>{
   }
   window.open('/experiments/bs-collection/', '_blank', 'noopener');
 });
-document.getElementById('bsgtShipCloseX').addEventListener('click', ()=> document.getElementById('bsgtShipOverlay').classList.remove('open'));
-document.getElementById('bsgtShipCancelBtn').addEventListener('click', ()=> document.getElementById('bsgtShipOverlay').classList.remove('open'));
+document.getElementById('bsgtShipCloseX').addEventListener('click', ()=>{
+  bsgtWorkspaceFormContext = false;
+  document.getElementById('bsgtShipOverlay').classList.remove('open');
+});
+document.getElementById('bsgtShipCancelBtn').addEventListener('click', ()=>{
+  bsgtWorkspaceFormContext = false;
+  document.getElementById('bsgtShipOverlay').classList.remove('open');
+});
 
 const BSGT_REQUIRED_FIELDS = [
   ['bsgt_itemDesc','وصف الصنف'], ['bsgt_qty','الكمية'], ['bsgt_qtyUnit','نوع التعبئة'],
@@ -14950,7 +15086,7 @@ document.getElementById('bsgt_billNo').addEventListener('input', updateBsgtBillD
 document.getElementById('bsgt_billNo').addEventListener('blur', updateBsgtBillDuplicate);
 
 async function saveBsgtShipment(){
-  if(!canEdit()){ toast('مالكش صلاحية لإضافة أو تعديل الشحنات','err'); return; }
+  if(!canEdit() && !(bsgtWorkspaceFormContext && bsgtOperationsPermission(true))){ toast('مالكش صلاحية لإضافة أو تعديل الشحنات','err'); return; }
   if(!validateBsgtShipment()) return;
   const entry = baharCompanyEntry();
   if(!entry){ alert('شركة بحر سواكن مش موجودة في قائمة الشركات بعد — أضفها من لوحة التحكم أولاً.'); return; }
@@ -15036,6 +15172,7 @@ async function saveBsgtShipment(){
     currency,
     bsgtItemMode,
     bsgtAutoAed: bsgtAutoAed,
+    bsgtStage: prev.bsgtStage || (isNew ? 'operations_draft' : null),
     status: prev.status || 'sent',
   });
   rec.item1Price = withCurrency(itemLines[0].price);
@@ -15054,7 +15191,9 @@ async function saveBsgtShipment(){
   const label = `${rec.operationNo} — ${(rec.itemDesc||'شحنة بحر سواكن').slice(0,40)}` + (rec.invoiceNo? ` — فاتورة ${rec.invoiceNo}` : '');
   addLog(isNew ? 'add' : 'edit', (isNew ? 'إضافة شحنة: ' : 'تعديل شحنة: ') + label);
   document.getElementById('bsgtShipOverlay').classList.remove('open');
+  bsgtWorkspaceFormContext = false;
   render(); renderSea(); renderIssued(); renderDrafts(); renderDashboard();
+  if(document.getElementById('bsgtOperationsList')) loadBsgtOperationsPage();
 }
 document.getElementById('bsgtShipSaveBtn').addEventListener('click', saveBsgtShipment);
 
@@ -15530,12 +15669,12 @@ async function loadShipmentTimeline(r){
 // ===== ترتيب مستندات الحزمة الكاملة =====
 const DOC_ORDER_DEFAULT = ['proforma','invoice','cert','bol','packing'];
 const DOC_META = {
-  contract:  {label:'عقد البيع الدولي', icon:'doc', btnId:'btnContract', ready:r=>!!(r.operationNo && r.consignee && r.itemDesc), readyTxt:'يُنشأ تلقائياً من بيانات الشحنة', notReadyTxt:'أكمل رقم العملية والمشتري والبضاعة أولاً'},
-  proforma: {label:'الفاتورة المبدئية', icon:'invoice', btnId:'btnProforma', ready:r=>!!r.proformaNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم البروفورما أولاً'},
-  invoice:  {label:'الفاتورة النهائية', icon:'invoice', btnId:'btnInvoice', ready:r=>!!r.invoiceNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم الفاتورة أولاً'},
+  contract:  {label:'عقد البيع الدولي', icon:'doc', btnId:'btnContract', ready:r=>window.JahezBsgtOperations.generatedReadiness(r).contract, readyTxt:'يُنشأ تلقائياً من بيانات الشحنة', notReadyTxt:'أكمل رقم العملية والمشتري والبضاعة أولاً'},
+  proforma: {label:'الفاتورة المبدئية', icon:'invoice', btnId:'btnProforma', ready:r=>window.JahezBsgtOperations.generatedReadiness(r).proforma, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم البروفورما أولاً'},
+  invoice:  {label:'الفاتورة النهائية', icon:'invoice', btnId:'btnInvoice', ready:r=>window.JahezBsgtOperations.generatedReadiness(r).invoice, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم الفاتورة أولاً'},
   cert:     {label:'شهادة المنشأ', icon:'award', btnId:'btnCert', ready:r=>!!r.certNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم شهادة المنشأ أولاً'},
   bol:      {label:'بوليصة الشحن', icon:'truck', btnId:'btnBol', ready:r=>!!r.billNo, readyTxt:'تحميل PDF / طباعة', notReadyTxt:'أدخل رقم البوليصة أولاً'},
-  packing:  {label:'كشف التعبئة', icon:'box', btnId:'btnPacking', ready:r=>!!r.invoiceNo, readyTxt:'بيان وكميات فقط — برقم وتاريخ الفاتورة النهائية', notReadyTxt:'أدخل رقم الفاتورة النهائية أولاً'}
+  packing:  {label:'كشف التعبئة', icon:'box', btnId:'btnPacking', ready:r=>window.JahezBsgtOperations.generatedReadiness(r).packing, readyTxt:'بيان وكميات فقط — برقم وتاريخ الفاتورة النهائية', notReadyTxt:'أدخل رقم الفاتورة النهائية أولاً'}
 };
 function docOrderOf(r){
   const isBsgt = isBsgtRecord(r);
@@ -15649,6 +15788,160 @@ function renderCommercialCollectionHistory(r){
   `).join('')}</div></details>`;
 }
 
+function bsgtOperationsUploadedFile(documents, key){
+  const api = window.JahezBsgtOperations;
+  const type = api.DOCUMENT_TYPES[key];
+  const labels = {
+    importPermit:['إذن الاستيراد'],
+    certificateOfOrigin:['شهادة المنشأ','شهادة المنشأ (بحر سواكن)'],
+    billOfLading:['بوليصة الشحن','بوليصة الشحن (بحر سواكن)']
+  }[key] || [];
+  return (documents || []).find(file=>String(file.document_type||'').toLowerCase()===type || labels.includes(String(file.label||'').trim())) || null;
+}
+
+function renderBsgtOperationsDocuments(r){
+  const api = window.JahezBsgtOperations;
+  const documents = shipmentFilesCache[r.id] || [];
+  const evaluation = api.evaluateBsgtOperationsReadiness(r, documents);
+  const canEditOperations = bsgtOperationsPermission(true);
+  const generatedMeta = [
+    ['contract','doc','العقد'],
+    ['proforma','invoice','الفاتورة المبدئية'],
+    ['invoice','invoice','الفاتورة النهائية'],
+    ['packing','box','Packing List']
+  ];
+  const uploadedMeta = [
+    ['importPermit','folder','إذن الاستيراد'],
+    ['certificateOfOrigin','award','شهادة المنشأ'],
+    ['billOfLading','truck','بوليصة الشحن']
+  ];
+  const generatedCards = generatedMeta.map(([key,docIcon,label])=>{
+    const ready = evaluation.generated[key];
+    return `<div class="bsgt-operation-doc-card">
+      <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
+      <span class="bsgt-operation-doc-info"><b>${label}</b><small>${ready?'جاهز للمعاينة والطباعة':'يحتاج استكمال بيانات الشحنة'}</small></span>
+      <span class="bsgt-operation-doc-status${ready?' is-ready':''}">${ready?'جاهز':'غير مكتمل'}</span>
+      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button></span>`:''}
+    </div>`;
+  }).join('');
+  const uploadedCards = uploadedMeta.map(([key,docIcon,label])=>{
+    const file = bsgtOperationsUploadedFile(documents, key);
+    return `<div class="bsgt-operation-doc-card">
+      <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
+      <span class="bsgt-operation-doc-info"><b>${label}</b><small>${file?escapeHtml(file.name):'لم يُرفع بعد'}</small></span>
+      <span class="bsgt-operation-doc-status${file?' is-ready':''}">${file?'مرفوع':'مطلوب'}</span>
+      <span class="bsgt-operation-doc-actions">
+        ${file?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>`:''}
+        ${canEditOperations?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
+      </span>
+    </div>`;
+  }).join('');
+  const optionalFiles = documents.filter(file=>String(file.document_type||'').toLowerCase()===api.DOCUMENT_TYPES.optionalAttachment);
+  const optionalCards = optionalFiles.map(file=>`<div class="bsgt-operation-doc-card">
+    <span class="bsgt-operation-doc-icon">${icon('folder',15)}</span>
+    <span class="bsgt-operation-doc-info"><b>ملف اختياري</b><small>${escapeHtml(file.name)}</small></span>
+    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button></span>
+  </div>`).join('');
+  const alreadyReady = r.bsgtStage === 'ready_for_finance';
+  return `<div class="bsgt-operations-docs">
+    <div class="bsgt-operations-summary">
+      <div class="bsgt-operations-stat"><span>المستندات المولدة</span><b>${evaluation.generatedCount} / 4</b></div>
+      <div class="bsgt-operations-stat"><span>المستندات المطلوبة</span><b>${evaluation.uploadedCount} / 3</b></div>
+      <div class="bsgt-operations-stat"><span>إجمالي المتطلبات الإلزامية</span><b>${evaluation.completedCount} / 7</b></div>
+    </div>
+    <div class="bsgt-operations-groups">
+      <div class="bsgt-operations-group"><h4>المستندات المولدة تلقائياً</h4>${generatedCards}</div>
+      <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditOperations?`<div class="bsgt-operation-doc-card"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} رفع</button></span></div>`:''}</div>
+    </div>
+    ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة الإلزامية.</div>':`<div class="bsgt-operations-missing"><b>ناقص:</b> ${evaluation.missing.map(escapeHtml).join('، ')}</div>`}
+    <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${(!evaluation.completed||alreadyReady)?'disabled':''}>${icon('arrow',14)} ${alreadyReady?'تم الإرسال للمالية':'إرسال للمالية'}</button>`:''}</div>
+  </div>`;
+}
+
+function refreshBsgtOperationsPanel(r){
+  const panel = document.getElementById('bsgtOperationsDocumentsPanel');
+  if(!panel) return;
+  panel.innerHTML = renderBsgtOperationsDocuments(r);
+  wireBsgtOperationsPanel(r);
+}
+
+function triggerBsgtOperationsUpload(r, key){
+  if(!bsgtOperationsPermission(true)) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg';
+  input.multiple = key === 'optionalAttachment';
+  input.style.display = 'none';
+  input.addEventListener('change', async function(){
+    const files = Array.from(this.files || []);
+    const invalid = files.find(file=>!window.JahezBsgtOperations.isSupportedFile(file));
+    if(invalid){ alert('الملفات المدعومة: PDF أو PNG أو JPG/JPEG فقط.'); input.remove(); return; }
+    const labels = {importPermit:'إذن الاستيراد',certificateOfOrigin:'شهادة المنشأ (بحر سواكن)',billOfLading:'بوليصة الشحن (بحر سواكن)',optionalAttachment:'ملف إضافي اختياري'};
+    if(files.length) await uploadShipmentFiles(r.id, files, labels[key], {documentType:window.JahezBsgtOperations.DOCUMENT_TYPES[key], isRequired:key!=='optionalAttachment'});
+    input.remove();
+  });
+  document.body.append(input);
+  input.click();
+}
+
+function openBsgtGeneratedDocument(r, key){
+  if(key === 'contract') return printSingle(r, 'contract', 'en');
+  chooseDocLang(r, lang=>printSingle(r, key, lang));
+}
+
+async function submitBsgtOperationsToFinance(id, button){
+  if(!bsgtOperationsPermission(true)) return;
+  if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
+  button.disabled = true;
+  netStart();
+  try{
+    const [shipmentResult, filesResult] = await Promise.all([
+      sb.from('shipments').select('*').eq('id', id).eq('company_id', resolveBsgtCompanyId()).single(),
+      sb.from('shipment_files').select('*').eq('shipment_id', id).order('created_at',{ascending:false})
+    ]);
+    if(shipmentResult.error) throw shipmentResult.error;
+    if(filesResult.error) throw filesResult.error;
+    const latestRecord = rowToRecord(shipmentResult.data);
+    const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(latestRecord, filesResult.data || []);
+    if(!evaluation.completed){
+      shipmentFilesCache[id] = filesResult.data || [];
+      const index = records.findIndex(record=>record.id===id);
+      if(index >= 0) records[index] = latestRecord;
+      refreshBsgtOperationsPanel(latestRecord);
+      toast('تعذر الإرسال. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
+      return;
+    }
+    const {data, error} = await sb.rpc('complete_bsgt_operations', {p_shipment_id:id});
+    if(error) throw error;
+    const saved = rowToRecord(data);
+    const index = records.findIndex(record=>record.id===id);
+    if(index >= 0) records[index] = saved; else records.push(saved);
+    shipmentFilesCache[id] = filesResult.data || [];
+    toast('تم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.');
+    openDetail(id);
+    loadBsgtOperationsPage();
+  }catch(error){
+    console.error('complete BSGT operations', error);
+    toast(error.message || 'تعذر إرسال الشحنة للمالية.', 'err');
+  }finally{
+    netEnd();
+    if(button?.isConnected) button.disabled = false;
+  }
+}
+
+function wireBsgtOperationsPanel(r){
+  const panel = document.getElementById('bsgtOperationsDocumentsPanel');
+  if(!panel) return;
+  panel.querySelectorAll('[data-bsgt-generated]').forEach(button=>button.addEventListener('click', ()=>openBsgtGeneratedDocument(r, button.dataset.bsgtGenerated)));
+  panel.querySelectorAll('[data-bsgt-upload]').forEach(button=>button.addEventListener('click', ()=>triggerBsgtOperationsUpload(r, button.dataset.bsgtUpload)));
+  panel.querySelectorAll('[data-bsgt-file-open]').forEach(button=>button.addEventListener('click', ()=>{
+    const file = (shipmentFilesCache[r.id] || []).find(item=>item.id===button.dataset.bsgtFileOpen);
+    if(file) openShipmentFile(file.path, file.name);
+  }));
+  const submit = document.getElementById('bsgtSendToFinanceBtn');
+  if(submit && !submit.disabled) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit));
+}
+
 function renderBsgtDetail(r){
   const status = STATUS_AR[recStatus(r)] || 'غير محددة';
   const ownerName = shipmentAuditUserName(r.ownerId);
@@ -15714,6 +16007,11 @@ function renderBsgtDetail(r){
           ${renderSignedDocumentsPanel(r)}
           <div class="doc-actions-grid" id="docActionsGrid">${renderDocActionsGrid(r)}</div>
           <details class="bsgt-doc-order"><summary class="sf-head"><span>${icon('list',14)} ترتيب مستندات الحزمة</span></summary><div id="docOrderList" class="sf-list"></div></details>
+        </section>
+
+        <section class="bsgt-detail-section" id="bsgtOperationsDocuments">
+          <h3>مستندات مرحلة العمليات</h3>
+          <div id="bsgtOperationsDocumentsPanel">${renderBsgtOperationsDocuments(r)}</div>
         </section>
 
         <section class="bsgt-detail-section" id="bsgtShipmentData">
@@ -15849,6 +16147,7 @@ function openDetail(id){
   if(isBsgtDetail){
     wireBsgtDetailSidebar(card);
     wireSignedDocumentsPanel(r);
+    wireBsgtOperationsPanel(r);
   }
   document.getElementById('closeDetail').addEventListener('click', ()=>{
     overlay.classList.remove('open','bsgt-workspace-overlay');
