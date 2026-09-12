@@ -126,14 +126,17 @@
 .bsgt-operations-progress-card header>b{color:#d01119;font-size:17px}
 .bsgt-operations-progress-bar{height:7px;margin:11px 0 15px;overflow:hidden;border-radius:999px;background:#e8ecf1}
 .bsgt-operations-progress-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(135deg,#ea1b23,#d01119)}
-.bsgt-operations-stage-track{display:flex;margin:0;padding:0;list-style:none}
-.bsgt-operations-stage-track li{display:flex;position:relative;flex:1;align-items:center;gap:5px;min-width:0;color:#9aa4b2}
-.bsgt-operations-stage-track li:not(:last-child):after{content:"";position:absolute;right:22px;left:-1px;top:10px;height:2px;background:#dfe4eb}
-.bsgt-operations-stage-track li>span{display:grid;z-index:1;place-items:center;flex:0 0 21px;height:21px;border-radius:50%;background:#dfe4eb;color:#fff;font-size:8px}
-.bsgt-operations-stage-track li>b{font-size:8px;line-height:1.4}
-.bsgt-operations-stage-track li.is-done,.bsgt-operations-stage-track li.is-current{color:#15233b}
-.bsgt-operations-stage-track li.is-done>span,.bsgt-operations-stage-track li.is-done:after{background:#ea1b23}
-.bsgt-operations-stage-track li.is-current>span{background:#d01119;box-shadow:0 0 0 4px #ffe9ea}
+.bsgt-operations-stage-region{min-width:0;margin-top:20px}
+.bsgt-operations-stage-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding:4px 2px 8px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+.bsgt-operations-stage-scroll::-webkit-scrollbar{height:5px}.bsgt-operations-stage-scroll::-webkit-scrollbar-thumb{border-radius:999px;background:#cbd5e1}
+.bsgt-operations-stage-track{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));min-width:780px;margin:0;padding:0;list-style:none}
+.bsgt-operations-stage-track li{display:flex;position:relative;z-index:0;flex-direction:column;align-items:center;gap:8px;min-width:0;color:#8792a2;text-align:center}
+.bsgt-operations-stage-track li:not(:last-child):after{content:"";position:absolute;z-index:0;inset-inline-start:50%;top:15px;width:100%;height:2px;background:#dfe4eb}
+.bsgt-operations-stage-track li>span{display:grid;position:relative;z-index:2;place-items:center;width:32px;height:32px;border-radius:50%;background:#e7ebf0;color:#8792a2;font-size:11px;font-weight:800}
+.bsgt-operations-stage-track li>b{position:relative;z-index:2;max-width:118px;font-size:11px;font-weight:600;line-height:1.4;white-space:normal}
+.bsgt-operations-stage-track li.is-done{color:#167a55}.bsgt-operations-stage-track li.is-done>span{background:#16a36a;color:#fff}.bsgt-operations-stage-track li.is-done:after{background:#9ed9c1}
+.bsgt-operations-stage-track li.is-current{color:#d01119}.bsgt-operations-stage-track li.is-current>span{background:#ea1b23;color:#fff;box-shadow:0 0 0 4px #ffe9ea}.bsgt-operations-stage-track li.is-current>b{font-weight:700}
+.bsgt-operations-return-warning{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:9px 11px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:10px;text-align:right}.bsgt-operations-return-warning span,.bsgt-operations-return-warning b,.bsgt-operations-return-warning small{display:block}.bsgt-operations-return-warning small{margin-top:2px;line-height:1.5}
 .bsgt-operations-overview-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,.6fr);gap:12px;margin-top:12px}
 .bsgt-operations-overview-grid>section{padding:14px;border:1px solid #e5eaf0;border-radius:14px;background:#fff}
 .bsgt-operations-overview-grid h4{margin:0 0 10px;color:#15233b;font-size:12px}
@@ -156,8 +159,6 @@
 @media(max-width:1100px){
   .bsgt-operations-workspace{grid-template-columns:320px minmax(0,1fr)}
   .bsgt-operations-overview-grid{grid-template-columns:1fr}
-  .bsgt-operations-stage-track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-  .bsgt-operations-stage-track li:after{display:none}
   .bsgt-operations-detail .bsgt-operations-groups{grid-template-columns:1fr}
 }
 @media(max-width:899px){
@@ -179,7 +180,6 @@
   .bsgt-operations-top-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bsgt-operations-tabs{padding:0 8px}.bsgt-operations-tabs button{padding:12px 9px;font-size:10px}
   .bsgt-operations-tab-panel{padding:10px}
-  .bsgt-operations-stage-track{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bsgt-operations-overview-grid section>div:not(.bsgt-operations-requirements){grid-template-columns:1fr}
   .bsgt-operations-detail .bsgt-operations-summary{grid-template-columns:1fr}
   .bsgt-operations-note-form{align-items:stretch;flex-direction:column}

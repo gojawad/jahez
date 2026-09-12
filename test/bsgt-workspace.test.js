@@ -14,7 +14,8 @@ const editor = {id:'editor-1', role:'editor', active:true};
 const viewer = {id:'viewer-1', role:'viewer', active:true};
 const financeOnly = [{section:'finance', can_view:true, can_edit:true}];
 
-assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'finance', 'management', 'relations']);
+assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'operationCenter', 'finance', 'management', 'relations']);
+assert.deepStrictEqual(workspace.LEGACY_SECTION_KEYS, ['operations', 'finance', 'management', 'relations']);
 assert.deepStrictEqual(workspace.allowedSections(admin, []).map(item=>item.key), workspace.SECTION_KEYS);
 assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['finance']);
 assert.strictEqual(workspace.permissionFor('finance', editor, financeOnly).canEdit, true);
@@ -22,6 +23,10 @@ assert.strictEqual(workspace.permissionFor('finance', viewer, financeOnly).canEd
 assert.strictEqual(workspace.resolveSection('operations', editor, financeOnly), 'finance');
 assert.strictEqual(workspace.resolveSection('finance', editor, financeOnly), 'finance');
 assert.strictEqual(workspace.resolveSection('operations', editor, []), null);
+assert.strictEqual(workspace.normalizePermission({section:'operationCenter',can_view:true}), null);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['operationCenter']);
+assert.strictEqual(workspace.permissionFor('operationCenter', editor, [], {featureKeys:['bsgt.operation_center.view']}).canEdit, false);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations']);
 assert.strictEqual(workspace.resolveBsgtCompanyId([
   {id:'other', name_ar:'شركة أخرى'},
   {id:'bsgt', name_en:'Bahar Swaken General Trading LLC'}

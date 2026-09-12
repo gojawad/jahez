@@ -86,7 +86,7 @@
 
 .bsgt-workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   border-bottom: 1px solid var(--border);
@@ -125,6 +125,9 @@
   padding: 44px 24px;
   text-align: center;
 }
+.bsgt-workspace-content.is-operation-center{display:block;min-width:0;padding:18px;text-align:initial}
+.bsgt-operation-center-embed{width:100%;max-width:100%;min-width:0}
+.bsgt-operation-center-embed>[data-operation-center-root]{width:100%;min-width:0}
 
 .bsgt-workspace-placeholder { max-width: 590px; }
 .bsgt-workspace-placeholder-icon {
@@ -156,12 +159,14 @@
 @media (max-width: 760px) {
   .bsgt-workspace-hero { align-items: flex-start; min-height: 0; padding: 22px; }
   .bsgt-workspace-mark { width: 58px; height: 58px; flex-basis: 58px; border-radius: 16px; }
-  .bsgt-workspace-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bsgt-workspace-tabs { display:flex;overflow-x:auto;scrollbar-width:thin; }
+  .bsgt-workspace-tab { flex:0 0 160px; }
   .bsgt-workspace-content { min-height: 280px; padding: 34px 18px; }
+  .bsgt-workspace-content.is-operation-center { padding:10px; }
 }
 
 @media (max-width: 460px) {
   .bsgt-workspace-hero { display: block; }
   .bsgt-workspace-mark { margin-top: 18px; }
-  .bsgt-workspace-tabs { grid-template-columns: 1fr; }
+  .bsgt-workspace-tab { flex-basis:150px; }
 }

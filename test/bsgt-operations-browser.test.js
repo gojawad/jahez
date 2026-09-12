@@ -45,6 +45,28 @@ function shipmentRow(stage = 'operations_draft'){
   };
 }
 
+async function assertStageGeometry(page, width){
+  const geometry = await page.locator('.bsgt-operations-stage-track').evaluate(track=>{
+    const items=[...track.querySelectorAll('li')].map(item=>({
+      circle:item.querySelector('span').getBoundingClientRect().toJSON(),
+      label:item.querySelector('b').getBoundingClientRect().toJSON()
+    }));
+    const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    return {
+      count:items.length,
+      circleLabelOverlap:items.some(item=>intersects(item.circle,item.label)),
+      adjacentLabelOverlap:items.some((item,index)=>index<items.length-1&&intersects(item.label,items[index+1].label)),
+      minWidth:parseFloat(getComputedStyle(track).minWidth),
+      columns:getComputedStyle(track).gridTemplateColumns.split(' ').length
+    };
+  });
+  assert.strictEqual(geometry.count,6,`${width}px renders six workflow stages`);
+  assert.strictEqual(geometry.circleLabelOverlap,false,`${width}px circles do not overlap labels`);
+  assert.strictEqual(geometry.adjacentLabelOverlap,false,`${width}px adjacent labels do not overlap`);
+  assert.ok(geometry.minWidth>=779,`${width}px keeps the internal stepper width (${JSON.stringify(geometry)})`);
+  assert.strictEqual(geometry.columns,6,`${width}px keeps six stage columns`);
+}
+
 const initialFiles = [
   {id:'44444444-4444-4444-8444-444444444441',shipment_id:shipmentId,document_type:'import_permit',label:'إذن الاستيراد',name:'permit.pdf',path:`${shipmentId}/permit.pdf`,mime:'application/pdf',size_bytes:100,created_at:'2026-09-12T06:10:00Z'},
   {id:'44444444-4444-4444-8444-444444444442',shipment_id:shipmentId,document_type:'certificate_of_origin',label:'شهادة المنشأ',name:'origin.pdf',path:`${shipmentId}/origin.pdf`,mime:'application/pdf',size_bytes:100,created_at:'2026-09-12T06:11:00Z'},
@@ -61,7 +83,7 @@ async function main(){
     await waitForServer(server);
     browser = await chromium.launch({executablePath,headless:true,args:['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP jahez.test 127.0.0.1']});
     const context = await browser.newContext({viewport:{width:1440,height:900}});
-    const profile = {id:userId,email:'operations@example.test',display_name:'موظف العمليات',role:'editor',active:true,photo_url:''};
+    const profile = {id:userId,email:'operations@example.test',display_name:'موظف العمليات',role:'editor',active:true,photo_url:'',feature_permissions_initialized:true};
     const expiresAt = Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,expiresAt,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'refresh-token',expires_at:expiresAt,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})), {profile,expiresAt,token:fakeJwt(expiresAt)});
     let shipmentFileReads = 0;
@@ -141,21 +163,22 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-document-delete-1')), 'operations CSS uses the document-delete cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-operation-center-1')), 'operations CSS uses the operation-center cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-document-delete-1')), 'operations JS uses the document-delete cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260912-master-detail-2')), 'commodity images use the master/detail cache version');
 
-    for(const width of [390,768]){
-      await page.setViewportSize({width,height:900});
+    for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
+      await page.setViewportSize({width,height});
       assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, `${width}px shows the list first`);
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), false, `${width}px hides details before selection`);
       assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, `${width}px has no horizontal overflow`);
       await page.locator('[data-bsgt-operation-open]').click();
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, `${width}px opens full detail`);
       assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
+      await assertStageGeometry(page,width);
       await page.locator('#bsgtOperationsMobileBack').click();
     }
-    for(const viewport of [{width:1920,height:1080},{width:1536,height:864},{width:1440,height:900},{width:1366,height:768}]){
+    for(const viewport of [{width:1920,height:1080},{width:1536,height:864},{width:1440,height:900},{width:1366,height:768},{width:1024,height:768}]){
       await page.setViewportSize(viewport);
       const layout = await page.evaluate(()=>{
         const workspace=document.querySelector('#viewBsgtWorkspace .bsgt-operations-workspace');
@@ -181,6 +204,7 @@ async function main(){
       assert.ok(layout.detail.top < layout.navigator.bottom, `${viewport.width}px keeps detail beside, not below, navigator`);
       assert.ok(layout.detail.width > layout.navigator.width, `${viewport.width}px gives detail the remaining width`);
       assert.strictEqual(layout.overflow, true, `${viewport.width}px has no horizontal overflow`);
+      await assertStageGeometry(page,viewport.width);
     }
     assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');

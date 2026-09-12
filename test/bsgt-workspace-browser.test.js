@@ -29,9 +29,9 @@ function fakeJwt(exp){
   return `${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:'employee-1',exp,aud:'authenticated'})}.signature`;
 }
 
-async function createContext(browser, role, permissions){
+async function createContext(browser, role, permissions, featureKeys = []){
   const context = await browser.newContext({viewport:{width:1440,height:900}});
-  const profile = {id:'employee-1', email:`${role}@example.test`, display_name:`موظف ${role}`, role, active:true, photo_url:''};
+  const profile = {id:'employee-1', email:`${role}@example.test`, display_name:`موظف ${role}`, role, active:true, photo_url:'',feature_permissions_initialized:true};
   const expiresAt = Math.floor(Date.now()/1000) + 3600;
   await context.addInitScript(({profile, expiresAt, token})=>{
     localStorage.setItem('shipdocs-auth', JSON.stringify({
@@ -51,6 +51,7 @@ async function createContext(browser, role, permissions){
     };
     if(request.method()==='OPTIONS') return route.fulfill({status:204, headers, body:''});
     if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200, headers, body:JSON.stringify([profile])});
+    if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions') return route.fulfill({status:200,headers,body:JSON.stringify(featureKeys.map(permission_key=>({permission_key,allowed:true})))});
     if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions') return route.fulfill({status:200, headers, body:JSON.stringify(permissions)});
     if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200, headers, body:JSON.stringify([{id:'bsgt-company',name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}}])});
     if(url.pathname==='/rest/v1/shipments') return route.fulfill({status:200, headers, body:'[]'});
@@ -76,12 +77,30 @@ async function main(){
     const adminPage = await adminContext.newPage();
     await adminPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await adminPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
-    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 4);
+    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 5);
+    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','مركز العمليات','المالية','الإدارة','العلاقات التجارية']);
     assert.strictEqual((await adminPage.locator('#navBsgt').textContent()).trim(), 'مساحة BSGT');
     assert.ok(adminPage.url().includes('section=operations'));
+    const scopedRequest = adminPage.waitForRequest(request=>{
+      const url = new URL(request.url());
+      return url.pathname==='/rest/v1/shipments' && url.searchParams.get('company_id')===`eq.bsgt-company`;
+    });
+    await adminPage.getByRole('button',{name:'مركز العمليات',exact:true}).click();
+    await scopedRequest;
+    await adminPage.locator('[data-operation-center-root="bsgt"]').waitFor();
+    assert.ok(adminPage.url().includes('section=operationCenter'));
+    await adminPage.reload({waitUntil:'domcontentloaded'});
+    await adminPage.locator('[data-operation-center-root="bsgt"]').waitFor({timeout:20000});
+    assert.ok(adminPage.url().includes('section=operationCenter'));
+    await adminPage.getByRole('button',{name:'المالية',exact:true}).click();
+    await adminPage.goBack();
+    await adminPage.locator('[data-operation-center-root="bsgt"]').waitFor({timeout:20000});
+    assert.ok(adminPage.url().includes('section=operationCenter'));
+    await adminPage.evaluate(()=>switchView('operationCenter'));
+    await adminPage.locator('#viewOperationCenter.active [data-operation-center-root="general"]').waitFor();
     await adminContext.close();
 
-    const financeContext = await createContext(browser, 'editor', [{section:'finance',can_view:true,can_edit:true}]);
+    const financeContext = await createContext(browser, 'editor', [{section:'finance',can_view:true,can_edit:true}], ['bsgt.finance.view','bsgt.finance.edit']);
     const financePage = await financeContext.newPage();
     await financePage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
     await financePage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').waitFor({timeout:20000});
@@ -91,7 +110,7 @@ async function main(){
     assert.strictEqual(await financePage.locator('.bsgt-workspace-readonly').count(), 0);
     await financeContext.close();
 
-    const viewerContext = await createContext(browser, 'viewer', [{section:'finance',can_view:true,can_edit:true}]);
+    const viewerContext = await createContext(browser, 'viewer', [{section:'finance',can_view:true,can_edit:true}], ['bsgt.finance.view','bsgt.finance.edit']);
     const viewerPage = await viewerContext.newPage();
     await viewerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=finance`, {waitUntil:'domcontentloaded'});
     await viewerPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-readonly').waitFor({timeout:20000});
@@ -99,7 +118,22 @@ async function main(){
     assert.strictEqual(await viewerPage.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     await viewerContext.close();
 
-    const blockedContext = await createContext(browser, 'editor', []);
+    const centerContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operation_center.view']);
+    const centerPage = await centerContext.newPage();
+    await centerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operationCenter`, {waitUntil:'domcontentloaded'});
+    await centerPage.locator('[data-operation-center-root="bsgt"]').waitFor({timeout:20000});
+    assert.deepStrictEqual(await centerPage.locator('.bsgt-workspace-tab').allTextContents(), ['مركز العمليات']);
+    await centerContext.close();
+
+    const operationsContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operations.view']);
+    const operationsPage = await operationsContext.newPage();
+    await operationsPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
+    await operationsPage.locator('.bsgt-operations').waitFor({timeout:20000});
+    assert.deepStrictEqual(await operationsPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات']);
+    assert.strictEqual(await operationsPage.getByText('مركز عمليات BSGT غير مسند إلى حسابك').count(), 0);
+    await operationsContext.close();
+
+    const blockedContext = await createContext(browser, 'editor', [], []);
     const blockedPage = await blockedContext.newPage();
     await blockedPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=finance`, {waitUntil:'domcontentloaded'});
     await blockedPage.locator('#employeeTopNav:not([hidden])').waitFor({timeout:20000});

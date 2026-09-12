@@ -2487,12 +2487,12 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-enterprise-2">
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
-  <link rel="stylesheet" href="permissions.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
+  <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
+  <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-operation-center-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-document-delete-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-operation-center-1">
 </head>
 <body class="landing-active">
 
@@ -2955,25 +2955,7 @@ try{
   </div>
 
   <!-- ===== مركز العملية ===== -->
-  <div class="view" id="viewOperationCenter">
-    <section class="operation-center-hero">
-      <div>
-        <h2>مركز العملية</h2>
-        <p>المرجع الكامل للشحنة ومستنداتها وتحصلاتها تحت رقم عملية موحد.</p>
-      </div>
-      <div class="operation-center-search"><input id="operationCenterSearch" type="search" placeholder="ابحث برقم العملية أو العميل أو الصنف..."></div>
-    </section>
-    <div class="operation-center-stats">
-      <div class="operation-center-stat"><span>إجمالي العمليات</span><b id="ocTotal">0</b></div>
-      <div class="operation-center-stat"><span>العمليات الصادرة</span><b id="ocIssued">0</b></div>
-      <div class="operation-center-stat"><span>قيد التحصيل</span><b id="ocCollection">0</b></div>
-      <div class="operation-center-stat"><span>مكتملة المستندات</span><b id="ocComplete">0</b></div>
-    </div>
-    <section class="operation-center-list">
-      <div class="operation-center-list-head"><span>أرقام العمليات</span><small id="ocResultCount">0 عملية</small></div>
-      <div class="operation-center-rows" id="operationCenterRows"></div>
-    </section>
-  </div>
+  <div class="view" id="viewOperationCenter"></div>
 
   <!-- ===== الشحنات ===== -->
   <div class="view" id="viewRecords">
@@ -5864,10 +5846,10 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="permissions.js?v=20260912-1"></script>
+<script src="permissions.js?v=20260912-authoritative-1"></script>
 <script src="portal-access.js?v=20260912-2"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
-  <script src="bsgt-workspace.js?v=20260912-2"></script>
+  <script src="bsgt-workspace.js?v=20260912-operation-center-1"></script>
 <script src="bsgt-operations.js?v=20260912-document-delete-1"></script>
 <script src="commodity-images.js?v=20260912-master-detail-2"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
@@ -6294,6 +6276,7 @@ async function loadUsers(){
       photo:p.photo_url || '',
       lastLogin:p.last_login ? new Date(p.last_login).getTime() : null,
       createdAt:p.created_at ? new Date(p.created_at).getTime() : null,
+      featurePermissionsInitialized:p.feature_permissions_initialized === true,
       portalKeys: portalRows.filter(row=>row.user_id===p.id && row.can_view!==false).map(row=>row.portal_key),
       featureRows: featureRows.filter(row=>row.user_id===p.id),
       workspaceRows: workspaceRows.filter(row=>row.user_id===p.id)
@@ -6617,7 +6600,11 @@ function restoreAuthenticatedLocation(){
 }
 
 function isAdmin(){ return currentUser && currentUser.role === 'admin'; }
-function isEditor(){ return currentUser && ['admin','editor','staff'].includes(currentUser.role); }
+function isEditor(){
+  if(isAdmin()) return true;
+  if(!currentUser || currentUser.role === 'viewer' || !featurePermissionsLoaded) return false;
+  return Boolean(window.JahezPermissions?.canAny(['shipments.create','shipments.edit']));
+}
 function isStaffRole(){ return currentUser && currentUser.role === 'staff'; }
 function isBsgtPortalUser(){ return currentUser && currentUser.role === 'bsgt_user'; }
 function canEdit(){ return isEditor(); }
@@ -6628,7 +6615,8 @@ function currentAccessProfile(){
     role: currentUser.role,
     active: currentUser.active,
     display_name: currentUser.displayName,
-    photo_url: currentUser.photo
+    photo_url: currentUser.photo,
+    feature_permissions_initialized: currentUser.profile?.feature_permissions_initialized === true
   };
 }
 function currentFeaturePermissionContext(){
@@ -6724,15 +6712,24 @@ const APP_VIEW_ACCESS = Object.freeze({
 });
 const APP_VIEW_PERMISSIONS = Object.freeze({
   operationCenter:'operations_center.view',
+  records:'operations_center.view',
+  bsgt:'operations_center.view',
+  sea:'operations_center.view',
+  issued:'operations_center.view',
+  drafts:'operations_center.view',
   createShip:'shipments.create',
   shipForm:'shipments.create',
-  clientProfiles:'client_profiles.view'
+  clientProfiles:'client_profiles.view',
+  'document-editor':'contracts.edit'
 });
 function canAccessAppView(view){
   if(!currentUser || !isRegisteredAppView(view)) return false;
   if(isAdmin()) return true;
+  if(view === 'dashboard') return true;
+  if(!featurePermissionsLoaded) return false;
   if(view === 'bsgtWorkspace') return canAccessBsgtWorkspace();
   if(APP_VIEW_PERMISSIONS[view]) return Boolean(window.JahezPermissions?.can(APP_VIEW_PERMISSIONS[view]));
+  if(currentUser.profile?.feature_permissions_initialized === true) return false;
   if(currentUser.role==='staff' && view==='records') return Boolean(allowStaffRecords);
   return Boolean((APP_VIEW_ACCESS[currentUser.role] || []).includes(view));
 }
@@ -7830,7 +7827,7 @@ document.querySelectorAll('.template-quick-new').forEach(btn=>{
 // ===== إدارة المستخدمين =====
 function resolvedUserPermissionKeys(user){
   return window.JahezPermissions?.createContext({
-    profile:{id:user.id,role:user.role,active:user.active},
+    profile:{id:user.id,role:user.role,active:user.active,featurePermissionsInitialized:user.featurePermissionsInitialized === true},
     rows:user.featureRows || [],
     portalKeys:user.portalKeys || [],
     workspaceRows:user.workspaceRows || []
@@ -7839,17 +7836,22 @@ function resolvedUserPermissionKeys(user){
 function permissionGroupsHtml(user){
   if(user.role === 'admin') return `<details class="user-permissions" open><summary><span>${icon('shield',15)} الصلاحيات</span><small>Full Access</small></summary><div class="permission-admin-card">${icon('check',22)}<div><b>مدير النظام</b><span>صلاحية كاملة لجميع أقسام وبوابات وإجراءات Jahez، ولا يمكن تقييدها بالتعيينات.</span></div></div></details>`;
   const selected = new Set(resolvedUserPermissionKeys(user));
+  const viewerWriteBoundary = user.role === 'viewer';
+  const writeKeys = new Set(window.JahezPermissions?.WRITE_KEYS || []);
   const groups = (window.JAHEZ_PERMISSION_REGISTRY || []).map(group=>`
     <section class="permission-group" data-permission-group="${escapeHtml(group.key)}">
       <div class="permission-group-head"><b>${icon(group.icon,14)} ${escapeHtml(group.label)}</b><span>${escapeHtml(group.description)}</span></div>
-      <div class="permission-options">${group.permissions.map(permission=>`
-        <label class="permission-option" data-permission-search="${escapeHtml(`${permission.label} ${permission.description} ${permission.key}`.toLowerCase())}">
-          <input type="checkbox" class="feature-permission" data-permission-key="${escapeHtml(permission.key)}" ${selected.has(permission.key)?'checked':''}>
+      <div class="permission-options">${group.permissions.map(permission=>{
+        const disabled = viewerWriteBoundary && writeKeys.has(permission.key);
+        return `
+        <label class="permission-option${disabled?' is-disabled':''}" data-permission-search="${escapeHtml(`${permission.label} ${permission.description} ${permission.key}`.toLowerCase())}" ${disabled?'title="دور مشاهد فقط لا يسمح بصلاحيات الكتابة."':''}>
+          <input type="checkbox" class="feature-permission" data-permission-key="${escapeHtml(permission.key)}" ${!disabled&&selected.has(permission.key)?'checked':''} ${disabled?'disabled':''}>
           <span><b>${escapeHtml(permission.label)}</b><small>${escapeHtml(permission.description)}</small></span>
-        </label>`).join('')}</div>
+        </label>`;
+      }).join('')}</div>
     </section>`).join('');
   const presets = Object.entries(window.JahezPermissions?.PRESETS || {}).map(([key,preset])=>`<button type="button" class="permission-preset" data-permission-preset="${escapeHtml(key)}">${escapeHtml(preset.label)}</button>`).join('');
-  return `<details class="user-permissions"><summary><span>${icon('shield',15)} الصلاحيات</span><small>${selected.size} مفعلة</small></summary><div class="permission-toolbar"><input class="permission-search" type="search" placeholder="ابحث في الصلاحيات..." aria-label="ابحث في الصلاحيات"><div class="permission-presets">${presets}</div></div><div class="permission-groups">${groups}</div><div class="permission-savebar"><span class="permission-save-status">لن تُحفظ التغييرات قبل الضغط على الزر.</span><button type="button" class="btn btn-primary btn-small save-feature-permissions">حفظ الصلاحيات</button></div></details>`;
+  return `<details class="user-permissions"><summary><span>${icon('shield',15)} الصلاحيات</span><small>${selected.size} مفعلة</small></summary><div class="permission-toolbar"><input class="permission-search" type="search" placeholder="ابحث في الصلاحيات..." aria-label="ابحث في الصلاحيات"><div class="permission-presets">${presets}</div></div>${viewerWriteBoundary?'<div class="permission-viewer-note">دور مشاهد فقط لا يسمح بصلاحيات الكتابة.</div>':''}<div class="permission-groups">${groups}</div><div class="permission-savebar"><span class="permission-save-status">لن تُحفظ التغييرات قبل الضغط على الزر.</span><button type="button" class="btn btn-primary btn-small save-feature-permissions">حفظ الصلاحيات</button></div></details>`;
 }
 function renderUsers(){
   const el = document.getElementById('usersList');
@@ -7891,7 +7893,7 @@ document.getElementById('usersList').addEventListener('click', async (e)=>{
     const panel = presetButton.closest('.user-permissions');
     if(!preset || !panel || u.role === 'admin') return;
     const selected = new Set(window.JahezPermissions.normalizeKeys(preset.keys));
-    panel.querySelectorAll('.feature-permission').forEach(input=>{ input.checked = selected.has(input.dataset.permissionKey); });
+    panel.querySelectorAll('.feature-permission').forEach(input=>{ if(!input.disabled) input.checked = selected.has(input.dataset.permissionKey); });
     panel.querySelector('.permission-save-status').textContent = `تم تطبيق قالب «${preset.label}»؛ اضغط حفظ لتثبيته.`;
     return;
   }
@@ -7904,17 +7906,29 @@ document.getElementById('usersList').addEventListener('click', async (e)=>{
     savePermissionsButton.disabled = true;
     panel.querySelector('.permission-save-status').textContent = 'جارٍ حفظ الصلاحيات...';
     try{
+      const {data:sessionData,error:sessionError} = await sb.auth.getUser();
+      if(sessionError || !sessionData?.user || sessionData.user.id !== currentUser?.id || !isAdmin()){
+        throw new Error('Admin session not recognized.');
+      }
       const {data,error} = await sb.rpc('set_user_feature_permissions',{p_user_id:u.id,p_permission_keys:keys});
       if(error) throw error;
       u.featureRows = Array.isArray(data) ? data : [];
+      u.featurePermissionsInitialized = true;
       await loadUsers();
       renderUsers();
       toast('تم حفظ صلاحيات الموظف.');
       addLog('edit',`تحديث الصلاحيات التفصيلية: ${u.email}`);
     }catch(err){
       savePermissionsButton.disabled = false;
-      panel.querySelector('.permission-save-status').textContent = 'تعذّر الحفظ؛ لم تتغير الصلاحيات.';
-      dbError(err,'تعذّر حفظ صلاحيات الموظف');
+      const raw = String(err?.message || '');
+      const message = /Admin session not recognized|Authenticated session is required/i.test(raw)
+        ? 'تعذر حفظ الصلاحيات: جلسة المدير غير معرّفة. حدّث الصفحة وسجّل الدخول من جديد.'
+        : /Failed to fetch|NetworkError|timeout/i.test(raw)
+          ? 'تعذر حفظ الصلاحيات: تعذر الاتصال بالخادم.'
+          : `تعذر حفظ الصلاحيات: ${raw || 'فشل تحديث قاعدة البيانات.'}`;
+      panel.querySelector('.permission-save-status').textContent = message;
+      console.error('save feature permissions', err);
+      toast(message,'err');
     }
     return;
   }
@@ -9244,10 +9258,10 @@ backTop.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'
 
 // ===== التنقل بين الشاشات =====
 // حفظ/قراءة "أنت فين" في رابط المتصفح — يسمح بالرجوع لنفس الصفحة بعد تحديث (F5)
-function updateHash(v, id, section){
+function updateHash(v, id, section, mode = 'replace'){
   const h = 'v=' + v + (id ? ('&id=' + encodeURIComponent(id)) : '') +
     (section ? ('&section=' + encodeURIComponent(section)) : '');
-  if(location.hash.slice(1) !== h) history.replaceState(null, '', '#' + h);
+  if(location.hash.slice(1) !== h) history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', '#' + h);
 }
 function parseHash(){
   const p = new URLSearchParams(location.hash.slice(1));
@@ -9283,6 +9297,7 @@ function restoreFromHash(){
   if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id), 0);
 }
 window.addEventListener('hashchange', restoreFromHash);
+window.addEventListener('popstate', restoreFromHash);
 
 function switchView(v, options){
   closeAllOverlays();
@@ -9315,7 +9330,7 @@ function switchView(v, options){
   document.getElementById('cpSearch').style.display = v==='records' ? 'flex' : 'none';
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('commercial_collection')) ? 'inline-flex' : 'none';
   document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('import_permit')) ? 'inline-flex' : 'none';
-  document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canEdit()) ? 'inline-flex' : 'none';
+  document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && bsgtOperationsPermission(true)) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
   if(v==='operationCenter') renderOperationCenter();
   if(v==='records'){
@@ -9336,7 +9351,7 @@ function switchView(v, options){
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
   const activeRoute = parseHash();
   const preservedId = v === 'clientProfiles' && activeRoute.v === 'clientProfiles' ? activeRoute.id : null;
-  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId, workspaceSection);
+  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId, workspaceSection, options?.history);
   syncEmployeeNavigationState();
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
@@ -9459,13 +9474,22 @@ function bsgtOperationsOverviewFields(record){
   ].filter(([,value])=>value!==undefined && value!==null && String(value).trim());
 }
 
-function renderBsgtOperationsStageTrack(record){
+function renderBsgtOperationsStageTrack(record, returnContext){
   const stages = [
-    ['operations_draft','مسودة'],['ready_for_finance','جاهزة للمالية'],['sent_to_remitting','الإرسال للبنك المرسل'],
-    ['management_review','مراجعة الإدارة'],['final_accepted','القبول النهائي'],['sent_to_collecting','الإرسال للبنك المحصل']
+    ['operations_draft','مسودة','مسودة'],
+    ['ready_for_finance','جاهزة للمالية','جاهزة للمالية'],
+    ['sent_to_remitting','البنك المرسل','الإرسال للبنك المرسل'],
+    ['management_review','مراجعة الإدارة','مراجعة الإدارة'],
+    ['final_accepted','القبول النهائي','القبول النهائي'],
+    ['sent_to_collecting','البنك المحصل','الإرسال للبنك المحصل']
   ];
   const index = Math.max(0, stages.findIndex(([key])=>key===record.bsgtStage));
-  return `<ol class="bsgt-operations-stage-track">${stages.map(([key,label],i)=>`<li class="${i<index?'is-done':i===index?'is-current':''}" data-stage="${key}"><span>${i<index?icon('check',10):i+1}</span><b>${label}</b></li>`).join('')}</ol>`;
+  return `<div class="bsgt-operations-stage-region" role="region" aria-label="مراحل سير شحنة BSGT">
+    <div class="bsgt-operations-stage-scroll" tabindex="0" aria-label="مرر أفقياً لعرض جميع المراحل">
+      <ol class="bsgt-operations-stage-track">${stages.map(([key,label,fullLabel],i)=>`<li class="${i<index?'is-done':i===index?'is-current':'is-upcoming'}" data-stage="${key}" aria-label="${escapeHtml(fullLabel)}" ${i===index?'aria-current="step"':''}><span aria-hidden="true">${i<index?icon('check',13):i+1}</span><b title="${escapeHtml(fullLabel)}">${escapeHtml(label)}</b></li>`).join('')}</ol>
+    </div>
+    ${returnContext?`<div class="bsgt-operations-return-warning" role="status">${icon('warning',14)} <span><b>معادة من الإدارة</b>${returnContext.note?`<small>${escapeHtml(returnContext.note)}</small>`:''}</span></div>`:''}
+  </div>`;
 }
 
 function renderBsgtOperationsAttachments(record){
@@ -9489,6 +9513,7 @@ function renderBsgtOperationsDetail(record){
     (record.weight||record.totalWeight||record.grossWeight)?['tag','الوزن',record.weight||record.totalWeight||record.grossWeight]:null
   ].filter(Boolean);
   const fields = bsgtOperationsOverviewFields(record);
+  const returnContext = bsgtOperationsListState.tradeContextByShipment[record.id];
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
       <div class="bsgt-operations-detail-identity">${renderBsgtCommodityThumb(record,true)}<div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
@@ -9499,7 +9524,7 @@ function renderBsgtOperationsDetail(record){
       ${[['overview','نظرة عامة'],['documents','المستندات'],['attachments','المرفقات'],['timeline','الجدول الزمني'],['notes','الملاحظات']].map(([key,label])=>`<button type="button" data-bsgt-ops-tab="${key}" class="${bsgtOperationsListState.activeTab===key?'active':''}">${label}</button>`).join('')}
     </nav>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='overview'?'active':''}" data-bsgt-ops-panel="overview">
-      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من 7 متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/7*100)}%</b></header><div class="bsgt-operations-progress-bar"><i style="width:${evaluation.completedCount/7*100}%"></i></div>${renderBsgtOperationsStageTrack(record)}</div>
+      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من 7 متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/7*100)}%</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/7*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
       <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/7</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
     </section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsDocumentsPanel">${renderBsgtOperationsDocuments(record)}</div></section>
@@ -10149,11 +10174,8 @@ function renderBsgtWorkspace(requestedSection){
       data-ic="${section.icon}">${section.label}</button>`).join('');
   const section = api.SECTIONS.find(item => item.key === activeSection);
   const permission = api.permissionFor(activeSection, currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext());
+  content.classList.toggle('is-operation-center', activeSection === 'operationCenter');
   if(activeSection === 'operations'){
-    if(!window.JahezPermissions?.can('bsgt.operation_center.view')){
-      content.innerHTML = '<div class="bsgt-workspace-placeholder bsgt-workspace-denied"><h3>مركز عمليات BSGT غير مسند إلى حسابك</h3><p>يمكنك رؤية قسم العمليات، لكن فتح مركز العمليات يحتاج صلاحية مستقلة من مدير النظام.</p></div>';
-      return activeSection;
-    }
     content.innerHTML = renderBsgtOperationsShell(Boolean(permission?.canEdit));
     document.getElementById('bsgtOperationsCreateBtn')?.addEventListener('click', openBsgtShipFormFromWorkspace);
     document.getElementById('bsgtOperationsSearch')?.addEventListener('input',event=>{
@@ -10170,6 +10192,9 @@ function renderBsgtWorkspace(requestedSection){
       loadBsgtOperationsPage();
     });
     loadBsgtOperationsPage();
+  }else if(activeSection === 'operationCenter'){
+    content.innerHTML = '<div class="bsgt-operation-center-embed" aria-live="polite"><div class="operation-center-empty">جاري تحميل مركز عمليات BSGT…</div></div>';
+    loadBsgtOperationCenter(content.querySelector('.bsgt-operation-center-embed'));
   }else if(activeSection === 'finance'){
     content.innerHTML = renderBsgtFinanceShell();
     wireBsgtFinanceShell();
@@ -10192,7 +10217,7 @@ function renderBsgtWorkspace(requestedSection){
       </div>`;
   }
   tabs.querySelectorAll('[data-bsgt-section]').forEach(button=>{
-    button.addEventListener('click', ()=>switchView('bsgtWorkspace', {section:button.dataset.bsgtSection}));
+    button.addEventListener('click', ()=>switchView('bsgtWorkspace', {section:button.dataset.bsgtSection,history:'push'}));
   });
   hydrateIcons();
   if(requestedSection && requestedSection !== activeSection){
@@ -10201,9 +10226,44 @@ function renderBsgtWorkspace(requestedSection){
   return activeSection;
 }
 
-function renderOperationCenter(){
-  const query = (document.getElementById('operationCenterSearch')?.value || '').trim().toLowerCase();
-  const rows = records.slice().sort((a,b)=>new Date(b.updatedAt||b.createdAt||0)-new Date(a.updatedAt||a.createdAt||0));
+const bsgtOperationCenterState = {requestId:0, rows:[]};
+
+function operationCenterShell(scope){
+  const isBsgt = scope === 'bsgt';
+  return `<div data-operation-center-root="${isBsgt?'bsgt':'general'}">
+    <section class="operation-center-hero">
+      <div>
+        <h2>${isBsgt?'مركز عمليات BSGT':'مركز العملية'}</h2>
+        <p>${isBsgt?'متابعة عمليات بحر سواكن تحت رقم عملية موحد.':'المرجع الكامل للشحنة ومستنداتها وتحصلاتها تحت رقم عملية موحد.'}</p>
+      </div>
+      <div class="operation-center-search"><input data-operation-center-search type="search" placeholder="ابحث برقم العملية أو العميل أو الصنف..."></div>
+    </section>
+    <div class="operation-center-stats">
+      <div class="operation-center-stat"><span>إجمالي العمليات</span><b data-oc-total>0</b></div>
+      <div class="operation-center-stat"><span>العمليات الصادرة</span><b data-oc-issued>0</b></div>
+      <div class="operation-center-stat"><span>قيد التحصيل</span><b data-oc-collection>0</b></div>
+      <div class="operation-center-stat"><span>مكتملة المستندات</span><b data-oc-complete>0</b></div>
+    </div>
+    <section class="operation-center-list">
+      <div class="operation-center-list-head"><span>أرقام العمليات</span><small data-oc-result-count>0 عملية</small></div>
+      <div class="operation-center-rows" data-operation-center-rows></div>
+    </section>
+  </div>`;
+}
+
+function renderOperationCenter(options = {}){
+  const scope = options.scope === 'bsgt' ? 'bsgt' : 'general';
+  const container = options.host || document.getElementById('viewOperationCenter');
+  if(!container) return;
+  let root = container.querySelector(`[data-operation-center-root="${scope}"]`);
+  if(!root){
+    container.innerHTML = operationCenterShell(scope);
+    root = container.querySelector(`[data-operation-center-root="${scope}"]`);
+    root.querySelector('[data-operation-center-search]')?.addEventListener('input',()=>renderOperationCenter(options));
+  }
+  const query = (root.querySelector('[data-operation-center-search]')?.value || '').trim().toLowerCase();
+  const sourceRows = Array.isArray(options.rows) ? options.rows : records;
+  const rows = sourceRows.slice().sort((a,b)=>new Date(b.updatedAt||b.createdAt||0)-new Date(a.updatedAt||a.createdAt||0));
   const searchable = rows.filter(r=>[r.operationNo,r.itemDesc,r.consignee,r.exporter,r.invoiceNo].some(v=>String(v||'').toLowerCase().includes(query)));
   const docsComplete = r=>['proformaNo','invoiceNo','certNo','billNo'].filter(key=>String(r[key]||'').trim()).length;
   const collectionLabel = r=>{
@@ -10212,12 +10272,12 @@ function renderOperationCenter(){
     if(state==='sent') return 'أرسلت للتحصيل';
     return STATUS_AR[recStatus(r)] || 'قيد المتابعة';
   };
-  document.getElementById('ocTotal').textContent = rows.length.toLocaleString('en-US');
-  document.getElementById('ocIssued').textContent = rows.filter(r=>recStatus(r)==='sent').length.toLocaleString('en-US');
-  document.getElementById('ocCollection').textContent = rows.filter(r=>String(r.collectionStatus||'').toLowerCase()==='sent').length.toLocaleString('en-US');
-  document.getElementById('ocComplete').textContent = rows.filter(r=>docsComplete(r)===4).length.toLocaleString('en-US');
-  document.getElementById('ocResultCount').textContent = `${searchable.length} عملية`;
-  const host = document.getElementById('operationCenterRows');
+  root.querySelector('[data-oc-total]').textContent = rows.length.toLocaleString('en-US');
+  root.querySelector('[data-oc-issued]').textContent = rows.filter(r=>recStatus(r)==='sent').length.toLocaleString('en-US');
+  root.querySelector('[data-oc-collection]').textContent = rows.filter(r=>String(r.collectionStatus||'').toLowerCase()==='sent').length.toLocaleString('en-US');
+  root.querySelector('[data-oc-complete]').textContent = rows.filter(r=>docsComplete(r)===4).length.toLocaleString('en-US');
+  root.querySelector('[data-oc-result-count]').textContent = `${searchable.length} عملية`;
+  const host = root.querySelector('[data-operation-center-rows]');
   host.innerHTML = searchable.length ? searchable.map(r=>`<article class="operation-center-row">
     <div class="operation-center-meta"><span class="operation-center-ref">${escapeHtml(r.operationNo||r.taskRef||'—')}</span><small>${escapeHtml(r.itemDesc||'بدون وصف')}</small></div>
     <div class="operation-center-meta"><span>${escapeHtml(r.consignee||'—')}</span><small>المرسل إليه</small></div>
@@ -10229,7 +10289,27 @@ function renderOperationCenter(){
   host.querySelectorAll('[data-operation-open]').forEach(button=>button.addEventListener('click', ()=>openDetail(button.dataset.operationOpen)));
 }
 
-document.getElementById('operationCenterSearch').addEventListener('input', renderOperationCenter);
+async function loadBsgtOperationCenter(host){
+  if(!host || !window.JahezPermissions?.can('bsgt.operation_center.view')) return;
+  const companyId = resolveBsgtCompanyId();
+  if(!companyId){
+    host.innerHTML = '<div class="operation-center-empty">تعذر تحديد شركة بحر سواكن من بيانات الشركات.</div>';
+    return;
+  }
+  const requestId = ++bsgtOperationCenterState.requestId;
+  try{
+    const {data,error} = await sb.from('shipments').select('*').eq('company_id',companyId).order('updated_at',{ascending:false});
+    if(error) throw error;
+    if(requestId !== bsgtOperationCenterState.requestId || !host.isConnected) return;
+    bsgtOperationCenterState.rows = (data || []).map(rowToRecord);
+    renderOperationCenter({scope:'bsgt',host,rows:bsgtOperationCenterState.rows});
+  }catch(error){
+    console.error('load BSGT operation center',error);
+    if(requestId === bsgtOperationCenterState.requestId && host.isConnected){
+      host.innerHTML = `<div class="operation-center-empty">تعذر تحميل مركز عمليات BSGT: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;
+    }
+  }
+}
 
 // ===== مرفقات المهام =====
 let pendingFiles = [];      // ملفات مختارة لم تُرفع بعد
@@ -15663,7 +15743,7 @@ function baharCompanyEntry(){
 
 let bsgtLegacyTypeMigrationRunning = false;
 async function normalizeLegacyBsgtShipTypes(){
-  if(bsgtLegacyTypeMigrationRunning || !canEdit()) return;
+  if(bsgtLegacyTypeMigrationRunning || (!isAdmin() && !bsgtOperationsPermission(true))) return;
   const legacy = records.filter(r=>isBsgtRecord(r) && r.shipType==='land' && !r.bsgtTransportTypeExplicit);
   if(!legacy.length) return;
   bsgtLegacyTypeMigrationRunning = true;
