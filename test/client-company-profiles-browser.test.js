@@ -39,6 +39,9 @@ async function contextFor(browser,role,width){
     const headers={'Access-Control-Allow-Origin':APP_ORIGIN,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};
     if(request.method()==='OPTIONS') return route.fulfill({status:204,headers,body:''});
     if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
+    if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions') return route.fulfill({status:200,headers,body:JSON.stringify(
+      role==='viewer' ? [{permission_key:'client_profiles.view',allowed:true}] : []
+    )});
     if(url.pathname==='/rest/v1/clients'){
       const detail=url.searchParams.has('id');
       return route.fulfill({status:200,headers,body:JSON.stringify(detail?client:[client])});

@@ -131,9 +131,9 @@ async function main() {
       assert.ok(helperSource.includes('function canMergeShipmentPackage(record, files)'));
       assert.ok(helperSource.includes('function packageMergeBlockReason(record, files)'));
       assert.ok(appHtml.includes('function bsgtPackageMergeAccess(r, files)'));
-      assert.ok(appHtml.includes('const adminOverride = !!isAdmin()'));
-      assert.ok(appHtml.includes('allowed: adminOverride || workflowAllowed'));
-      assert.ok(appHtml.includes("reason: adminOverride ? 'صلاحية المدير تسمح بدمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)"));
+      assert.ok(appHtml.includes("const permissionAllowed = Boolean(window.JahezPermissions?.can('package.merge'))"));
+      assert.ok(appHtml.includes('allowed: permissionAllowed && workflowAllowed'));
+      assert.ok(appHtml.includes("reason: !permissionAllowed ? 'ليس لديك صلاحية دمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)"));
       assert.ok(appHtml.includes('function renderSignedDocumentsPanel(r)'));
       assert.ok(appHtml.includes('async function uploadSignedShipmentDocument(r, type, file)'));
       assert.ok(appHtml.includes('async function syncShipmentSignedWorkflow(shipmentId)'));
@@ -223,7 +223,7 @@ async function main() {
       assert.ok(companyWizard.includes("['stamp','qr']"));
       assert.ok(!companyWizard.includes('bce-show-header'));
       assert.ok(!companyWizard.includes("transformFields('header'"));
-      assert.ok(appHtml.includes('company-wizard.js?v=20260912-client-contract-assets'));
+      assert.ok(appHtml.includes('company-wizard.js?v=20260912-granular-permissions'));
       assert.ok(appHtml.includes('contract-client-assets.js?v=20260912-1'));
       assert.ok(companyWizard.includes('تحريك الجدول لأعلى أو أسفل'));
       assert.ok(companyWizard.includes('Office 307 Al Faheem Building'));

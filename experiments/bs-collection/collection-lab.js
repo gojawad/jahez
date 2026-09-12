@@ -183,21 +183,26 @@ async function loadPortalHeader(user){
     if(!profileError){
       if(brandingError) console.warn('portal branding',brandingError);
       if(profile?.role==='admin'){
+        const featureKeys=window.JahezPermissions.createContext({profile}).allowedKeys();
         return {
           profile,
           branding:branding?.value,
-          permissions:{portalKeys:Object.keys(window.JahezPortalAccess?.PORTALS||{})}
+          permissions:{portalKeys:Object.keys(window.JahezPortalAccess?.PORTALS||{}),featureKeys}
         };
       }
 
-      const permissionResult=await sb.rpc('get_user_portal_permissions',{p_user_id:user.id});
-      if(!permissionResult.error){
+      const [permissionResult,featureResult]=await Promise.all([
+        sb.rpc('get_user_portal_permissions',{p_user_id:user.id}),
+        sb.rpc('get_user_feature_permissions',{p_user_id:user.id})
+      ]);
+      if(!permissionResult.error&&!featureResult.error){
         const portalKeys=(permissionResult.data||[])
           .filter(row=>row.can_view!==false)
           .map(row=>row.portal_key);
-        return {profile, branding:branding?.value, permissions:{portalKeys}};
+        const featureKeys=window.JahezPermissions.createContext({profile,rows:featureResult.data||[],portalKeys}).allowedKeys();
+        return {profile, branding:branding?.value, permissions:{portalKeys,featureKeys}};
       }
-      lastError=permissionResult.error;
+      lastError=permissionResult.error||featureResult.error;
     }else{
       lastError=profileError;
     }

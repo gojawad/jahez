@@ -665,6 +665,7 @@
   let profileContext = null;
   let profileLoadError = '';
   let previewTimer;
+  const canUseClientAssets = () => Boolean(window.JahezPermissions?.can('client_assets.use'));
 
   function ensureOverlay(){
     if(overlay) return overlay;
@@ -740,7 +741,7 @@
     const record = contractRecord();
     profileContext = null;
     profileLoadError = '';
-    if(!record) return;
+    if(!record || !canUseClientAssets()) return;
     try{
       profileContext = await prepareBaharContractClientAssets(record);
     }catch(error){
@@ -750,6 +751,7 @@
   }
 
   function collectApproval(){
+    if(!canUseClientAssets()) return currentApproval();
     const stampFileId = overlay.querySelector('.bce-buyer-stamp-select')?.value || null;
     const signatureFileId = overlay.querySelector('.bce-buyer-signature-select')?.value || null;
     const signature = profileContext?.files?.find(file=>file.id === signatureFileId) || null;
@@ -852,12 +854,13 @@
     button.textContent = 'جارٍ الحفظ...';
     try{
       draft = collect();
-      const settings = Object.assign({}, companyEntry.settings || {}, {contractBranding:clone(draft)});
-      await saveCompanyById(companyEntry.id, settings);
-      const approval = collectApproval();
-      const saved = await dbSaveRecord(Object.assign({}, record, {clientContractApproval:approval}));
-      if(!saved) throw new Error('تعذر حفظ اختيار ختم وتوقيع العميل على الشحنة.');
-      recordId = saved.id;
+      await saveBaharContractBranding(companyEntry.id, clone(draft));
+      if(canUseClientAssets()){
+        const approval = collectApproval();
+        const saved = await dbSaveRecord(Object.assign({}, record, {clientContractApproval:approval}));
+        if(!saved) throw new Error('تعذر حفظ اختيار ختم وتوقيع العميل على الشحنة.');
+        recordId = saved.id;
+      }
       await loadProfileContext();
       if(typeof toast === 'function') toast('تم حفظ إعدادات عقد بحر سواكن');
       renderPreview();
@@ -868,6 +871,7 @@
   }
 
   function buyerAssetsSection(record){
+    if(!canUseClientAssets()) return '<section class="bce-section bce-buyer-assets"><h4>ختم وتوقيع العميل</h4><p class="bce-section-note">هذه الأدوات غير متاحة لهذا الحساب. يمكن للمدير منح صلاحية استخدام أصول العملاء.</p></section>';
     const available = contractRecords() || [];
     const approval = currentApproval();
     const client = profileContext?.client || null;
@@ -1003,6 +1007,10 @@
   }
 
   window.openBaharContractEditor = async id => {
+    if(!window.JahezPermissions?.can('contracts.edit')){
+      alert('ليس لديك صلاحية تعديل العقود.');
+      return;
+    }
     const directRecord = typeof records !== 'undefined' ? records.find(record=>record.id === id) : null;
     const requestedCompanyId = directRecord?.companyId || id;
     const companyEntry = typeof companyById === 'function' ? companyById(requestedCompanyId) : null;

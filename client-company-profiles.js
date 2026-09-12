@@ -29,6 +29,10 @@
   function canManage(role){ return WRITE_ROLES.includes(role); }
   function canArchive(role){ return role === 'admin'; }
   function canAccessFile(role){ return ['admin','editor','viewer'].includes(role); }
+  function canReadCurrent(){ return root.JahezPermissions ? root.JahezPermissions.can('client_profiles.view') : canRead(currentRole()); }
+  function canManageCurrent(){ return root.JahezPermissions ? root.JahezPermissions.can('client_profiles.edit') : canManage(currentRole()); }
+  function canArchiveCurrent(){ return canArchive(currentRole()) && canManageCurrent(); }
+  function canAccessFileCurrent(){ return canReadCurrent(); }
   function summarizeClient(client){
     const active = (client.client_profile_files || []).filter(file=>file.is_active !== false);
     return {
@@ -183,7 +187,7 @@
   function renderProfile(){
     const box=rootEl(); if(!box || !state.selected) return;
     const client=state.selected;
-    const manager=canManage(currentRole());
+    const manager=canManageCurrent();
     box.innerHTML=`<div class="ccp-shell">
       <button class="ccp-back" id="ccpBack">→ العودة لقائمة الشركات</button>
       <section class="ccp-profile-head" style="margin-top:12px">
@@ -222,12 +226,12 @@
   }
   function renderAssets(){
     const groups=[['letterhead','الترويسة'],['stamp','الختم'],['signature','التوقيعات'],['logo','الشعار']];
-    return `<div class="ccp-section-head"><div><h3>الأختام والتوقيعات</h3><p>أصول الهوية محفوظة بأمان ولا تدخل تلقائياً في أي مستند في هذه المرحلة.</p></div>${canManage(currentRole())?'<button class="ccp-btn primary" id="ccpAssetAdd">إضافة أصل</button>':''}</div>${groups.map(([type,label])=>{ const files=state.files.filter(file=>file.file_type===type); return `<div class="ccp-asset-group"><h4 class="ccp-asset-group-title">${label}</h4><div class="ccp-file-grid">${files.length?files.map(fileCard).join(''):'<div class="ccp-empty" style="padding:28px 18px"><b>غير مضاف</b>لا يوجد ملف نشط من هذا النوع.</div>'}</div></div>`; }).join('')}`;
+    return `<div class="ccp-section-head"><div><h3>الأختام والتوقيعات</h3><p>أصول الهوية محفوظة بأمان ولا تدخل تلقائياً في أي مستند في هذه المرحلة.</p></div>${canManageCurrent()?'<button class="ccp-btn primary" id="ccpAssetAdd">إضافة أصل</button>':''}</div>${groups.map(([type,label])=>{ const files=state.files.filter(file=>file.file_type===type); return `<div class="ccp-asset-group"><h4 class="ccp-asset-group-title">${label}</h4><div class="ccp-file-grid">${files.length?files.map(fileCard).join(''):'<div class="ccp-empty" style="padding:28px 18px"><b>غير مضاف</b>لا يوجد ملف نشط من هذا النوع.</div>'}</div></div>`; }).join('')}`;
   }
   function fileCard(file){
     const image=file.mime_type && file.mime_type.startsWith('image/');
     const uploader=state.uploaders.get(file.uploaded_by) || 'غير معروف';
-    const fileActions=canAccessFile(currentRole())?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManage(currentRole())?'<button data-action="replace">استبدال</button>':''}${canArchive(currentRole())?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">الأصل محفوظ</span>';
+    const fileActions=canAccessFileCurrent()?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManageCurrent()?'<button data-action="replace">استبدال</button>':''}${canArchiveCurrent()?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">الأصل محفوظ</span>';
     return `<article class="ccp-file-card" data-file-id="${esc(file.id)}"><div class="ccp-preview">${image?`<img data-profile-image="${esc(file.id)}" alt="${esc(FILE_TYPES[file.file_type])}">`:'<div class="ccp-pdf-mark">PDF</div>'}</div><div class="ccp-file-content"><h4>${esc(file.title || FILE_TYPES[file.file_type])}</h4><p title="${esc(file.original_name)}">${esc(file.original_name)}</p><div class="ccp-file-meta"><span>${fmtSize(file.size_bytes)}</span><span>${fmtDate(file.created_at)}</span><span>بواسطة ${esc(uploader)}</span></div><div class="ccp-file-actions">${fileActions}</div></div></article>`;
   }
   function renderDocuments(){
@@ -235,19 +239,19 @@
     const perPage=10, pages=Math.max(1,Math.ceil(docs.length/perPage));
     state.docsPage=Math.min(state.docsPage,pages);
     const visible=docs.slice((state.docsPage-1)*perPage,state.docsPage*perPage);
-    return `<div class="ccp-section-head"><div><h3>مكتبة المستندات</h3><p>${docs.length} مستند نشط لهذه الشركة.</p></div>${canManage(currentRole())?'<button class="ccp-btn primary" id="ccpDocumentAdd">رفع مستند</button>':''}</div><div class="ccp-doc-list">${visible.length?visible.map(documentRow).join(''):'<div class="ccp-empty"><b>لا توجد مستندات</b>لم تُرفع مستندات لهذه الشركة بعد.</div>'}</div>${pages>1?`<div class="ccp-pagination">${Array.from({length:pages},(_,i)=>`<button class="${state.docsPage===i+1?'active':''}" data-page="${i+1}">${i+1}</button>`).join('')}</div>`:''}`;
+    return `<div class="ccp-section-head"><div><h3>مكتبة المستندات</h3><p>${docs.length} مستند نشط لهذه الشركة.</p></div>${canManageCurrent()?'<button class="ccp-btn primary" id="ccpDocumentAdd">رفع مستند</button>':''}</div><div class="ccp-doc-list">${visible.length?visible.map(documentRow).join(''):'<div class="ccp-empty"><b>لا توجد مستندات</b>لم تُرفع مستندات لهذه الشركة بعد.</div>'}</div>${pages>1?`<div class="ccp-pagination">${Array.from({length:pages},(_,i)=>`<button class="${state.docsPage===i+1?'active':''}" data-page="${i+1}">${i+1}</button>`).join('')}</div>`:''}`;
   }
   function documentRow(file){
     const uploader=state.uploaders.get(file.uploaded_by) || 'غير معروف';
-    const fileActions=canAccessFile(currentRole())?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManage(currentRole())?'<button data-action="replace">استبدال</button>':''}${canArchive(currentRole())?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">المستند محفوظ</span>';
+    const fileActions=canAccessFileCurrent()?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManageCurrent()?'<button data-action="replace">استبدال</button>':''}${canArchiveCurrent()?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">المستند محفوظ</span>';
     return `<article class="ccp-doc-row" data-file-id="${esc(file.id)}"><div class="ccp-doc-icon">${file.mime_type==='application/pdf'?'PDF':'IMG'}</div><div class="ccp-doc-main"><b>${esc(file.title || FILE_TYPES[file.file_type])}</b><span>${esc(file.original_name)}</span></div><div class="ccp-doc-cell">${esc(FILE_TYPES[file.file_type])}</div><div class="ccp-doc-cell">${fmtSize(file.size_bytes)} · ${fmtDate(file.created_at)}<br>بواسطة ${esc(uploader)}</div><div class="ccp-file-actions">${fileActions}</div></article>`;
   }
   function renderSignatories(){
-    return `<div class="ccp-section-head"><div><h3>الأشخاص المفوضون</h3><p>جهات التفويض الخاصة بالشركة، وليست حسابات مستخدمين في المنصة.</p></div>${canManage(currentRole())?'<button class="ccp-btn primary" id="ccpSignatoryAdd">إضافة شخص مفوض</button>':''}</div><div class="ccp-sign-grid">${state.signatories.length?state.signatories.map(signatoryCard).join(''):'<div class="ccp-empty"><b>لا يوجد أشخاص مفوضون</b>لم تتم إضافة مفوضين لهذه الشركة.</div>'}</div>`;
+    return `<div class="ccp-section-head"><div><h3>الأشخاص المفوضون</h3><p>جهات التفويض الخاصة بالشركة، وليست حسابات مستخدمين في المنصة.</p></div>${canManageCurrent()?'<button class="ccp-btn primary" id="ccpSignatoryAdd">إضافة شخص مفوض</button>':''}</div><div class="ccp-sign-grid">${state.signatories.length?state.signatories.map(signatoryCard).join(''):'<div class="ccp-empty"><b>لا يوجد أشخاص مفوضون</b>لم تتم إضافة مفوضين لهذه الشركة.</div>'}</div>`;
   }
   function signatoryCard(person){
     const signatures=state.files.filter(file=>file.file_type==='signature' && file.signatory_id===person.id).length;
-    return `<article class="ccp-sign-card" data-signatory-id="${esc(person.id)}"><div class="ccp-sign-top"><div class="ccp-sign-avatar">${esc(initials(person.name))}</div><div><h4>${esc(person.name)}</h4><p>${esc(person.title || 'بدون مسمى وظيفي')}</p></div></div><div class="ccp-sign-contact">${person.phone?`الهاتف: ${esc(person.phone)}<br>`:''}${person.email?`البريد: ${esc(person.email)}<br>`:''}التوقيعات المرتبطة: ${signatures}</div>${canManage(currentRole())?`<div class="ccp-sign-actions"><button class="ccp-btn" data-action="edit-signatory">تعديل</button>${canArchive(currentRole())?' <button class="ccp-btn danger" data-action="archive-signatory">أرشفة</button>':''}</div>`:''}</article>`;
+    return `<article class="ccp-sign-card" data-signatory-id="${esc(person.id)}"><div class="ccp-sign-top"><div class="ccp-sign-avatar">${esc(initials(person.name))}</div><div><h4>${esc(person.name)}</h4><p>${esc(person.title || 'بدون مسمى وظيفي')}</p></div></div><div class="ccp-sign-contact">${person.phone?`الهاتف: ${esc(person.phone)}<br>`:''}${person.email?`البريد: ${esc(person.email)}<br>`:''}التوقيعات المرتبطة: ${signatures}</div>${canManageCurrent()?`<div class="ccp-sign-actions"><button class="ccp-btn" data-action="edit-signatory">تعديل</button>${canArchiveCurrent()?' <button class="ccp-btn danger" data-action="archive-signatory">أرشفة</button>':''}</div>`:''}</article>`;
   }
 
   function bindTabActions(){
@@ -282,7 +286,7 @@
     return data.signedUrl;
   }
   async function hydrateProfileImages(){
-    if(!canAccessFile(currentRole())) return;
+    if(!canAccessFileCurrent()) return;
     const logo=state.files.find(file=>file.file_type==='logo' && file.mime_type?.startsWith('image/'));
     if(logo){ try{ const url=await signedUrl(logo); const el=document.getElementById('ccpCompanyLogo'); if(el) el.innerHTML=`<img src="${esc(url)}" alt="شعار الشركة">`; }catch(error){ console.warn(error); } }
     document.querySelectorAll('[data-profile-image]').forEach(async image=>{
@@ -305,13 +309,13 @@
   }
 
   function openProfileModal(){
-    if(!canManage(currentRole())) return;
+    if(!canManageCurrent()) return;
     const c=state.selected, form=document.getElementById('ccpProfileForm');
     [['name','name'],['nameAr','name_ar'],['nameEn','name_en'],['phone','phone'],['email','email'],['country','country'],['address','address'],['license','trade_license_no'],['tax','tax_registration_no'],['website','website'],['note','note']].forEach(([id,key])=>{ form.elements[id].value=c[key] || ''; });
     document.getElementById('ccpProfileModal').classList.add('open');
   }
   async function saveProfile(event){
-    event.preventDefault(); if(!canManage(currentRole())) return;
+    event.preventDefault(); if(!canManageCurrent()) return;
     const form=event.currentTarget;
     const row={name:form.elements.name.value.trim(),name_ar:form.elements.nameAr.value.trim()||null,name_en:form.elements.nameEn.value.trim()||null,phone:form.elements.phone.value.trim()||null,email:form.elements.email.value.trim()||null,country:form.elements.country.value.trim()||null,address:form.elements.address.value.trim()||null,trade_license_no:form.elements.license.value.trim()||null,tax_registration_no:form.elements.tax.value.trim()||null,website:form.elements.website.value.trim()||null,note:form.elements.note.value.trim()||null};
     if(!row.name){ notify('الاسم المسجل مطلوب.', 'err'); return; }
@@ -320,7 +324,7 @@
   }
 
   function openUploadModal(type, replacing){
-    if(!canManage(currentRole())) return;
+    if(!canManageCurrent()) return;
     const form=document.getElementById('ccpUploadForm'); form.reset();
     form.dataset.replaceId=replacing ? replacing.id : '';
     form.elements.fileType.value=type || 'stamp'; form.elements.title.value=replacing?.title || '';
@@ -343,7 +347,7 @@
     return Date.now()+'-'+Math.random().toString(36).slice(2,10)+'.'+ext;
   }
   async function saveUpload(event){
-    event.preventDefault(); if(!canManage(currentRole())) return;
+    event.preventDefault(); if(!canManageCurrent()) return;
     const form=event.currentTarget, file=form.elements.file.files[0], problem=validateFile(file); if(problem){ notify(problem,'err'); return; }
     const type=form.elements.fileType.value;
     if(!FILE_TYPES[type]){ notify('نوع الملف غير صالح.','err'); return; }
@@ -364,26 +368,26 @@
     }finally{ endBusy(); }
   }
   async function archiveFile(file){
-    if(!canArchive(currentRole()) || !confirm(`أرشفة "${file.title || FILE_TYPES[file.file_type]}"؟\nسيختفي من البروفايل دون حذف الملف نهائياً.`)) return;
+    if(!canArchiveCurrent() || !confirm(`أرشفة "${file.title || FILE_TYPES[file.file_type]}"؟\nسيختفي من البروفايل دون حذف الملف نهائياً.`)) return;
     try{ startBusy(); const {error}=await sb.from('client_profile_files').update({is_active:false}).eq('id',file.id); if(error) throw error; state.files=state.files.filter(item=>item.id!==file.id); logAction('edit','أرشفة '+FILE_TYPES[file.file_type]+' للشركة: '+clientDisplayName(state.selected)); renderProfile(); notify('تمت أرشفة الملف.'); }
     catch(error){ notify('تعذّرت أرشفة الملف.','err'); console.error(error); } finally{ endBusy(); }
   }
 
   function openSignatoryModal(person){
-    if(!canManage(currentRole())) return;
+    if(!canManageCurrent()) return;
     const form=document.getElementById('ccpSignatoryForm'); form.reset(); form.dataset.id=person?.id||'';
     form.elements.name.value=person?.name||''; form.elements.title.value=person?.title||''; form.elements.phone.value=person?.phone||''; form.elements.email.value=person?.email||'';
     document.getElementById('ccpSignatoryTitle').textContent=person?'تعديل شخص مفوض':'إضافة شخص مفوض'; document.getElementById('ccpSignatoryModal').classList.add('open');
   }
   async function saveSignatory(event){
-    event.preventDefault(); if(!canManage(currentRole())) return;
+    event.preventDefault(); if(!canManageCurrent()) return;
     const form=event.currentTarget, id=form.dataset.id, row={client_id:state.selected.id,name:form.elements.name.value.trim(),title:form.elements.title.value.trim()||null,phone:form.elements.phone.value.trim()||null,email:form.elements.email.value.trim()||null};
     if(!row.name){ notify('اسم الشخص المفوض مطلوب.','err'); return; }
     try{ startBusy(); let result; if(id) result=await sb.from('client_authorized_signatories').update(row).eq('id',id).select().single(); else result=await sb.from('client_authorized_signatories').insert(Object.assign(row,{created_by:currentId()})).select().single(); if(result.error) throw result.error; closeModal('ccpSignatoryModal'); logAction(id?'edit':'add',(id?'تعديل':'إضافة')+' شخص مفوض للشركة: '+clientDisplayName(state.selected)); notify('تم حفظ بيانات الشخص المفوض.'); await openClient(state.selected.id,{route:false,tab:'signatories'}); }
     catch(error){ notify('تعذّر حفظ الشخص المفوض.','err'); console.error(error); } finally{ endBusy(); }
   }
   async function archiveSignatory(person){
-    if(!canArchive(currentRole()) || !confirm(`أرشفة الشخص المفوض "${person.name}"؟`)) return;
+    if(!canArchiveCurrent() || !confirm(`أرشفة الشخص المفوض "${person.name}"؟`)) return;
     try{ startBusy(); const {error}=await sb.from('client_authorized_signatories').update({active:false}).eq('id',person.id); if(error) throw error; state.signatories=state.signatories.filter(item=>item.id!==person.id); renderProfile(); notify('تمت أرشفة الشخص المفوض.'); }
     catch(error){ notify('تعذّرت أرشفة الشخص المفوض.','err'); console.error(error); } finally{ endBusy(); }
   }
@@ -409,7 +413,7 @@
   }
 
   async function open(){
-    if(!canRead(currentRole())) return;
+    if(!canReadCurrent()) return;
     injectModals();
     if(typeof root.syncConsigneeClientsFromApp === 'function') await root.syncConsigneeClientsFromApp();
     const route=typeof parseHash==='function'?parseHash():{};
@@ -426,5 +430,5 @@
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
     root.addEventListener?.('jahez:session-ready',()=>{ const route=typeof parseHash==='function'?parseHash():{}; if(route.v==='clientProfiles') open().then(()=>{ if(route.id) openClient(route.id,{route:false}); }); });
   }
-  return Object.freeze({BUCKET,MAX_FILE_SIZE,ALLOWED_MIME,FILE_TYPES,ASSET_TYPES,DOCUMENT_TYPES,READ_ROLES,WRITE_ROLES,canRead,canManage,canArchive,canAccessFile,summarizeClient,clientDisplayName,validateFile,open,openClient});
+  return Object.freeze({BUCKET,MAX_FILE_SIZE,ALLOWED_MIME,FILE_TYPES,ASSET_TYPES,DOCUMENT_TYPES,READ_ROLES,WRITE_ROLES,canRead,canManage,canArchive,canAccessFile,canReadCurrent,canManageCurrent,summarizeClient,clientDisplayName,validateFile,open,openClient});
 });

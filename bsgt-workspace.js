@@ -43,10 +43,17 @@
     });
   }
 
-  function resolvePermissions(profile, rows) {
+  function resolvePermissions(profile, rows, featurePermissions) {
     if (!profile || profile.active === false) return Object.freeze([]);
     if (profile.role === 'admin') {
       return Object.freeze(SECTION_KEYS.map(section => Object.freeze({section, canView:true, canEdit:true})));
+    }
+    if (featurePermissions && Array.isArray(featurePermissions.featureKeys)) {
+      return Object.freeze(SECTION_KEYS.map(section => {
+        const canView = featurePermissions.featureKeys.includes(`bsgt.${section}.view`);
+        if (!canView) return null;
+        return Object.freeze({section, canView:true, canEdit:featurePermissions.featureKeys.includes(`bsgt.${section}.edit`)});
+      }).filter(Boolean));
     }
     const canEditAssignedSection = ['editor', 'staff', 'bsgt_user'].includes(profile.role);
     const bySection = new Map();
@@ -61,17 +68,17 @@
     return Object.freeze(SECTION_KEYS.map(section => bySection.get(section)).filter(Boolean));
   }
 
-  function allowedSections(profile, rows) {
-    const allowed = new Set(resolvePermissions(profile, rows).map(permission => permission.section));
+  function allowedSections(profile, rows, featurePermissions) {
+    const allowed = new Set(resolvePermissions(profile, rows, featurePermissions).map(permission => permission.section));
     return SECTIONS.filter(section => allowed.has(section.key));
   }
 
-  function permissionFor(section, profile, rows) {
-    return resolvePermissions(profile, rows).find(permission => permission.section === section) || null;
+  function permissionFor(section, profile, rows, featurePermissions) {
+    return resolvePermissions(profile, rows, featurePermissions).find(permission => permission.section === section) || null;
   }
 
-  function resolveSection(requested, profile, rows) {
-    const allowed = allowedSections(profile, rows);
+  function resolveSection(requested, profile, rows, featurePermissions) {
+    const allowed = allowedSections(profile, rows, featurePermissions);
     if (!allowed.length) return null;
     return allowed.find(section => section.key === requested)?.key || allowed[0].key;
   }

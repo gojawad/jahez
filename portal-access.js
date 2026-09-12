@@ -34,13 +34,16 @@
     bsgt_user: Object.freeze(['commercial_collection'])
   });
 
+  const VALID_ROLES = Object.freeze(Object.keys(ROLE_PORTALS));
+
   function activeProfile(profile) {
     return Boolean(profile && profile.active !== false && typeof profile.role === 'string');
   }
 
   function hasExplicitPermission(portalKey, permissions) {
-    if (!permissions || !Array.isArray(permissions.portalKeys)) return false;
-    return permissions.portalKeys.includes(portalKey);
+    if (!permissions) return false;
+    if (Array.isArray(permissions.featureKeys)) return permissions.featureKeys.includes(`${portalKey}.view`);
+    return Array.isArray(permissions.portalKeys) && permissions.portalKeys.includes(portalKey);
   }
 
   function isAdmin(profile) {
@@ -51,10 +54,8 @@
     const portal = PORTALS[portalKey];
     if (!portal || !activeProfile(profile)) return false;
     if (isAdmin(profile)) return true;
-    return Boolean(
-      portal.allowedRoles.includes(profile.role) &&
-      hasExplicitPermission(portalKey, permissions)
-    );
+    if (!VALID_ROLES.includes(profile.role)) return false;
+    return hasExplicitPermission(portalKey, permissions);
   }
 
   function publicPortal(portal) {
@@ -82,6 +83,7 @@
     ACCESS_MESSAGE_KEY,
     PORTALS,
     ROLE_PORTALS,
+    VALID_ROLES,
     isAdmin,
     canAccessPortal,
     resolveUserPortal,

@@ -81,6 +81,12 @@ async function main(){
         return route.fulfill({status:200,headers,body:'{}'});
       }
       if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
+      if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions') return route.fulfill({status:200,headers,body:JSON.stringify([
+        {permission_key:'bsgt.operations.view',allowed:true},
+        {permission_key:'bsgt.operations.edit',allowed:true},
+        {permission_key:'bsgt.operation_center.view',allowed:true},
+        {permission_key:'shipment_documents.delete',allowed:true}
+      ])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions') return route.fulfill({status:200,headers,body:JSON.stringify([{section:'operations',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/complete_bsgt_operations'){
         completeCalls++;
@@ -201,12 +207,24 @@ async function main(){
 
     await page.evaluate(()=>{
       bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:false}];
+      currentFeaturePermissionRows=[
+        {permission_key:'bsgt.operations.view',allowed:true},
+        {permission_key:'bsgt.operation_center.view',allowed:true}
+      ];
+      syncCurrentPermissionContext();
       refreshBsgtOperationsPanel(records.find(record=>record.id===bsgtOperationsListState.selectedId));
     });
     assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'viewer does not see delete actions');
     assert.strictEqual(await page.locator('[data-bsgt-document-kind="uploaded"] [data-bsgt-file-open]').count(), 4, 'viewer keeps uploaded-document preview actions');
     await page.evaluate(()=>{
       bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:true}];
+      currentFeaturePermissionRows=[
+        {permission_key:'bsgt.operations.view',allowed:true},
+        {permission_key:'bsgt.operations.edit',allowed:true},
+        {permission_key:'bsgt.operation_center.view',allowed:true},
+        {permission_key:'shipment_documents.delete',allowed:true}
+      ];
+      syncCurrentPermissionContext();
       refreshBsgtOperationsPanel(records.find(record=>record.id===bsgtOperationsListState.selectedId));
     });
 

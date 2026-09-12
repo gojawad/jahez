@@ -1833,9 +1833,7 @@ body.role-staff #backTop{display:none !important;}
 
 /* مستخدم بحر سواكن يرى البوابة المختصة فقط. */
 body.role-bsgt-user #navTasks,
-body.role-bsgt-user #navCreateShip,
 body.role-bsgt-user #navOperations,
-body.role-bsgt-user #navOperationCenter,
 body.role-bsgt-user #navActivityLog,
 body.role-bsgt-user #navReview,
 body.role-bsgt-user #navMoney,
@@ -2098,12 +2096,9 @@ body.syncing .ts-net::after{content:'⟳ جاري المزامنة…';}
 @keyframes toastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
 
 /* إخفاء أدوات التعديل عن المشاهد */
-body.role-viewer #newBtn,
-body.role-viewer #saveBtn,
-body.role-viewer #saveDraftBtn,
-body.role-viewer #editBtn,
-body.role-viewer #deleteBtn,
 body.role-viewer #statusBtn{display:none !important;}
+body.no-shipment-write #saveBtn,
+body.no-shipment-write #saveDraftBtn{display:none !important;}
 body.role-viewer .lk-acts,
 body.role-viewer #lkAddBtn,
 body.role-viewer #bankAddBtn{display:none !important;}
@@ -2492,6 +2487,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-enterprise-2">
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
+  <link rel="stylesheet" href="permissions.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
@@ -5868,9 +5864,10 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="portal-access.js?v=20260912-1"></script>
+<script src="permissions.js?v=20260912-1"></script>
+<script src="portal-access.js?v=20260912-2"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
-<script src="bsgt-workspace.js?v=20260912-1"></script>
+  <script src="bsgt-workspace.js?v=20260912-2"></script>
 <script src="bsgt-operations.js?v=20260912-document-delete-1"></script>
 <script src="commodity-images.js?v=20260912-master-detail-2"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
@@ -6132,6 +6129,9 @@ async function dbSaveRecord(rec){
   try{
     const row = recordToRow(rec);
     const isUpdate = isUuid(rec.id);
+    const bsgtAllowed = isBsgtRecord(rec) && bsgtOperationsPermission(true);
+    const permissionKey = isUpdate ? 'shipments.edit' : 'shipments.create';
+    if(!bsgtAllowed && !window.JahezPermissions?.can(permissionKey)) throw new Error('ليس لديك صلاحية '+(isUpdate?'تعديل الشحنات.':'إنشاء شحنة.'));
     let res;
     if(isUpdate){
       res = await sb.from('shipments').update(row).eq('id', rec.id).select();
@@ -6162,6 +6162,7 @@ async function dbSaveRecord(rec){
 async function dbDeleteRecord(id){
   netStart();
   try{
+    if(!window.JahezPermissions?.can('shipments.delete')) throw new Error('ليس لديك صلاحية حذف الشحنات.');
     const {error} = await sb.from('shipments').delete().eq('id', id);
     if(error) throw error;
     records = records.filter(x=>x.id!==id);
@@ -6271,10 +6272,20 @@ async function loadUsers(){
     const {data, error} = await sb.from('profiles').select('*').order('created_at');
     if(error) throw error;
     let portalRows = [];
+    let featureRows = [];
+    let workspaceRows = [];
     if(currentUser?.role === 'admin'){
-      const portalResult = await sb.from('user_portal_permissions').select('user_id,portal_key,can_view');
+      const [portalResult, featureResult, workspaceResult] = await Promise.all([
+        sb.from('user_portal_permissions').select('user_id,portal_key,can_view'),
+        sb.from('user_feature_permissions').select('user_id,permission_key,allowed'),
+        sb.from('bsgt_workspace_permissions').select('user_id,section,can_view,can_edit')
+      ]);
       if(portalResult.error) throw portalResult.error;
+      if(featureResult.error) throw featureResult.error;
+      if(workspaceResult.error) throw workspaceResult.error;
       portalRows = portalResult.data || [];
+      featureRows = featureResult.data || [];
+      workspaceRows = workspaceResult.data || [];
     }
     users = (data||[]).map(p=>({
       id:p.id, username:p.email, email:p.email,
@@ -6283,7 +6294,9 @@ async function loadUsers(){
       photo:p.photo_url || '',
       lastLogin:p.last_login ? new Date(p.last_login).getTime() : null,
       createdAt:p.created_at ? new Date(p.created_at).getTime() : null,
-      portalKeys: portalRows.filter(row=>row.user_id===p.id && row.can_view!==false).map(row=>row.portal_key)
+      portalKeys: portalRows.filter(row=>row.user_id===p.id && row.can_view!==false).map(row=>row.portal_key),
+      featureRows: featureRows.filter(row=>row.user_id===p.id),
+      workspaceRows: workspaceRows.filter(row=>row.user_id===p.id)
     }));
   }catch(e){ dbError(e, 'تعذّر تحميل المستخدمين'); users = []; }
   finally{ netEnd(); }
@@ -6540,6 +6553,8 @@ let currentPortalPermissions = {portalKeys:[]};
 let portalPermissionsLoaded = false;
 let bsgtWorkspacePermissionRows = [];
 let bsgtWorkspacePermissionsLoaded = false;
+let currentFeaturePermissionRows = [];
+let featurePermissionsLoaded = false;
 const AUTH_RETURN_PATH_KEY = 'jahez:auth-return-path';
 const PORTAL_ACCESS_MESSAGE_KEY = window.JahezPortalAccess?.ACCESS_MESSAGE_KEY || 'jahez:portal-access-message';
 let resolveAccessReady;
@@ -6548,6 +6563,20 @@ let accessReadyResolved = false;
 
 function safeAuthReturnPath(value){
   return window.JahezSessionNavigation?.safeInternalPath(value, location.origin) || '';
+}
+async function saveBaharContractBranding(companyId, contractBranding){
+  if(!window.JahezPermissions?.can('contracts.edit')) throw new Error('ليس لديك صلاحية تعديل العقود.');
+  if(isAdmin()){
+    const companyEntry = companyById(companyId);
+    const settings = Object.assign({}, companyEntry?.settings || {}, {contractBranding});
+    await saveCompanyById(companyId, settings);
+    return settings;
+  }
+  const {data,error} = await sb.rpc('save_bsgt_contract_branding',{p_company_id:companyId,p_contract_branding:contractBranding});
+  if(error) throw error;
+  const companyEntry = companyById(companyId);
+  if(companyEntry) companyEntry.settings = data || Object.assign({}, companyEntry.settings || {}, {contractBranding});
+  return companyEntry?.settings || data;
 }
 
 function rememberAuthReturnPath(path){
@@ -6602,6 +6631,18 @@ function currentAccessProfile(){
     photo_url: currentUser.photo
   };
 }
+function currentFeaturePermissionContext(){
+  return {featureKeys:window.JahezPermissions?.allowedKeys() || []};
+}
+function syncCurrentPermissionContext(){
+  window.JahezPermissions?.configure({
+    profile:currentAccessProfile(),
+    rows:currentFeaturePermissionRows,
+    portalKeys:currentPortalPermissions.portalKeys || [],
+    workspaceRows:bsgtWorkspacePermissionRows
+  });
+  currentPortalPermissions.featureKeys = window.JahezPermissions?.allowedKeys() || [];
+}
 function resolveUserPortal(profile, permissions){
   return window.JahezPortalAccess?.resolveUserPortal(profile, permissions) || null;
 }
@@ -6609,20 +6650,37 @@ function resolveUserPortals(profile, permissions){
   return window.JahezPortalAccess?.resolveUserPortals(profile, permissions) || [];
 }
 function canAccessCurrentPortal(portalKey){
-  return Boolean(portalPermissionsLoaded && window.JahezPortalAccess?.canAccessPortal(portalKey, currentAccessProfile(), currentPortalPermissions));
+  return Boolean(featurePermissionsLoaded && window.JahezPermissions?.can(`${portalKey}.view`));
 }
 async function getPortalPermissions(userId){
   if(!currentUser || !userId || userId !== currentUser.id) return [];
   if(isAdmin()){
     currentPortalPermissions = {portalKeys:Object.keys(window.JahezPortalAccess?.PORTALS || {})};
     portalPermissionsLoaded = true;
+    syncCurrentPermissionContext();
     return currentPortalPermissions.portalKeys;
   }
   const {data, error} = await sb.rpc('get_user_portal_permissions', {p_user_id:userId});
   if(error) throw error;
   currentPortalPermissions = {portalKeys:(data || []).filter(row=>row.can_view !== false).map(row=>row.portal_key)};
   portalPermissionsLoaded = true;
+  syncCurrentPermissionContext();
   return currentPortalPermissions.portalKeys;
+}
+async function getFeaturePermissions(userId){
+  if(!currentUser || !userId || userId !== currentUser.id) return [];
+  if(isAdmin()){
+    currentFeaturePermissionRows = [];
+    featurePermissionsLoaded = true;
+    syncCurrentPermissionContext();
+    return window.JahezPermissions?.allowedKeys() || [];
+  }
+  const {data, error} = await sb.rpc('get_user_feature_permissions', {p_user_id:userId});
+  if(error) throw error;
+  currentFeaturePermissionRows = Array.isArray(data) ? data : [];
+  featurePermissionsLoaded = true;
+  syncCurrentPermissionContext();
+  return window.JahezPermissions?.allowedKeys() || [];
 }
 function resolveBsgtCompanyId(){
   return window.JahezBsgtWorkspace?.resolveBsgtCompanyId(companies) || null;
@@ -6632,16 +6690,18 @@ async function getBsgtWorkspacePermissions(userId){
   if(currentUser.role === 'admin'){
     bsgtWorkspacePermissionRows = [];
     bsgtWorkspacePermissionsLoaded = true;
+    syncCurrentPermissionContext();
     return window.JahezBsgtWorkspace?.resolvePermissions(currentAccessProfile(), []) || [];
   }
   const {data, error} = await sb.rpc('get_bsgt_workspace_permissions', {p_user_id:userId});
   if(error) throw error;
   bsgtWorkspacePermissionRows = Array.isArray(data) ? data : [];
   bsgtWorkspacePermissionsLoaded = true;
-  return window.JahezBsgtWorkspace?.resolvePermissions(currentAccessProfile(), bsgtWorkspacePermissionRows) || [];
+  syncCurrentPermissionContext();
+  return window.JahezBsgtWorkspace?.resolvePermissions(currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext()) || [];
 }
 function bsgtWorkspaceSections(){
-  return window.JahezBsgtWorkspace?.allowedSections(currentAccessProfile(), bsgtWorkspacePermissionRows) || [];
+  return window.JahezBsgtWorkspace?.allowedSections(currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext()) || [];
 }
 function canAccessBsgtWorkspace(){
   return Boolean(bsgtWorkspacePermissionsLoaded && bsgtWorkspaceSections().length);
@@ -6662,10 +6722,17 @@ const APP_VIEW_ACCESS = Object.freeze({
   viewer: Object.freeze(['dashboard','records','operationCenter','bsgt','bsgtWorkspace','activityLog','clientProfiles','sea','issued','drafts']),
   bsgt_user: Object.freeze(['dashboard','bsgt','bsgtWorkspace'])
 });
+const APP_VIEW_PERMISSIONS = Object.freeze({
+  operationCenter:'operations_center.view',
+  createShip:'shipments.create',
+  shipForm:'shipments.create',
+  clientProfiles:'client_profiles.view'
+});
 function canAccessAppView(view){
   if(!currentUser || !isRegisteredAppView(view)) return false;
   if(isAdmin()) return true;
   if(view === 'bsgtWorkspace') return canAccessBsgtWorkspace();
+  if(APP_VIEW_PERMISSIONS[view]) return Boolean(window.JahezPermissions?.can(APP_VIEW_PERMISSIONS[view]));
   if(currentUser.role==='staff' && view==='records') return Boolean(allowStaffRecords);
   return Boolean((APP_VIEW_ACCESS[currentUser.role] || []).includes(view));
 }
@@ -6727,7 +6794,8 @@ window.JahezAccess = Object.freeze({
   isAdmin:()=>isAdmin(),
   canViewAppRoute:view=>canAccessAppView(view),
   canAccessPortal:key=>canAccessCurrentPortal(key),
-  canAccessBsgtSection:section=>Boolean(window.JahezBsgtWorkspace?.permissionFor(section, currentAccessProfile(), bsgtWorkspacePermissionRows)),
+  canAccessBsgtSection:section=>Boolean(window.JahezBsgtWorkspace?.permissionFor(section, currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext())),
+  can:key=>Boolean(window.JahezPermissions?.can(key)),
   profile:()=>currentAccessProfile(),
   portalPermissions:()=>currentPortalPermissions
 });
@@ -7105,7 +7173,8 @@ async function bootData(){
     step('الدفعات', loadPayments),
     step('حسابات العملاء', loadLedger),
     step('الشركات', () => loadCompanies(true)),
-    step('صلاحيات مساحة BSGT', () => getBsgtWorkspacePermissions(currentUser.id))
+    step('صلاحيات مساحة BSGT', () => getBsgtWorkspacePermissions(currentUser.id)),
+    step('الصلاحيات التفصيلية', () => getFeaturePermissions(currentUser.id))
   ]);
   await syncConsigneeClientsFromApp();
   // بيانات ثقيلة (شعارات وأختام وصور نماذج مضمَّنة base64) — تُحمَّل في الخلفية بلا
@@ -7176,9 +7245,14 @@ function applyPermissionsUi(){
   const ed = canEdit();
   ['newBtn'].forEach(id=>{
     const el = document.getElementById(id);
-    if(el) el.dataset.noEdit = ed ? '' : '1';
+    if(el){
+      const allowed = Boolean(window.JahezPermissions?.can('shipments.create'));
+      el.dataset.noEdit = allowed ? '' : '1';
+      el.style.display = allowed ? '' : 'none';
+    }
   });
   document.body.classList.toggle('role-viewer', !ed);
+  document.body.classList.toggle('no-shipment-write', !window.JahezPermissions?.canAny(['shipments.create','shipments.edit']));
   document.body.classList.toggle('role-admin', isAdmin());
   document.body.classList.toggle('role-editor', currentUser?.role==='editor');
   document.body.classList.toggle('role-staff', isStaffRole());
@@ -7195,8 +7269,16 @@ async function lockApp(){
   currentPortals = [];
   currentPortalPermissions = {portalKeys:[]};
   portalPermissionsLoaded = false;
+  currentFeaturePermissionRows = [];
+  featurePermissionsLoaded = false;
   bsgtWorkspacePermissionRows = [];
   bsgtWorkspacePermissionsLoaded = false;
+  syncCurrentPermissionContext();
+  bsgtWorkspacePermissionRows = [];
+  bsgtWorkspacePermissionsLoaded = false;
+  currentFeaturePermissionRows = [];
+  featurePermissionsLoaded = false;
+  syncCurrentPermissionContext();
   const employeeNav = document.getElementById('employeeTopNav');
   if(employeeNav) employeeNav.hidden = true;
   closeAllOverlays();
@@ -7746,11 +7828,33 @@ document.querySelectorAll('.template-quick-new').forEach(btn=>{
 });
 
 // ===== إدارة المستخدمين =====
+function resolvedUserPermissionKeys(user){
+  return window.JahezPermissions?.createContext({
+    profile:{id:user.id,role:user.role,active:user.active},
+    rows:user.featureRows || [],
+    portalKeys:user.portalKeys || [],
+    workspaceRows:user.workspaceRows || []
+  }).allowedKeys() || [];
+}
+function permissionGroupsHtml(user){
+  if(user.role === 'admin') return `<details class="user-permissions" open><summary><span>${icon('shield',15)} الصلاحيات</span><small>Full Access</small></summary><div class="permission-admin-card">${icon('check',22)}<div><b>مدير النظام</b><span>صلاحية كاملة لجميع أقسام وبوابات وإجراءات Jahez، ولا يمكن تقييدها بالتعيينات.</span></div></div></details>`;
+  const selected = new Set(resolvedUserPermissionKeys(user));
+  const groups = (window.JAHEZ_PERMISSION_REGISTRY || []).map(group=>`
+    <section class="permission-group" data-permission-group="${escapeHtml(group.key)}">
+      <div class="permission-group-head"><b>${icon(group.icon,14)} ${escapeHtml(group.label)}</b><span>${escapeHtml(group.description)}</span></div>
+      <div class="permission-options">${group.permissions.map(permission=>`
+        <label class="permission-option" data-permission-search="${escapeHtml(`${permission.label} ${permission.description} ${permission.key}`.toLowerCase())}">
+          <input type="checkbox" class="feature-permission" data-permission-key="${escapeHtml(permission.key)}" ${selected.has(permission.key)?'checked':''}>
+          <span><b>${escapeHtml(permission.label)}</b><small>${escapeHtml(permission.description)}</small></span>
+        </label>`).join('')}</div>
+    </section>`).join('');
+  const presets = Object.entries(window.JahezPermissions?.PRESETS || {}).map(([key,preset])=>`<button type="button" class="permission-preset" data-permission-preset="${escapeHtml(key)}">${escapeHtml(preset.label)}</button>`).join('');
+  return `<details class="user-permissions"><summary><span>${icon('shield',15)} الصلاحيات</span><small>${selected.size} مفعلة</small></summary><div class="permission-toolbar"><input class="permission-search" type="search" placeholder="ابحث في الصلاحيات..." aria-label="ابحث في الصلاحيات"><div class="permission-presets">${presets}</div></div><div class="permission-groups">${groups}</div><div class="permission-savebar"><span class="permission-save-status">لن تُحفظ التغييرات قبل الضغط على الزر.</span><button type="button" class="btn btn-primary btn-small save-feature-permissions">حفظ الصلاحيات</button></div></details>`;
+}
 function renderUsers(){
   const el = document.getElementById('usersList');
   if(!el || !currentUser) return;
   document.getElementById('usersCount').textContent = `(${users.length})`;
-  const portalEntries = Object.values(window.JahezPortalAccess?.PORTALS || {});
   el.innerHTML = users.map(u=>`
     <div class="user-row" data-uid="${u.id}">
       <div class="user-av">${avatarHtml(u)}</div>
@@ -7760,15 +7864,6 @@ function renderUsers(){
           ${u.active===false?'<span class="user-badge off">موقوف</span>':''}
         </div>
         <div class="um">${escapeHtml(u.email||'')} · آخر دخول: ${u.lastLogin? timeAgo(u.lastLogin):'—'}</div>
-        <div class="user-portal-assignments">
-          ${u.role==='admin'
-            ? '<span class="user-full-access">صلاحية كاملة — مدير النظام</span>'
-            : portalEntries.map(portal=>{
-                const allowed = portal.allowedRoles.includes(u.role);
-                const checked = (u.portalKeys || []).includes(portal.key);
-                return `<label class="user-portal-assignment ${allowed?'':'is-unavailable'}"><input class="portal-assignment" type="checkbox" data-portal-key="${portal.key}" ${checked?'checked':''} ${allowed?'':'disabled'}> ${escapeHtml(portal.label)}</label>`;
-              }).join('')}
-        </div>
       </div>
       <div class="user-acts">
         <button class="btn btn-ghost btn-small act-pass">إعادة تعيين كلمة المرور</button>
@@ -7778,6 +7873,7 @@ function renderUsers(){
           <button class="btn btn-danger btn-small act-del">حذف</button>
         `:'<span style="font-size:12px;color:var(--muted);align-self:center;">(حسابك الحالي)</span>'}
       </div>
+      ${permissionGroupsHtml(u)}
     </div>`).join('');
 }
 
@@ -7789,27 +7885,36 @@ document.getElementById('usersList').addEventListener('click', async (e)=>{
 
   if(e.target.closest('.user-av')){ openUserDashboard(u.id); return; }
 
-  const portalAssignment = e.target.closest('.portal-assignment');
-  if(portalAssignment){
-    if(u.role === 'admin') return;
-    const portalKey = portalAssignment.dataset.portalKey;
-    portalAssignment.disabled = true;
+  const presetButton = e.target.closest('[data-permission-preset]');
+  if(presetButton){
+    const preset = window.JahezPermissions?.PRESETS[presetButton.dataset.permissionPreset];
+    const panel = presetButton.closest('.user-permissions');
+    if(!preset || !panel || u.role === 'admin') return;
+    const selected = new Set(window.JahezPermissions.normalizeKeys(preset.keys));
+    panel.querySelectorAll('.feature-permission').forEach(input=>{ input.checked = selected.has(input.dataset.permissionKey); });
+    panel.querySelector('.permission-save-status').textContent = `تم تطبيق قالب «${preset.label}»؛ اضغط حفظ لتثبيته.`;
+    return;
+  }
+
+  const savePermissionsButton = e.target.closest('.save-feature-permissions');
+  if(savePermissionsButton){
+    if(!isAdmin() || u.role === 'admin') return;
+    const panel = savePermissionsButton.closest('.user-permissions');
+    const keys = window.JahezPermissions.normalizeKeys(Array.from(panel.querySelectorAll('.feature-permission:checked')).map(input=>input.dataset.permissionKey));
+    savePermissionsButton.disabled = true;
+    panel.querySelector('.permission-save-status').textContent = 'جارٍ حفظ الصلاحيات...';
     try{
-      if(portalAssignment.checked){
-        const {error} = await sb.from('user_portal_permissions').upsert({user_id:u.id, portal_key:portalKey, can_view:true}, {onConflict:'user_id,portal_key'});
-        if(error) throw error;
-        u.portalKeys = [...new Set([...(u.portalKeys || []), portalKey])];
-      }else{
-        const {error} = await sb.from('user_portal_permissions').delete().eq('user_id',u.id).eq('portal_key',portalKey);
-        if(error) throw error;
-        u.portalKeys = (u.portalKeys || []).filter(key=>key!==portalKey);
-      }
-      addLog('edit',`${portalAssignment.checked?'منح':'إزالة'} صلاحية ${window.JahezPortalAccess.PORTALS[portalKey]?.label || portalKey}: ${u.email}`);
+      const {data,error} = await sb.rpc('set_user_feature_permissions',{p_user_id:u.id,p_permission_keys:keys});
+      if(error) throw error;
+      u.featureRows = Array.isArray(data) ? data : [];
+      await loadUsers();
+      renderUsers();
+      toast('تم حفظ صلاحيات الموظف.');
+      addLog('edit',`تحديث الصلاحيات التفصيلية: ${u.email}`);
     }catch(err){
-      portalAssignment.checked = !portalAssignment.checked;
-      dbError(err,'تعذّر تحديث صلاحية البوابة');
-    }finally{
-      portalAssignment.disabled = false;
+      savePermissionsButton.disabled = false;
+      panel.querySelector('.permission-save-status').textContent = 'تعذّر الحفظ؛ لم تتغير الصلاحيات.';
+      dbError(err,'تعذّر حفظ صلاحيات الموظف');
     }
     return;
   }
@@ -7843,6 +7948,43 @@ document.getElementById('usersList').addEventListener('click', async (e)=>{
   else if(e.target.classList.contains('act-del')){
     alert('حذف الحسابات نهائياً يتم من لوحة Supabase (Authentication ← Users).\n\nتقدر توقف الحساب من هنا بدل الحذف.');
   }
+});
+document.getElementById('usersList').addEventListener('change', event=>{
+  const input = event.target.closest('.feature-permission');
+  if(!input) return;
+  const panel = input.closest('.user-permissions');
+  if(input.checked){
+    const selected = window.JahezPermissions.normalizeKeys(Array.from(panel.querySelectorAll('.feature-permission:checked')).map(item=>item.dataset.permissionKey));
+    panel.querySelectorAll('.feature-permission').forEach(item=>{ if(selected.includes(item.dataset.permissionKey)) item.checked = true; });
+  }else{
+    const disabledKey = input.dataset.permissionKey;
+    let changed = true;
+    while(changed){
+      changed = false;
+      panel.querySelectorAll('.feature-permission:checked').forEach(item=>{
+        const entry = window.JahezPermissions.ENTRIES.find(permission=>permission.key===item.dataset.permissionKey);
+        if((entry?.dependsOn || []).some(key=>key===disabledKey || !panel.querySelector(`[data-permission-key="${key}"]`)?.checked)){
+          item.checked = false;
+          changed = true;
+        }
+      });
+    }
+  }
+  panel.querySelector('.permission-save-status').textContent = 'توجد تغييرات غير محفوظة.';
+});
+document.getElementById('usersList').addEventListener('input', event=>{
+  const search = event.target.closest('.permission-search');
+  if(!search) return;
+  const query = search.value.trim().toLowerCase();
+  const panel = search.closest('.user-permissions');
+  panel.querySelectorAll('.permission-group').forEach(group=>{
+    let visible = 0;
+    group.querySelectorAll('.permission-option').forEach(option=>{
+      option.hidden = Boolean(query && !option.dataset.permissionSearch.includes(query));
+      if(!option.hidden) visible += 1;
+    });
+    group.hidden = visible === 0;
+  });
 });
 const ROLE_AR = {admin:'مدير', editor:'محرر', viewer:'مشاهد', staff:'موظف', bsgt_user:'مستخدم BSGT'};
 
@@ -9229,8 +9371,7 @@ sb.auth.onAuthStateChange((event, session)=>{
 });
 
 function bsgtOperationsPermission(requireEdit = false){
-  const permission = window.JahezBsgtWorkspace?.permissionFor('operations', currentAccessProfile(), bsgtWorkspacePermissionRows);
-  return Boolean(permission && (!requireEdit || permission.canEdit));
+  return Boolean(window.JahezPermissions?.can(`bsgt.operations.${requireEdit ? 'edit' : 'view'}`));
 }
 
 function openBsgtShipFormFromWorkspace(){
@@ -9546,8 +9687,7 @@ async function loadBsgtOperationsPage(){
 }
 
 function bsgtFinancePermission(requireEdit = false){
-  const permission = window.JahezBsgtWorkspace?.permissionFor('finance', currentAccessProfile(), bsgtWorkspacePermissionRows);
-  return Boolean(permission && (!requireEdit || permission.canEdit));
+  return Boolean(window.JahezPermissions?.can(`bsgt.finance.${requireEdit ? 'edit' : 'view'}`));
 }
 
 function renderBsgtFinanceShell(){
@@ -9710,8 +9850,7 @@ function wireBsgtFinanceShell(){
 const bsgtManagementState={requestId:0,files:[],links:[],shipments:[],documents:[],events:[],operationDocuments:[],profiles:[],detailId:null,busy:false};
 
 function bsgtManagementPermission(requireEdit=false){
-  const permission=window.JahezBsgtWorkspace?.permissionFor('management',currentAccessProfile(),bsgtWorkspacePermissionRows);
-  return Boolean(permission&&(!requireEdit||permission.canEdit));
+  return Boolean(window.JahezPermissions?.can(`bsgt.management.${requireEdit ? 'edit' : 'view'}`));
 }
 
 function renderBsgtManagementShell(){
@@ -9833,8 +9972,7 @@ async function loadBsgtManagement(){
 const bsgtRelationsState={page:1,pageSize:25,total:0,requestId:0,files:[],detailId:null,detail:null,busy:false};
 
 function bsgtRelationsPermission(requireEdit=false){
-  const permission=window.JahezBsgtWorkspace?.permissionFor('relations',currentAccessProfile(),bsgtWorkspacePermissionRows);
-  return Boolean(permission&&(!requireEdit||permission.canEdit));
+  return Boolean(window.JahezPermissions?.can(`bsgt.relations.${requireEdit ? 'edit' : 'view'}`));
 }
 
 function renderBsgtRelationsShell(){
@@ -9999,7 +10137,7 @@ function renderBsgtWorkspace(requestedSection){
   const content = document.getElementById('bsgtWorkspaceContent');
   if(!api || !tabs || !content) return null;
   const allowed = bsgtWorkspaceSections();
-  const activeSection = api.resolveSection(requestedSection, currentAccessProfile(), bsgtWorkspacePermissionRows);
+  const activeSection = api.resolveSection(requestedSection, currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext());
   if(!activeSection){
     tabs.replaceChildren();
     content.innerHTML = '<div class="bsgt-workspace-placeholder bsgt-workspace-denied"><h3>لا توجد أقسام مسندة إلى حسابك</h3><p>راجع مدير النظام لإسناد القسم المطلوب داخل مساحة BSGT.</p></div>';
@@ -10010,8 +10148,12 @@ function renderBsgtWorkspace(requestedSection){
       data-bsgt-section="${section.key}" aria-selected="${section.key===activeSection?'true':'false'}"
       data-ic="${section.icon}">${section.label}</button>`).join('');
   const section = api.SECTIONS.find(item => item.key === activeSection);
-  const permission = api.permissionFor(activeSection, currentAccessProfile(), bsgtWorkspacePermissionRows);
+  const permission = api.permissionFor(activeSection, currentAccessProfile(), bsgtWorkspacePermissionRows, currentFeaturePermissionContext());
   if(activeSection === 'operations'){
+    if(!window.JahezPermissions?.can('bsgt.operation_center.view')){
+      content.innerHTML = '<div class="bsgt-workspace-placeholder bsgt-workspace-denied"><h3>مركز عمليات BSGT غير مسند إلى حسابك</h3><p>يمكنك رؤية قسم العمليات، لكن فتح مركز العمليات يحتاج صلاحية مستقلة من مدير النظام.</p></div>';
+      return activeSection;
+    }
     content.innerHTML = renderBsgtOperationsShell(Boolean(permission?.canEdit));
     document.getElementById('bsgtOperationsCreateBtn')?.addEventListener('click', openBsgtShipFormFromWorkspace);
     document.getElementById('bsgtOperationsSearch')?.addEventListener('input',event=>{
@@ -10191,7 +10333,7 @@ function isSignedWorkflowFile(file){
 }
 
 function canDeleteShipmentFile(r, file){
-  if(!canManageShipmentFiles(r)) return false;
+  if(!canManageShipmentFiles(r) || !window.JahezPermissions?.can('shipment_documents.delete')) return false;
   const accepted = JahezShipmentWorkflow.normalizeStage(r?.workflowStage) === 'accepted';
   return !(accepted && isSignedWorkflowFile(file)) || isAdmin();
 }
@@ -10287,12 +10429,12 @@ function canCurrentUserAcceptShipment(){
 }
 
 function bsgtPackageMergeAccess(r, files){
-  const adminOverride = !!isAdmin();
+  const permissionAllowed = Boolean(window.JahezPermissions?.can('package.merge'));
   const workflowAllowed = JahezShipmentWorkflow.canMergeShipmentPackage(r, files);
   return {
-    allowed: adminOverride || workflowAllowed,
-    adminOverride,
-    reason: adminOverride ? 'صلاحية المدير تسمح بدمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)
+    allowed: permissionAllowed && workflowAllowed,
+    adminOverride:false,
+    reason: !permissionAllowed ? 'ليس لديك صلاحية دمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)
   };
 }
 
@@ -10308,8 +10450,10 @@ async function ensureBsgtFinalPackageAllowed(shipmentId){
   if(fileResult.error) throw fileResult.error;
   const documentResult=await sb.from('trade_collection_file_documents').select('*').eq('trade_file_id',fileResult.data.id);
   if(documentResult.error) throw documentResult.error;
-  const allowed=window.JahezBsgtManagement.mergeAllowed(latest.record,fileResult.data,documentResult.data||[]);
-  let reason='لا يمكن دمج الحزمة قبل القبول النهائي لملف التحصيل التجاري.';
+  const permissionAllowed=Boolean(window.JahezPermissions?.can('package.merge'));
+  const workflowAllowed=window.JahezBsgtManagement.mergeAllowed(latest.record,fileResult.data,documentResult.data||[]);
+  const allowed=permissionAllowed && workflowAllowed;
+  let reason=permissionAllowed ? 'لا يمكن دمج الحزمة قبل القبول النهائي لملف التحصيل التجاري.' : 'ليس لديك صلاحية دمج الحزمة.';
   const acceptedStages=['final_accepted','sent_to_collecting'];
   if(acceptedStages.includes(fileResult.data.status)&&acceptedStages.includes(latest.record.bsgtStage)) reason='المستندات الموقعة للمراجعة الحالية غير مكتملة.';
   return {...latest,allowed:Boolean(allowed),adminOverride:false,reason,workflowMode:'trade_file',tradeFile:fileResult.data,signedDocuments:documentResult.data||[]};
@@ -16715,7 +16859,7 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${ready?'جاهز للمعاينة والطباعة':'يحتاج استكمال بيانات الشحنة'}</small></span>
       <span class="bsgt-operation-doc-status${ready?' is-ready':''}">${ready?'جاهز':'غير مكتمل'}</span>
-      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button></span>`:''}
+      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button>${key==='contract'&&window.JahezPermissions?.can('contracts.edit')?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-contract-edit>${icon('edit',12)} تعديل</button>`:''}</span>`:''}
     </div>`;
   }).join('');
   const uploadedCards = uploadedMeta.map(([key,docIcon,label])=>{
@@ -16727,7 +16871,7 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-actions">
         ${file?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>`:''}
         ${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
-        ${file&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
+        ${file&&api.canDeleteUploadedDocument(r,file,canEditOperations)&&window.JahezPermissions?.can('shipment_documents.delete')?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
       </span>
     </div>`;
   }).join('');
@@ -16784,7 +16928,7 @@ const bsgtOperationsDeleteInFlight = new Set();
 async function deleteBsgtOperationsDocument(r, file, triggerButton, options = {}){
   const api = window.JahezBsgtOperations;
   const currentFile = (shipmentFilesCache[r.id] || []).find(item=>item.id===file?.id && item.shipment_id===r.id);
-  if(!currentFile || !api.canDeleteUploadedDocument(r,currentFile,bsgtOperationsPermission(true))){
+  if(!currentFile || !window.JahezPermissions?.can('shipment_documents.delete') || !api.canDeleteUploadedDocument(r,currentFile,bsgtOperationsPermission(true))){
     if(!options.silentDenied) toast('لا يمكن حذف هذا المستند في المرحلة الحالية.', 'err');
     return false;
   }
@@ -16896,6 +17040,7 @@ function wireBsgtOperationsPanel(r){
   const panel = document.getElementById('bsgtOperationsDocumentsPanel');
   if(!panel) return;
   panel.querySelectorAll('[data-bsgt-generated]').forEach(button=>button.addEventListener('click', ()=>openBsgtGeneratedDocument(r, button.dataset.bsgtGenerated)));
+  panel.querySelector('[data-bsgt-contract-edit]')?.addEventListener('click', ()=>window.openBaharContractEditor?.(r.id));
   panel.querySelectorAll('[data-bsgt-upload]').forEach(button=>button.addEventListener('click', ()=>triggerBsgtOperationsUpload(r, button.dataset.bsgtUpload)));
   panel.querySelectorAll('[data-bsgt-file-open]').forEach(button=>button.addEventListener('click', ()=>{
     const file = (shipmentFilesCache[r.id] || []).find(item=>item.id===button.dataset.bsgtFileOpen);
@@ -17004,9 +17149,9 @@ function renderBsgtDetail(r){
           ${reviewButtonsHtml(r)}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
-          <button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>
-          <button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>
-          <button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>
+          ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>`:''}
+          ${bsgtOperationsPermission(true)?`<button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>`:''}
+          ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
         </footer>
       </main>
     </div>`;
@@ -17105,9 +17250,9 @@ function openDetail(id){
       ${reviewButtonsHtml(r)}
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
-      <button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>
-      <button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>
-      <button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>
+      ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>`:''}
+      ${window.JahezPermissions?.can('shipments.edit')?`<button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>`:''}
+      ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
     </div>
   `;
   overlay.classList.add('open');
@@ -17134,7 +17279,7 @@ function openDetail(id){
     if(isBsgtRecord(r)) return requestBsgtPackageMerge(r, document.getElementById('mergeAllBtn'));
     chooseDocLang(r, lang=> mergeFullPackage(r, lang));
   });
-  document.getElementById('editBtn').addEventListener('click', ()=>{
+  document.getElementById('editBtn')?.addEventListener('click', ()=>{
     overlay.classList.remove('open');
     if(isBsgtRecord(r)) openBsgtShipForm(r.id);
     else fillFormForEdit(r);
@@ -17201,7 +17346,7 @@ function openDetail(id){
     render(); renderDrafts(); renderIssued(); renderSea(); renderDashboard();
   });
 
-  document.getElementById('deleteBtn').addEventListener('click', async ()=>{
+  document.getElementById('deleteBtn')?.addEventListener('click', async ()=>{
     if(confirm('متأكد من حذف الشحنة دي وكل مستنداتها؟')){
       const gone = records.find(x=>x.id===id);
       const ok = await dbDeleteRecord(id);
@@ -21508,9 +21653,9 @@ initializeAuthentication();
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
 <script src="import-permit.js?v=20260908-7"></script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260912-client-contract-assets"></script>
+<script src="company-wizard.js?v=20260912-granular-permissions"></script>
 <script src="shipment-detail.js"></script>
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
-<script src="client-company-profiles.js?v=20260912-1"></script>
+<script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 </body>
 </html>
