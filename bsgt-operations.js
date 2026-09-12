@@ -7,7 +7,27 @@
 
   const STAGES = Object.freeze({
     operations_draft: 'مسودة',
-    ready_for_finance: 'جاهزة للمالية'
+    ready_for_finance: 'جاهزة للمالية',
+    sent_to_remitting: 'تم الإرسال للبنك المرسل',
+    management_review: 'قيد مراجعة الإدارة',
+    final_accepted: 'القبول النهائي',
+    sent_to_collecting: 'تم الإرسال للبنك المحصل'
+  });
+
+  const BUSINESS_STAGES = Object.freeze([
+    Object.freeze({key:'operations', label:'العمليات'}),
+    Object.freeze({key:'finance', label:'المالية'}),
+    Object.freeze({key:'management', label:'الإدارة'}),
+    Object.freeze({key:'relations', label:'العلاقات التجارية'})
+  ]);
+
+  const WORKFLOW_PRESENTATION = Object.freeze({
+    operations_draft: Object.freeze({currentIndex:0, completedCount:0, detailLabel:'مسودة', allCompleted:false}),
+    ready_for_finance: Object.freeze({currentIndex:1, completedCount:1, detailLabel:'جاهزة للمالية', allCompleted:false}),
+    sent_to_remitting: Object.freeze({currentIndex:2, completedCount:2, detailLabel:'تم الإرسال للبنك المرسل', allCompleted:false}),
+    management_review: Object.freeze({currentIndex:2, completedCount:2, detailLabel:'قيد مراجعة الإدارة', allCompleted:false}),
+    final_accepted: Object.freeze({currentIndex:3, completedCount:3, detailLabel:'القبول النهائي · جاهزة للإرسال', allCompleted:false}),
+    sent_to_collecting: Object.freeze({currentIndex:null, completedCount:4, detailLabel:'تم الإرسال للبنك المحصل', allCompleted:true})
   });
 
   const DOCUMENT_TYPES = Object.freeze({
@@ -98,6 +118,14 @@
     return STAGES[stage] || STAGES.operations_draft;
   }
 
+  function workflowPresentation(stage) {
+    const technicalStage = Object.prototype.hasOwnProperty.call(WORKFLOW_PRESENTATION, stage) ? stage : 'operations_draft';
+    return Object.freeze({
+      technicalStage,
+      ...WORKFLOW_PRESENTATION[technicalStage]
+    });
+  }
+
   function isSupportedFile(file) {
     const name = String(file?.name || '');
     const mime = String(file?.type || file?.mime || '').toLowerCase();
@@ -122,6 +150,8 @@
 
   return Object.freeze({
     STAGES,
+    BUSINESS_STAGES,
+    WORKFLOW_PRESENTATION,
     DOCUMENT_TYPES,
     GENERATED_LABELS,
     UPLOADED_LABELS,
@@ -130,6 +160,7 @@
     hasDocument,
     evaluateBsgtOperationsReadiness,
     stageLabel,
+    workflowPresentation,
     isSupportedFile,
     isUploadedOperationsDocument,
     canEditUploadedDocuments,

@@ -15,13 +15,6 @@
       message: 'سيتم هنا إدارة شحنات BSGT ومرحلة تجهيز المستندات.'
     }),
     Object.freeze({
-      key: 'operationCenter',
-      label: 'مركز العمليات',
-      icon: 'folder',
-      permissionKey: 'bsgt.operation_center.view',
-      message: 'متابعة عمليات بحر سواكن من مركز العمليات الموحد.'
-    }),
-    Object.freeze({
       key: 'finance',
       label: 'المالية',
       icon: 'bank',
@@ -44,6 +37,13 @@
       permissionKey: 'bsgt.relations.view',
       editPermissionKey: 'bsgt.relations.edit',
       message: 'سيتم هنا استكمال المرفقات والإرسال للبنك المحصل.'
+    }),
+    Object.freeze({
+      key: 'operationCenter',
+      label: 'مركز العمليات',
+      icon: 'folder',
+      permissionKey: 'bsgt.operation_center.view',
+      message: 'متابعة عمليات بحر سواكن من مركز العمليات الموحد.'
     })
   ]);
   const SECTION_KEYS = Object.freeze(SECTIONS.map(section => section.key));

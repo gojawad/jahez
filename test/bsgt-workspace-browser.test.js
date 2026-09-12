@@ -78,7 +78,7 @@ async function main(){
     await adminPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await adminPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
     assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 5);
-    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','مركز العمليات','المالية','الإدارة','العلاقات التجارية']);
+    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المالية','الإدارة','العلاقات التجارية','مركز العمليات']);
     assert.strictEqual((await adminPage.locator('#navBsgt').textContent()).trim(), 'مساحة BSGT');
     assert.ok(adminPage.url().includes('section=operations'));
     const scopedRequest = adminPage.waitForRequest(request=>{
@@ -118,11 +118,11 @@ async function main(){
     assert.strictEqual(await viewerPage.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     await viewerContext.close();
 
-    const centerContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operation_center.view']);
+    const centerContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operations.view','bsgt.operation_center.view']);
     const centerPage = await centerContext.newPage();
     await centerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operationCenter`, {waitUntil:'domcontentloaded'});
     await centerPage.locator('[data-operation-center-root="bsgt"]').waitFor({timeout:20000});
-    assert.deepStrictEqual(await centerPage.locator('.bsgt-workspace-tab').allTextContents(), ['مركز العمليات']);
+    assert.deepStrictEqual(await centerPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','مركز العمليات']);
     await centerContext.close();
 
     const operationsContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operations.view']);

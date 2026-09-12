@@ -2488,11 +2488,11 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-enterprise-2">
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
   <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
-  <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-operation-center-1">
+  <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-four-stage-workflow-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-operation-center-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-four-stage-workflow-1">
 </head>
 <body class="landing-active">
 
@@ -5849,8 +5849,8 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="permissions.js?v=20260912-authoritative-1"></script>
 <script src="portal-access.js?v=20260912-2"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
-  <script src="bsgt-workspace.js?v=20260912-operation-center-1"></script>
-<script src="bsgt-operations.js?v=20260912-document-delete-1"></script>
+  <script src="bsgt-workspace.js?v=20260912-four-stage-workflow-1"></script>
+<script src="bsgt-operations.js?v=20260912-four-stage-workflow-1"></script>
 <script src="commodity-images.js?v=20260912-master-detail-2"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260912-1"></script>
@@ -9475,18 +9475,20 @@ function bsgtOperationsOverviewFields(record){
 }
 
 function renderBsgtOperationsStageTrack(record, returnContext){
-  const stages = [
-    ['operations_draft','مسودة','مسودة'],
-    ['ready_for_finance','جاهزة للمالية','جاهزة للمالية'],
-    ['sent_to_remitting','البنك المرسل','الإرسال للبنك المرسل'],
-    ['management_review','مراجعة الإدارة','مراجعة الإدارة'],
-    ['final_accepted','القبول النهائي','القبول النهائي'],
-    ['sent_to_collecting','البنك المحصل','الإرسال للبنك المحصل']
-  ];
-  const index = Math.max(0, stages.findIndex(([key])=>key===record.bsgtStage));
-  return `<div class="bsgt-operations-stage-region" role="region" aria-label="مراحل سير شحنة BSGT">
-    <div class="bsgt-operations-stage-scroll" tabindex="0" aria-label="مرر أفقياً لعرض جميع المراحل">
-      <ol class="bsgt-operations-stage-track">${stages.map(([key,label,fullLabel],i)=>`<li class="${i<index?'is-done':i===index?'is-current':'is-upcoming'}" data-stage="${key}" aria-label="${escapeHtml(fullLabel)}" ${i===index?'aria-current="step"':''}><span aria-hidden="true">${i<index?icon('check',13):i+1}</span><b title="${escapeHtml(fullLabel)}">${escapeHtml(label)}</b></li>`).join('')}</ol>
+  const api = window.JahezBsgtOperations;
+  const presentation = api.workflowPresentation(record.bsgtStage);
+  const stages = api.BUSINESS_STAGES;
+  return `<div class="bsgt-operations-stage-region" role="region" aria-label="مسار BSGT" data-technical-stage="${escapeHtml(presentation.technicalStage)}">
+    <div class="bsgt-operations-stage-heading"><h5>مسار BSGT</h5>${presentation.allCompleted?'<span class="bsgt-operations-complete-badge">'+icon('check',12)+' اكتملت مراحل BSGT</span>':''}</div>
+    <div class="bsgt-operations-stage-scroll" tabindex="0" aria-label="مراحل الأعمال الأربع في BSGT">
+      <ol class="bsgt-operations-stage-track">${stages.map((stage,i)=>{
+        const done = presentation.allCompleted || i < presentation.currentIndex;
+        const current = !presentation.allCompleted && i === presentation.currentIndex;
+        const showDetail = current || (presentation.allCompleted && i === stages.length-1);
+        const stateClass = done?'is-done':current?'is-current':'is-upcoming';
+        const stateLabel = done?'مكتملة':current?'المرحلة الحالية':'قادمة';
+        return `<li class="${stateClass}" data-stage="${stage.key}" aria-label="${escapeHtml(stage.label+'، '+stateLabel)}" ${current?'aria-current="step"':''}><span aria-hidden="true">${done?icon('check',14):i+1}</span><b>${escapeHtml(stage.label)}</b>${showDetail?`<small>${escapeHtml(presentation.detailLabel)}</small>`:''}</li>`;
+      }).join('')}</ol>
     </div>
     ${returnContext?`<div class="bsgt-operations-return-warning" role="status">${icon('warning',14)} <span><b>معادة من الإدارة</b>${returnContext.note?`<small>${escapeHtml(returnContext.note)}</small>`:''}</span></div>`:''}
   </div>`;

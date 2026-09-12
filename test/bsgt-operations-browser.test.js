@@ -49,22 +49,29 @@ async function assertStageGeometry(page, width){
   const geometry = await page.locator('.bsgt-operations-stage-track').evaluate(track=>{
     const items=[...track.querySelectorAll('li')].map(item=>({
       circle:item.querySelector('span').getBoundingClientRect().toJSON(),
-      label:item.querySelector('b').getBoundingClientRect().toJSON()
+      label:item.querySelector('b').getBoundingClientRect().toJSON(),
+      detail:item.querySelector('small')?.getBoundingClientRect().toJSON()||null,
+      stage:item.dataset.stage
     }));
     const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
     return {
       count:items.length,
       circleLabelOverlap:items.some(item=>intersects(item.circle,item.label)),
       adjacentLabelOverlap:items.some((item,index)=>index<items.length-1&&intersects(item.label,items[index+1].label)),
+      detailOverlap:items.some(item=>item.detail&&intersects(item.label,item.detail)),
+      stages:items.map(item=>item.stage),
       minWidth:parseFloat(getComputedStyle(track).minWidth),
       columns:getComputedStyle(track).gridTemplateColumns.split(' ').length
     };
   });
-  assert.strictEqual(geometry.count,6,`${width}px renders six workflow stages`);
+  assert.strictEqual(geometry.count,4,`${width}px renders four business stages`);
+  assert.deepStrictEqual(geometry.stages,['operations','finance','management','relations']);
   assert.strictEqual(geometry.circleLabelOverlap,false,`${width}px circles do not overlap labels`);
   assert.strictEqual(geometry.adjacentLabelOverlap,false,`${width}px adjacent labels do not overlap`);
-  assert.ok(geometry.minWidth>=779,`${width}px keeps the internal stepper width (${JSON.stringify(geometry)})`);
-  assert.strictEqual(geometry.columns,6,`${width}px keeps six stage columns`);
+  assert.strictEqual(geometry.detailOverlap,false,`${width}px detailed state does not overlap its label`);
+  if(width<=480) assert.ok(geometry.minWidth>=499,`${width}px uses contained horizontal scrolling`);
+  else assert.strictEqual(geometry.minWidth,0,`${width}px fits the four-stage grid without forced scrolling`);
+  assert.strictEqual(geometry.columns,4,`${width}px keeps four stage columns`);
 }
 
 const initialFiles = [
@@ -163,8 +170,8 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-operation-center-1')), 'operations CSS uses the operation-center cache version');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-document-delete-1')), 'operations JS uses the document-delete cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-four-stage-workflow-1')), 'operations CSS uses the four-stage cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-four-stage-workflow-1')), 'operations JS uses the four-stage cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260912-master-detail-2')), 'commodity images use the master/detail cache version');
 
     for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
@@ -176,6 +183,12 @@ async function main(){
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, `${width}px opens full detail`);
       assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
       await assertStageGeometry(page,width);
+      const progressSeparation = await page.evaluate(()=>{
+        const bar=document.querySelector('.bsgt-operations-progress-bar');
+        const stage=document.querySelector('.bsgt-operations-stage-region');
+        return Boolean(bar&&stage&&bar.parentElement===stage.parentElement&&!bar.contains(stage)&&stage.offsetTop>bar.offsetTop+bar.offsetHeight);
+      });
+      assert.strictEqual(progressSeparation,true,`${width}px keeps document readiness separate from workflow stages`);
       await page.locator('#bsgtOperationsMobileBack').click();
     }
     for(const viewport of [{width:1920,height:1080},{width:1536,height:864},{width:1440,height:900},{width:1366,height:768},{width:1024,height:768}]){
@@ -206,6 +219,22 @@ async function main(){
       assert.strictEqual(layout.overflow, true, `${viewport.width}px has no horizontal overflow`);
       await assertStageGeometry(page,viewport.width);
     }
+    const stagePresentations = await page.evaluate(stages=>Object.fromEntries(stages.map(stage=>{
+      const host=document.createElement('div');
+      host.innerHTML=renderBsgtOperationsStageTrack({bsgtStage:stage},null);
+      return [stage,{
+        current:host.querySelector('li.is-current')?.dataset.stage||null,
+        completed:host.querySelectorAll('li.is-done').length,
+        detail:host.querySelector('.bsgt-operations-stage-track small')?.textContent.trim()||'',
+        completeBadge:Boolean(host.querySelector('.bsgt-operations-complete-badge'))
+      }];
+    })),['operations_draft','ready_for_finance','sent_to_remitting','management_review','final_accepted','sent_to_collecting']);
+    assert.deepStrictEqual(stagePresentations.operations_draft,{current:'operations',completed:0,detail:'مسودة',completeBadge:false});
+    assert.deepStrictEqual(stagePresentations.ready_for_finance,{current:'finance',completed:1,detail:'جاهزة للمالية',completeBadge:false});
+    assert.deepStrictEqual(stagePresentations.sent_to_remitting,{current:'management',completed:2,detail:'تم الإرسال للبنك المرسل',completeBadge:false});
+    assert.deepStrictEqual(stagePresentations.management_review,{current:'management',completed:2,detail:'قيد مراجعة الإدارة',completeBadge:false});
+    assert.deepStrictEqual(stagePresentations.final_accepted,{current:'relations',completed:3,detail:'القبول النهائي · جاهزة للإرسال',completeBadge:false});
+    assert.deepStrictEqual(stagePresentations.sent_to_collecting,{current:null,completed:4,detail:'تم الإرسال للبنك المحصل',completeBadge:true});
     assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb.is-large').count(), 1, 'the detail image frame is rendered');

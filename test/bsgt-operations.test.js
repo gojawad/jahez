@@ -31,6 +31,25 @@ assert.strictEqual(operations.evaluateBsgtOperationsReadiness(completeShipment, 
 assert.strictEqual(operations.evaluateBsgtOperationsReadiness(completeShipment, [{label:'إذن الاستيراد'},{label:'شهادة المنشأ (بحر سواكن)'},{label:'بوليصة الشحن (بحر سواكن)'}]).completed, true);
 assert.strictEqual(operations.stageLabel('operations_draft'), 'مسودة');
 assert.strictEqual(operations.stageLabel('ready_for_finance'), 'جاهزة للمالية');
+assert.deepStrictEqual(operations.BUSINESS_STAGES.map(stage=>stage.key), ['operations','finance','management','relations']);
+assert.strictEqual(operations.BUSINESS_STAGES.some(stage=>stage.key==='operationCenter'), false);
+for (const [technicalStage, currentIndex, completedCount] of [
+  ['operations_draft',0,0],
+  ['ready_for_finance',1,1],
+  ['sent_to_remitting',2,2],
+  ['management_review',2,2],
+  ['final_accepted',3,3]
+]) {
+  const presentation = operations.workflowPresentation(technicalStage);
+  assert.strictEqual(presentation.currentIndex, currentIndex, technicalStage);
+  assert.strictEqual(presentation.completedCount, completedCount, technicalStage);
+  assert.strictEqual(presentation.allCompleted, false, technicalStage);
+}
+assert.deepStrictEqual(
+  operations.workflowPresentation('sent_to_collecting'),
+  {technicalStage:'sent_to_collecting',currentIndex:null,completedCount:4,detailLabel:'تم الإرسال للبنك المحصل',allCompleted:true}
+);
+assert.strictEqual(operations.workflowPresentation('unknown').technicalStage, 'operations_draft');
 assert.strictEqual(operations.isSupportedFile({name:'scan.PDF'}), true);
 assert.strictEqual(operations.isSupportedFile({name:'scan.webp'}), false);
 assert.strictEqual(operations.isUploadedOperationsDocument({document_type:'import_permit'}), true);
@@ -81,6 +100,9 @@ assert.ok(html.includes(".eq('company_id', companyId)"));
 assert.ok(html.includes(".in('shipment_id', ids)"));
 assert.ok(!html.includes("state.rows.map(async"));
 assert.ok(html.includes('function renderBsgtOperationsDocuments(r)'));
+assert.ok(html.includes('api.workflowPresentation(record.bsgtStage)'));
+assert.ok(html.includes('aria-label="اكتمال مستندات العمليات"'));
+assert.ok(html.includes('<h5>مسار BSGT</h5>'));
 assert.ok(html.includes("${file?'مرفوع':'غير مرفوع'}"));
 assert.ok(html.includes('function submitBsgtOperationsToFinance(id, button'));
 assert.ok(html.includes("sb.rpc('complete_bsgt_operations'"));

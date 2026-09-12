@@ -126,14 +126,18 @@
 .bsgt-operations-progress-card header>b{color:#d01119;font-size:17px}
 .bsgt-operations-progress-bar{height:7px;margin:11px 0 15px;overflow:hidden;border-radius:999px;background:#e8ecf1}
 .bsgt-operations-progress-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(135deg,#ea1b23,#d01119)}
-.bsgt-operations-stage-region{min-width:0;margin-top:20px}
+.bsgt-operations-stage-region{min-width:0;margin-top:22px;padding-top:15px;border-top:1px solid #edf0f4}
+.bsgt-operations-stage-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.bsgt-operations-stage-heading h5{margin:0;color:#15233b;font-size:12px}
+.bsgt-operations-complete-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #a7e2ca;border-radius:999px;background:#e8f8f1;color:#167a55;font-size:9px;font-weight:800}
 .bsgt-operations-stage-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding:4px 2px 8px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 .bsgt-operations-stage-scroll::-webkit-scrollbar{height:5px}.bsgt-operations-stage-scroll::-webkit-scrollbar-thumb{border-radius:999px;background:#cbd5e1}
-.bsgt-operations-stage-track{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));min-width:780px;margin:0;padding:0;list-style:none}
+.bsgt-operations-stage-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));min-width:0;margin:0;padding:0;list-style:none}
 .bsgt-operations-stage-track li{display:flex;position:relative;z-index:0;flex-direction:column;align-items:center;gap:8px;min-width:0;color:#8792a2;text-align:center}
-.bsgt-operations-stage-track li:not(:last-child):after{content:"";position:absolute;z-index:0;inset-inline-start:50%;top:15px;width:100%;height:2px;background:#dfe4eb}
-.bsgt-operations-stage-track li>span{display:grid;position:relative;z-index:2;place-items:center;width:32px;height:32px;border-radius:50%;background:#e7ebf0;color:#8792a2;font-size:11px;font-weight:800}
-.bsgt-operations-stage-track li>b{position:relative;z-index:2;max-width:118px;font-size:11px;font-weight:600;line-height:1.4;white-space:normal}
+.bsgt-operations-stage-track li:not(:last-child):after{content:"";position:absolute;z-index:0;inset-inline-start:50%;top:16px;width:100%;height:2px;background:#dfe4eb}
+.bsgt-operations-stage-track li>span{display:grid;position:relative;z-index:2;place-items:center;width:34px;height:34px;border-radius:50%;background:#e7ebf0;color:#8792a2;font-size:11px;font-weight:800}
+.bsgt-operations-stage-track li>b{position:relative;z-index:2;max-width:145px;font-size:11px;font-weight:700;line-height:1.4;white-space:normal}
+.bsgt-operations-stage-track li>small{position:relative;z-index:2;max-width:150px;padding:4px 7px;border:1px solid currentColor;border-radius:999px;background:#fff;font-size:8px;font-weight:700;line-height:1.35;white-space:normal}
 .bsgt-operations-stage-track li.is-done{color:#167a55}.bsgt-operations-stage-track li.is-done>span{background:#16a36a;color:#fff}.bsgt-operations-stage-track li.is-done:after{background:#9ed9c1}
 .bsgt-operations-stage-track li.is-current{color:#d01119}.bsgt-operations-stage-track li.is-current>span{background:#ea1b23;color:#fff;box-shadow:0 0 0 4px #ffe9ea}.bsgt-operations-stage-track li.is-current>b{font-weight:700}
 .bsgt-operations-return-warning{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:9px 11px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:10px;text-align:right}.bsgt-operations-return-warning span,.bsgt-operations-return-warning b,.bsgt-operations-return-warning small{display:block}.bsgt-operations-return-warning small{margin-top:2px;line-height:1.5}
@@ -183,6 +187,10 @@
   .bsgt-operations-overview-grid section>div:not(.bsgt-operations-requirements){grid-template-columns:1fr}
   .bsgt-operations-detail .bsgt-operations-summary{grid-template-columns:1fr}
   .bsgt-operations-note-form{align-items:stretch;flex-direction:column}
+}
+@media(max-width:480px){
+  .bsgt-operations-stage-heading{align-items:flex-start;flex-direction:column}
+  .bsgt-operations-stage-track{grid-template-columns:repeat(4,minmax(120px,1fr));min-width:500px}
 }
 
 /* Keep the master/detail contract isolated from legacy shipment and card layouts. */
