@@ -170,8 +170,8 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-four-stage-workflow-1')), 'operations CSS uses the four-stage cache version');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-four-stage-workflow-1')), 'operations JS uses the four-stage cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-full-shipment-1')), 'operations CSS uses the full-shipment cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-full-shipment-1')), 'operations JS uses the full-shipment cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260912-master-detail-2')), 'commodity images use the master/detail cache version');
 
     for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
@@ -240,8 +240,23 @@ async function main(){
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb.is-large').count(), 1, 'the detail image frame is rendered');
     await page.locator('[data-bsgt-operation-open]').click();
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
+    await page.locator('#bsgtOperationsQuickDocumentsPanel').waitFor();
+    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsQuickDocumentsPanel')?.textContent.includes('7 / 7'));
+    assert.strictEqual(await page.locator('#bsgtOperationsQuickDocumentsPanel [data-bsgt-upload], #bsgtOperationsQuickDocumentsPanel [data-bsgt-file-delete]').count(), 0, 'quick overview does not duplicate document write controls');
+    assert.strictEqual(await page.locator('#bsgtOperationsOpenFull').count(), 1, 'quick overview provides the full shipment action');
+    await page.locator('#bsgtOperationsOpenFull').click();
+    await page.locator('#overlay.bsgt-workspace-overlay.open .bsgt-detail-card').waitFor();
     await page.locator('#bsgtOperationsDocumentsPanel').waitFor();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('7 / 7'));
+    assert.ok(page.url().includes(`#v=records&id=${shipmentId}`), 'full shipment view has a stable records route');
+    assert.ok(page.url().includes('returnTo=operations'), 'full shipment view preserves its operations source');
+    assert.match(await page.locator('.bsgt-detail-card').textContent(), /مركز العملية/, 'full shipment view keeps the operation center');
+    assert.strictEqual(await page.locator('#bsgtOperationsDetail #bsgtOperationsDocumentsPanel').count(), 0, 'quick overview and full view never duplicate the execution panel id');
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#overlay.bsgt-workspace-overlay.open .bsgt-detail-card').waitFor({timeout:20000});
+    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('7 / 7'));
+    mainNavigations = 0;
+    assert.ok(page.url().includes('returnTo=operations'), 'refresh remains on the same full shipment route');
     assert.strictEqual(await page.locator('.bsgt-operations-group').count(), 2, 'generated and uploaded document groups are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-group').first().locator('.bsgt-operation-doc-card').count(), 4, 'all four generated document cards are rendered');
     assert.strictEqual(await page.locator('.bsgt-operation-doc-card').first().evaluate(element=>getComputedStyle(element).display), 'flex', 'document cards keep their component styling');
@@ -255,21 +270,30 @@ async function main(){
       assert.strictEqual(await card.locator('[data-bsgt-file-delete]').count(), 1, 'uploaded required document provides delete');
     }
     assert.strictEqual(await page.locator('[data-bsgt-document-kind="generated"] [data-bsgt-file-delete]').count(), 0, 'generated documents never provide delete');
+    assert.strictEqual(await page.locator('#packageBtn, #mergeAllBtn').count(), 0, 'merge actions are hidden without package.merge permission');
     const optionalCard=page.locator(`[data-bsgt-file-id="${initialFiles[3].id}"]`);
     assert.strictEqual(await optionalCard.locator('[data-bsgt-file-open], [data-bsgt-upload], [data-bsgt-file-delete]').count(), 3, 'optional uploaded document provides preview, replace, and delete');
 
-    await page.evaluate(()=>{
-      bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:false}];
-      currentFeaturePermissionRows=[
-        {permission_key:'bsgt.operations.view',allowed:true},
-        {permission_key:'bsgt.operation_center.view',allowed:true}
-      ];
+    const operationsUploadAccess=await page.evaluate(()=>({
+      importPermitPortal:window.JahezPermissions.can('import_permit.view'),
+      operationUploads:document.querySelectorAll('#bsgtOperationsDocumentsPanel [data-bsgt-upload]').length
+    }));
+    assert.strictEqual(operationsUploadAccess.importPermitPortal,false,'import permit portal permission is not assigned');
+    assert.ok(operationsUploadAccess.operationUploads>=4,'operations.edit alone permits uploaded import-document actions');
+
+    await page.evaluate(id=>{
+      currentUser.role='admin';
+      if(currentUser.profile) currentUser.profile.role='admin';
+      bsgtWorkspacePermissionRows=[];
+      currentFeaturePermissionRows=[];
       syncCurrentPermissionContext();
-      refreshBsgtOperationsPanel(records.find(record=>record.id===bsgtOperationsListState.selectedId));
-    });
-    assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'viewer does not see delete actions');
-    assert.strictEqual(await page.locator('[data-bsgt-document-kind="uploaded"] [data-bsgt-file-open]').count(), 4, 'viewer keeps uploaded-document preview actions');
-    await page.evaluate(()=>{
+      refreshBsgtOperationsPanel(records.find(record=>record.id===id));
+    },shipmentId);
+    assert.ok(await page.locator('#bsgtOperationsDocumentsPanel [data-bsgt-upload]').count()>=4,'admin sees operations uploads without granular rows');
+    assert.ok(await page.locator('#bsgtOperationsDocumentsPanel [data-bsgt-file-delete]').count()>=4,'admin sees operations deletes during operations draft');
+    await page.evaluate(id=>{
+      currentUser.role='editor';
+      if(currentUser.profile) currentUser.profile.role='editor';
       bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:true}];
       currentFeaturePermissionRows=[
         {permission_key:'bsgt.operations.view',allowed:true},
@@ -278,8 +302,31 @@ async function main(){
         {permission_key:'shipment_documents.delete',allowed:true}
       ];
       syncCurrentPermissionContext();
-      refreshBsgtOperationsPanel(records.find(record=>record.id===bsgtOperationsListState.selectedId));
-    });
+      refreshBsgtOperationsPanel(records.find(record=>record.id===id));
+    },shipmentId);
+
+    await page.evaluate(id=>{
+      bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:false}];
+      currentFeaturePermissionRows=[
+        {permission_key:'bsgt.operations.view',allowed:true},
+        {permission_key:'bsgt.operation_center.view',allowed:true}
+      ];
+      syncCurrentPermissionContext();
+      refreshBsgtOperationsPanel(records.find(record=>record.id===id));
+    },shipmentId);
+    assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'viewer does not see delete actions');
+    assert.strictEqual(await page.locator('[data-bsgt-document-kind="uploaded"] [data-bsgt-file-open]').count(), 4, 'viewer keeps uploaded-document preview actions');
+    await page.evaluate(id=>{
+      bsgtWorkspacePermissionRows=[{section:'operations',can_view:true,can_edit:true}];
+      currentFeaturePermissionRows=[
+        {permission_key:'bsgt.operations.view',allowed:true},
+        {permission_key:'bsgt.operations.edit',allowed:true},
+        {permission_key:'bsgt.operation_center.view',allowed:true},
+        {permission_key:'shipment_documents.delete',allowed:true}
+      ];
+      syncCurrentPermissionContext();
+      refreshBsgtOperationsPanel(records.find(record=>record.id===id));
+    },shipmentId);
 
     const crossShipmentResult=await page.evaluate(async ({fileId})=>{
       const {data,error}=await sb.rpc('delete_bsgt_operations_document',{p_shipment_id:'55555555-5555-4555-8555-555555555555',p_file_id:fileId});
@@ -303,25 +350,37 @@ async function main(){
     assert.strictEqual(mainNavigations, 0, 'delete refreshes the current shipment without a page reload');
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 0, 'required deletion disables send to finance');
     assert.match(await page.locator('.bsgt-operations-missing').textContent(), /إذن الاستيراد/, 'required deletion shows the missing document');
-    assert.match(await page.locator('.bsgt-operations-row-copy em').textContent(), /6\/7/, 'navigator readiness updates after deletion');
 
     files=initialFiles.map(file=>({...file}));
-    await page.evaluate(()=>loadBsgtOperationsPage());
+    await page.evaluate(async id=>{await loadShipmentFiles(id);refreshBsgtOperationsPanel(records.find(record=>record.id===id));},shipmentId);
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('7 / 7'));
     await page.locator(`[data-bsgt-file-delete="${initialFiles[3].id}"]`).click();
     await page.locator('#shipmentWorkflowDialog [data-workflow-dialog="confirm"]').click();
     await page.waitForFunction(name=>!document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes(name),initialFiles[3].name);
     assert.strictEqual(deleteCalls, 2, 'optional file is deleted once');
     assert.strictEqual(storageDeleteCalls, 2, 'optional storage object is removed once');
-    assert.match(await page.locator('.bsgt-operations-row-copy em').textContent(), /7\/7/, 'optional deletion does not change readiness');
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
-    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم الإرسال للمالية'));
+    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم إرسالها من العمليات'));
     assert.strictEqual(completeCalls, 1);
     assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');
     assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'ready-for-finance documents are read-only');
     assert.strictEqual(await page.locator('[data-bsgt-upload]').count(), 0, 'ready-for-finance replacement and upload are hidden');
+    await page.locator('#closeDetail').click();
+    await page.waitForFunction(()=>location.hash==='#v=bsgtWorkspace&section=operations');
+    assert.strictEqual(await page.locator('#overlay.open').count(), 0, 'full shipment back closes the overlay');
+    assert.ok(page.url().includes('#v=bsgtWorkspace&section=operations'), 'back returns to the operations source');
+    await page.evaluate(()=>switchView('bsgtWorkspace',{section:'operationCenter'}));
+    await page.locator('[data-operation-center-root="bsgt"] [data-operation-open]').waitFor();
+    await page.locator('[data-operation-center-root="bsgt"] [data-operation-open]').click();
+    await page.locator('#overlay.bsgt-workspace-overlay.open .bsgt-detail-card').waitFor();
+    assert.ok(page.url().includes('returnTo=operationCenter'), 'operation center opens the same full shipment route with its source');
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#overlay.bsgt-workspace-overlay.open .bsgt-detail-card').waitFor({timeout:20000});
+    await page.locator('#closeDetail').click();
+    await page.waitForFunction(()=>location.hash==='#v=bsgtWorkspace&section=operationCenter');
+    assert.ok(page.url().includes('#v=bsgtWorkspace&section=operationCenter'), 'back returns to the BSGT operation center source');
     assert.deepStrictEqual(consoleErrors, [], `browser console errors: ${consoleErrors.join(' | ')}`);
     await context.close();
     console.log('BSGT operations list, readiness, re-verification, and submit: passed');

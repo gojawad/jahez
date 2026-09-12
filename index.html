@@ -2492,7 +2492,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-four-stage-workflow-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-full-shipment-1">
 </head>
 <body class="landing-active">
 
@@ -5850,7 +5850,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="portal-access.js?v=20260912-2"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
   <script src="bsgt-workspace.js?v=20260912-four-stage-workflow-1"></script>
-<script src="bsgt-operations.js?v=20260912-four-stage-workflow-1"></script>
+<script src="bsgt-operations.js?v=20260912-full-shipment-1"></script>
 <script src="commodity-images.js?v=20260912-master-detail-2"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260912-1"></script>
@@ -9258,17 +9258,18 @@ backTop.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'
 
 // ===== التنقل بين الشاشات =====
 // حفظ/قراءة "أنت فين" في رابط المتصفح — يسمح بالرجوع لنفس الصفحة بعد تحديث (F5)
-function updateHash(v, id, section, mode = 'replace'){
+function updateHash(v, id, section, mode = 'replace', returnTo){
   const h = 'v=' + v + (id ? ('&id=' + encodeURIComponent(id)) : '') +
-    (section ? ('&section=' + encodeURIComponent(section)) : '');
+    (section ? ('&section=' + encodeURIComponent(section)) : '') +
+    (returnTo ? ('&returnTo=' + encodeURIComponent(returnTo)) : '');
   if(location.hash.slice(1) !== h) history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', '#' + h);
 }
 function parseHash(){
   const p = new URLSearchParams(location.hash.slice(1));
-  return { v: p.get('v'), id: p.get('id'), doc: p.get('doc'), section: p.get('section') };
+  return { v: p.get('v'), id: p.get('id'), doc: p.get('doc'), section: p.get('section'), returnTo: p.get('returnTo') };
 }
 function restoreFromHash(){
-  const {v, id, doc, section} = parseHash();
+  const {v, id, doc, section, returnTo} = parseHash();
   const fallback = 'dashboard';
   if(!v){ switchView(fallback); return; }
   if(v === 'document-editor'){
@@ -9293,7 +9294,7 @@ function restoreFromHash(){
     return;
   }
   switchView(v, {section});
-  if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id);
+  if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id, {returnTo, history:'replace'});
   if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id), 0);
 }
 window.addEventListener('hashchange', restoreFromHash);
@@ -9387,6 +9388,32 @@ sb.auth.onAuthStateChange((event, session)=>{
 
 function bsgtOperationsPermission(requireEdit = false){
   return Boolean(window.JahezPermissions?.can(`bsgt.operations.${requireEdit ? 'edit' : 'view'}`));
+}
+
+const BSGT_DETAIL_RETURN_SECTIONS = new Set(['operations','operationCenter']);
+function normalizeBsgtDetailReturnTo(value){
+  return BSGT_DETAIL_RETURN_SECTIONS.has(value) ? value : null;
+}
+function openBsgtFullShipment(id, returnTo = 'operations'){
+  openDetail(id, {returnTo:normalizeBsgtDetailReturnTo(returnTo) || 'operations', history:'push'});
+}
+
+function bsgtFullShipmentActions(r, documents = shipmentFilesCache[r?.id] || []){
+  const api = window.JahezBsgtOperations;
+  const canEditOperations = bsgtOperationsPermission(true);
+  const canEditDocuments = Boolean(api?.canEditUploadedDocuments(r, canEditOperations));
+  const readiness = api?.evaluateBsgtOperationsReadiness(r, documents);
+  const canMergePermission = Boolean(window.JahezPermissions?.can('package.merge'));
+  return {
+    canEditOperations,
+    canEditDocuments,
+    canDeleteDocuments:canEditDocuments && Boolean(window.JahezPermissions?.can('shipment_documents.delete')),
+    canEditContract:Boolean(window.JahezPermissions?.can('contracts.edit')),
+    canUseClientAssets:Boolean(window.JahezPermissions?.can('client_assets.use')),
+    canMergePackage:canMergePermission,
+    canSendToFinance:canEditDocuments && Boolean(readiness?.completed),
+    readiness
+  };
 }
 
 function openBsgtShipFormFromWorkspace(){
@@ -9502,6 +9529,25 @@ function renderBsgtOperationsAttachments(record){
   return `<div class="bsgt-operations-attachment-list">${optional.map(file=>`<button type="button" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('folder',15)}<span><b>${escapeHtml(file.name||'ملف اختياري')}</b><small>مرفق اختياري</small></span>${icon('eye',14)}</button>`).join('')}</div>`;
 }
 
+function renderBsgtOperationsQuickDocuments(record){
+  const documents = shipmentFilesCache[record.id] || [];
+  const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, documents);
+  const items = [
+    ['العقد',evaluation.generated.contract],
+    ['الفاتورة المبدئية',evaluation.generated.proforma],
+    ['الفاتورة النهائية',evaluation.generated.invoice],
+    ['Packing List',evaluation.generated.packing],
+    ['إذن الاستيراد',Boolean(bsgtOperationsUploadedFile(documents,'importPermit'))],
+    ['شهادة المنشأ',Boolean(bsgtOperationsUploadedFile(documents,'certificateOfOrigin'))],
+    ['بوليصة الشحن',Boolean(bsgtOperationsUploadedFile(documents,'billOfLading'))]
+  ];
+  return `<div class="bsgt-operations-quick-documents">
+    <div class="bsgt-operations-quick-documents-head"><div><h4>ملخص المستندات</h4><span>المعاينة والتنفيذ الكامل متاحان من شاشة الشحنة.</span></div><b>${evaluation.completedCount} / 7</b></div>
+    <div class="bsgt-operations-quick-document-list">${items.map(([label,ready])=>`<div class="${ready?'is-ready':''}"><span>${icon(ready?'check':'warning',13)} ${label}</span><small>${ready?'مكتمل':'ناقص'}</small></div>`).join('')}</div>
+    <button type="button" class="btn btn-primary bsgt-operations-quick-open" data-bsgt-open-full="${escapeHtml(record.id)}">${icon('eye',14)} فتح الشحنة بالكامل</button>
+  </div>`;
+}
+
 function renderBsgtOperationsDetail(record){
   const host = document.getElementById('bsgtOperationsDetail');
   if(!host || !record) return;
@@ -9519,7 +9565,7 @@ function renderBsgtOperationsDetail(record){
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
       <div class="bsgt-operations-detail-identity">${renderBsgtCommodityThumb(record,true)}<div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
-      <div class="bsgt-operations-detail-actions">${isAdmin()?`<button type="button" class="btn btn-ghost btn-small" id="bsgtCommodityImageAdmin">${icon('refresh',13)} تغيير صورة الصنف</button>`:''}<button type="button" class="btn btn-ghost" id="bsgtOperationsOpenForm">${icon('edit',14)} فتح نموذج الشحنة</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-primary" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage==='ready_for_finance')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='ready_for_finance'?'تم الإرسال للمالية':'إرسال للمالية'}</button>`:''}</div>
+      <div class="bsgt-operations-detail-actions">${isAdmin()?`<button type="button" class="btn btn-ghost btn-small" id="bsgtCommodityImageAdmin">${icon('refresh',13)} تغيير صورة الصنف</button>`:''}<button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
     </header>
     ${summaries.length?`<div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value])=>`<div><span>${icon(ic,14)}</span><small>${label}</small><b>${escapeHtml(String(value))}</b></div>`).join('')}</div>`:''}
     <nav class="bsgt-operations-tabs" aria-label="أقسام الشحنة">
@@ -9529,7 +9575,7 @@ function renderBsgtOperationsDetail(record){
       <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من 7 متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/7*100)}%</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/7*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
       <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/7</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
     </section>
-    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsDocumentsPanel">${renderBsgtOperationsDocuments(record)}</div></section>
+    <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsQuickDocumentsPanel">${renderBsgtOperationsQuickDocuments(record)}</div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='attachments'?'active':''}" data-bsgt-ops-panel="attachments" id="bsgtOperationsAttachments">${renderBsgtOperationsAttachments(record)}</section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='timeline'?'active':''}" data-bsgt-ops-panel="timeline"><div class="bsgt-timeline"><div id="stlList" class="stl-list"><div class="sf-loading">جاري تحميل الجدول الزمني…</div></div></div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='notes'?'active':''}" data-bsgt-ops-panel="notes"><div id="bsgtOperationsNotes" class="bsgt-operations-notes"><div class="sf-loading">جاري تحميل الملاحظات…</div></div>${bsgtOperationsPermission(true)?`<div class="bsgt-operations-note-form"><textarea id="bsgtOperationsNoteInput" rows="2" placeholder="أضف ملاحظة على الشحنة..."></textarea><button type="button" class="btn btn-primary" id="bsgtOperationsNoteSend">حفظ</button></div>`:''}</section>`;
@@ -9548,8 +9594,8 @@ async function loadBsgtOperationsNotes(record){
 }
 
 function wireBsgtOperationsDetail(record){
-  wireBsgtOperationsPanel(record);
-  document.getElementById('bsgtOperationsOpenForm')?.addEventListener('click',()=>{ bsgtWorkspaceFormContext=true; openBsgtShipForm(record.id); });
+  document.getElementById('bsgtOperationsOpenFull')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
+  document.querySelector('[data-bsgt-open-full]')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   const send=document.getElementById('bsgtOperationsQuickSend');
   if(send&&!send.disabled) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
   document.getElementById('bsgtCommodityImageAdmin')?.addEventListener('click',()=>changeBsgtCommodityImage(record));
@@ -10288,7 +10334,10 @@ function renderOperationCenter(options = {}){
     <div class="operation-center-docs">${docsComplete(r)} / 4 مستندات</div>
     <button class="btn btn-ghost btn-small" type="button" data-operation-open="${escapeHtml(r.id)}">فتح المرجع</button>
   </article>`).join('') : '<div class="operation-center-empty">لا توجد عمليات مطابقة للبحث.</div>';
-  host.querySelectorAll('[data-operation-open]').forEach(button=>button.addEventListener('click', ()=>openDetail(button.dataset.operationOpen)));
+  host.querySelectorAll('[data-operation-open]').forEach(button=>button.addEventListener('click', ()=>{
+    if(scope === 'bsgt') openBsgtFullShipment(button.dataset.operationOpen,'operationCenter');
+    else openDetail(button.dataset.operationOpen);
+  }));
 }
 
 async function loadBsgtOperationCenter(host){
@@ -16821,7 +16870,9 @@ function renderDocOrderList(r){
 }
 function renderDocActionsGrid(r){
   const baharOverride = isBsgtRecord(r);
-  const canManageFiles = canManageShipmentFiles(r);
+  const fullActions = baharOverride ? bsgtFullShipmentActions(r) : null;
+  const canManageFiles = baharOverride ? fullActions.canEditDocuments : canManageShipmentFiles(r);
+  const canDeleteFiles = baharOverride ? fullActions.canDeleteDocuments : canManageFiles;
   const filesError = shipmentFilesErrors[r.id];
   const recordOrder = docOrderOf(r);
   const order = baharOverride ? ['contract','importPermit', ...recordOrder.filter(k=>k!=='contract')] : recordOrder;
@@ -16837,7 +16888,7 @@ function renderDocActionsGrid(r){
           <div style="display:flex;gap:6px;margin-top:6px">
             ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
             ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>` : ''}
-            ${uploaded && canManageFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف ${m.label}">${icon('trash',13)} حذف الملف</button>` : ''}
+            ${uploaded && canDeleteFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف ${m.label}">${icon('trash',13)} حذف الملف</button>` : ''}
           </div>
         </div>`;
     }
@@ -16851,13 +16902,14 @@ function renderDocActionsGrid(r){
 function wireDocActionButtons(r){
   const baharOverride = isBsgtRecord(r);
   if(baharOverride){
+    const fullActions = bsgtFullShipmentActions(r);
     ['importPermit','cert','bol'].forEach(k=>{
       const m = BAHAR_EXTERNAL_DOC_META[k];
       const uploaded = baharUploadedDoc(r, k);
-      if(canManageShipmentFiles(r)) document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
+      if(fullActions.canEditDocuments) document.getElementById(m.btnId+'Upload')?.addEventListener('click', ()=> triggerBaharDocUpload(r, k));
       if(uploaded) document.getElementById(m.btnId+'Open')?.addEventListener('click', ()=> openShipmentFile(uploaded.path, uploaded.name));
-      if(uploaded && canManageShipmentFiles(r)) document.getElementById(m.btnId+'Delete')?.addEventListener('click', ()=> deleteBaharDocument(r, k));
-      if(canManageShipmentFiles(r)) bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
+      if(uploaded && fullActions.canDeleteDocuments) document.getElementById(m.btnId+'Delete')?.addEventListener('click', ()=> deleteBaharDocument(r, k));
+      if(fullActions.canEditDocuments) bindFileDropZone(document.getElementById(m.btnId+'Wrap'), files=>uploadBaharDocument(r, k, files[0]));
     });
   } else {
     document.getElementById('btnCert').addEventListener('click', ()=>{
@@ -16921,9 +16973,8 @@ function bsgtOperationsUploadedFile(documents, key){
 function renderBsgtOperationsDocuments(r){
   const api = window.JahezBsgtOperations;
   const documents = shipmentFilesCache[r.id] || [];
-  const evaluation = api.evaluateBsgtOperationsReadiness(r, documents);
-  const canEditOperations = bsgtOperationsPermission(true);
-  const canEditDocuments = api.canEditUploadedDocuments(r, canEditOperations);
+  const permissions = bsgtFullShipmentActions(r, documents);
+  const {readiness:evaluation,canEditOperations,canEditDocuments,canDeleteDocuments,canEditContract,canSendToFinance} = permissions;
   const generatedMeta = [
     ['contract','doc','العقد'],
     ['proforma','invoice','الفاتورة المبدئية'],
@@ -16941,7 +16992,7 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${ready?'جاهز للمعاينة والطباعة':'يحتاج استكمال بيانات الشحنة'}</small></span>
       <span class="bsgt-operation-doc-status${ready?' is-ready':''}">${ready?'جاهز':'غير مكتمل'}</span>
-      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button>${key==='contract'&&window.JahezPermissions?.can('contracts.edit')?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-contract-edit>${icon('edit',12)} تعديل</button>`:''}</span>`:''}
+      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button>${key==='contract'&&canEditContract?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-contract-edit>${icon('edit',12)} تعديل</button>`:''}</span>`:''}
     </div>`;
   }).join('');
   const uploadedCards = uploadedMeta.map(([key,docIcon,label])=>{
@@ -16953,7 +17004,7 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-actions">
         ${file?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>`:''}
         ${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
-        ${file&&api.canDeleteUploadedDocument(r,file,canEditOperations)&&window.JahezPermissions?.can('shipment_documents.delete')?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
+        ${file&&canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
       </span>
     </div>`;
   }).join('');
@@ -16961,9 +17012,9 @@ function renderBsgtOperationsDocuments(r){
   const optionalCards = optionalFiles.map(file=>`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="uploaded" data-bsgt-file-id="${escapeHtml(file.id)}">
     <span class="bsgt-operation-doc-icon">${icon('folder',15)}</span>
     <span class="bsgt-operation-doc-info"><b>ملف اختياري</b><small>${escapeHtml(file.name)}</small></span>
-    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} استبدال</button><button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}</span>
+    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} استبدال</button>`:''}${canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}</span>
   </div>`).join('');
-  const alreadyReady = r.bsgtStage === 'ready_for_finance';
+  const leftOperations = r.bsgtStage !== 'operations_draft';
   return `<div class="bsgt-operations-docs">
     <div class="bsgt-operations-summary">
       <div class="bsgt-operations-stat"><span>المستندات المولدة</span><b>${evaluation.generatedCount} / 4</b></div>
@@ -16975,7 +17026,7 @@ function renderBsgtOperationsDocuments(r){
       <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditDocuments?`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="upload-control"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} رفع</button></span></div>`:''}</div>
     </div>
     ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة الإلزامية.</div>':`<div class="bsgt-operations-missing"><b>ناقص:</b> ${evaluation.missing.map(escapeHtml).join('، ')}</div>`}
-    <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${(!evaluation.completed||alreadyReady)?'disabled':''}>${icon('arrow',14)} ${alreadyReady?'تم الإرسال للمالية':'إرسال للمالية'}</button>`:''}</div>
+    <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${canSendToFinance?'':`disabled title="${escapeHtml(leftOperations?'المستندات للقراءة فقط بعد مغادرة مرحلة العمليات.':'أكمل المتطلبات السبعة أولاً.')}"`}>${icon('arrow',14)} ${leftOperations?'تم إرسالها من العمليات':'إرسال للمالية'}</button>`:''}</div>
   </div>`;
 }
 
@@ -16988,10 +17039,12 @@ function refreshBsgtOperationsPanel(r){
 
 function rerenderBsgtOperationsDocumentState(r){
   const workspace = document.getElementById('bsgtOperationsWorkspace');
-  if(!workspace) return;
   bsgtOperationsListState.filesByShipment[r.id] = shipmentFilesCache[r.id] || [];
-  renderBsgtOperationsRows();
-  if(bsgtOperationsListState.selectedId === r.id) renderBsgtOperationsDetail(r);
+  if(workspace){
+    renderBsgtOperationsRows();
+    if(bsgtOperationsListState.selectedId === r.id) renderBsgtOperationsDetail(r);
+  }
+  refreshBsgtOperationsPanel(r);
 }
 
 function bsgtOperationsDocumentLabel(file){
@@ -17080,6 +17133,8 @@ function openBsgtGeneratedDocument(r, key){
 
 async function submitBsgtOperationsToFinance(id, button, stayInline = false){
   if(!bsgtOperationsPermission(true)) return;
+  const currentRecord = records.find(record=>record.id===id);
+  if(!window.JahezBsgtOperations.canEditUploadedDocuments(currentRecord,true)) return toast('لا يمكن الإرسال إلا من مرحلة العمليات.', 'err');
   if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
   button.disabled = true;
   netStart();
@@ -17092,11 +17147,19 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
     if(filesResult.error) throw filesResult.error;
     const latestRecord = rowToRecord(shipmentResult.data);
     const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(latestRecord, filesResult.data || []);
+    if(!window.JahezBsgtOperations.canEditUploadedDocuments(latestRecord,true)){
+      shipmentFilesCache[id] = filesResult.data || [];
+      const index = records.findIndex(record=>record.id===id);
+      if(index >= 0) records[index] = latestRecord;
+      rerenderBsgtOperationsDocumentState(latestRecord);
+      toast('لا يمكن الإرسال إلا من مرحلة العمليات.', 'err');
+      return;
+    }
     if(!evaluation.completed){
       shipmentFilesCache[id] = filesResult.data || [];
       const index = records.findIndex(record=>record.id===id);
       if(index >= 0) records[index] = latestRecord;
-      refreshBsgtOperationsPanel(latestRecord);
+      rerenderBsgtOperationsDocumentState(latestRecord);
       toast('تعذر الإرسال. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
       return;
     }
@@ -17108,7 +17171,7 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
     shipmentFilesCache[id] = filesResult.data || [];
     toast('تم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.');
     if(stayInline) await loadBsgtOperationsPage();
-    else { openDetail(id); loadBsgtOperationsPage(); }
+    else { rerenderBsgtOperationsDocumentState(saved); loadBsgtOperationsPage(); }
   }catch(error){
     console.error('complete BSGT operations', error);
     toast(error.message || 'تعذر إرسال الشحنة للمالية.', 'err');
@@ -17142,6 +17205,7 @@ function renderBsgtDetail(r){
   const quantity = r.totalQty || r.qty || r.numberOfPackages || '—';
   const shippingType = shipmentTypeLabel(r);
   const mergeAccess = bsgtPackageMergeAccess(r, shipmentFilesCache[r.id] || []);
+  const fullActions = bsgtFullShipmentActions(r, shipmentFilesCache[r.id] || []);
   const mergeLocked = !mergeAccess.allowed;
   const mergeLockReason = mergeAccess.reason;
   const dataCards = [
@@ -17166,7 +17230,7 @@ function renderBsgtDetail(r){
       <main class="bsgt-detail-main">
         <header class="bsgt-detail-head">
           <div>${r.operationNo? '<span class="tc-ref">'+escapeHtml(r.operationNo)+'</span>' : (r.taskRef? '<span class="tc-ref">'+escapeHtml(r.taskRef)+'</span>' : '')}<h2>${escapeHtml(r.itemDesc||'بدون وصف')}</h2></div>
-          <button class="close-x" id="closeDetail">${icon('close',16)}</button>
+          <button class="btn btn-ghost btn-small bsgt-detail-back" id="closeDetail">${icon('arrow',15)} العودة</button>
         </header>
 
         <section class="bsgt-detail-section" id="bsgtOverview">
@@ -17226,8 +17290,8 @@ function renderBsgtDetail(r){
 
         <footer class="detail-actions">
           ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR منشورة.</b> المسح يفتح آخر PDF محفوظ؛ بعد تعديل التنسيق اضغط «تحديث حزمة QR» لنشر النسخة الحالية.</p>' : '<p class="qr-package-status">بعد تجميع الحزمة سيظهر رمز QR في المستندات ويتيح فتح الحزمة الكاملة.</p>'}
-          <button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
-          <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>
+          ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
+          <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>`:''}
           ${reviewButtonsHtml(r)}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
@@ -17249,10 +17313,20 @@ function wireBsgtDetailSidebar(card){
   });
 }
 
-function openDetail(id){
+function closeShipmentDetail(returnTo){
+  overlay.classList.remove('open','bsgt-workspace-overlay');
+  const safeReturnTo = normalizeBsgtDetailReturnTo(returnTo);
+  if(safeReturnTo) switchView('bsgtWorkspace',{section:safeReturnTo});
+  else if(parseHash().v === 'records' && parseHash().id) updateHash('records');
+}
+
+function openDetail(id, options = {}){
   const r = records.find(x=>x.id===id);
   if(!r) return;
-  updateHash('records', id);
+  const activeRoute = parseHash();
+  const returnTo = normalizeBsgtDetailReturnTo(options.returnTo) ||
+    (activeRoute.v === 'records' && activeRoute.id === id ? normalizeBsgtDetailReturnTo(activeRoute.returnTo) : null);
+  updateHash('records', id, null, options.history || 'replace', returnTo);
   const card = document.getElementById('detailCard');
   const isBsgtDetail = isBsgtRecord(r);
   // Mount above body so shell padding, zoom, and future navigation layout changes
@@ -17343,12 +17417,10 @@ function openDetail(id){
     wireSignedDocumentsPanel(r);
     wireBsgtOperationsPanel(r);
   }
-  document.getElementById('closeDetail').addEventListener('click', ()=>{
-    overlay.classList.remove('open','bsgt-workspace-overlay');
-  });
+  document.getElementById('closeDetail').addEventListener('click', ()=>closeShipmentDetail(returnTo));
   renderDocOrderList(r);
   wireDocActionButtons(r);
-  document.getElementById('packageBtn').addEventListener('click', ()=>{
+  document.getElementById('packageBtn')?.addEventListener('click', ()=>{
     if(isBsgtRecord(r)) return requestBsgtPackageMerge(r, document.getElementById('packageBtn'));
     chooseDocLang(r, async lang=>{
     // Keep the original reliable local print flow for the main package action.
@@ -17357,7 +17429,7 @@ function openDetail(id){
     await mergePackageAttachmentsPdf(r);
     });
   });
-  document.getElementById('mergeAllBtn').addEventListener('click', ()=>{
+  document.getElementById('mergeAllBtn')?.addEventListener('click', ()=>{
     if(isBsgtRecord(r)) return requestBsgtPackageMerge(r, document.getElementById('mergeAllBtn'));
     chooseDocLang(r, lang=> mergeFullPackage(r, lang));
   });
@@ -17442,7 +17514,7 @@ function openDetail(id){
     }
   });
 }
-overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.classList.remove('open'); });
+overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeShipmentDetail(parseHash().returnTo); });
 
 function fillFormForEdit(r){
   document.getElementById('formTitle').textContent = 'تعديل الشحنة';

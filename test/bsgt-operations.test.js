@@ -8,6 +8,7 @@ const operations = require('../bsgt-operations');
 const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'supabase', '31_bsgt_operations_phase2.sql'), 'utf8');
 const deleteMigration = fs.readFileSync(path.join(root, 'supabase', '37_bsgt_operations_document_delete.sql'), 'utf8');
+const uploadGuardMigration = fs.readFileSync(path.join(root, 'supabase', '41_bsgt_operations_upload_stage_guard.sql'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const completeShipment = {operationNo:'BSGTX-2026-0001',consignee:'Buyer',itemDesc:'Goods',proformaNo:'PI-1',invoiceNo:'INV-1'};
 const requiredFiles = [
@@ -95,11 +96,20 @@ assert.ok(deleteMigration.includes('not exists ('));
 assert.ok(deleteMigration.includes('delete_bsgt_operations_document'));
 assert.ok(!deleteMigration.includes('delete from public.shipments'));
 
+assert.ok(uploadGuardMigration.includes('create policy shipmentfiles_write'));
+assert.ok(uploadGuardMigration.includes("shipment.bsgt_stage = 'operations_draft'"));
+assert.ok(uploadGuardMigration.includes("public.has_feature_permission('bsgt.operations.edit')"));
+assert.ok(uploadGuardMigration.includes('public.is_bsgt_operations_uploaded_document(document_type, label)'));
+assert.ok(!uploadGuardMigration.includes('update public.shipments'));
+assert.ok(!uploadGuardMigration.includes('delete from public.shipments'));
+
 for (const source of ['bsgt-workspace.js','bsgt-operations.js','bsgt-operations.css']) assert.ok(html.includes(source));
 assert.ok(html.includes(".eq('company_id', companyId)"));
 assert.ok(html.includes(".in('shipment_id', ids)"));
 assert.ok(!html.includes("state.rows.map(async"));
 assert.ok(html.includes('function renderBsgtOperationsDocuments(r)'));
+assert.ok(html.includes('function renderBsgtOperationsQuickDocuments(record)'));
+assert.ok(html.includes("openDetail(id, {returnTo:normalizeBsgtDetailReturnTo(returnTo) || 'operations', history:'push'})"));
 assert.ok(html.includes('api.workflowPresentation(record.bsgtStage)'));
 assert.ok(html.includes('aria-label="اكتمال مستندات العمليات"'));
 assert.ok(html.includes('<h5>مسار BSGT</h5>'));

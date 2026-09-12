@@ -108,6 +108,17 @@
 .bsgt-operations-detail-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .bsgt-operations-detail-actions .btn-primary{background:linear-gradient(135deg,#ea1b23,#d01119)!important;color:#fff!important}
 .bsgt-operations-detail-actions .btn-primary:disabled{background:#e3e7ed!important;color:#8793a4!important}
+.bsgt-operations-quick-documents{display:grid;gap:13px}
+.bsgt-operations-quick-documents-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid #e5eaf0;border-radius:13px;background:#fcfdff}
+.bsgt-operations-quick-documents-head h4{margin:0;color:#15233b;font-size:13px}
+.bsgt-operations-quick-documents-head span{display:block;margin-top:4px;color:#718096;font-size:9px}
+.bsgt-operations-quick-documents-head>b{color:#d01119;font-size:19px;direction:ltr}
+.bsgt-operations-quick-document-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.bsgt-operations-quick-document-list>div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:10px 11px;border:1px solid #f1d2d4;border-radius:10px;background:#fff7f7;color:#a03b40;font-size:10px}
+.bsgt-operations-quick-document-list>div.is-ready{border-color:#bce6d3;background:#effaf5;color:#167a55}
+.bsgt-operations-quick-document-list span{display:flex;align-items:center;gap:6px;min-width:0;font-weight:700}
+.bsgt-operations-quick-document-list small{flex:0 0 auto;font-size:8px}
+.bsgt-operations-quick-open{justify-self:end;min-width:210px}
 .bsgt-operations-top-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));border-bottom:1px solid #e5eaf0;background:#fcfdff}
 .bsgt-operations-top-summary>div{display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:7px;padding:12px 14px;border-left:1px solid #edf0f4}
 .bsgt-operations-top-summary>div>span{grid-row:1/3;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#edf6ff;color:#247ad8}
@@ -180,6 +191,8 @@
   .bsgt-operations-tools{grid-template-columns:1fr 100px}
   .bsgt-operations-detail-head{align-items:flex-start;flex-direction:column;padding:13px}
   .bsgt-operations-detail-actions{width:100%}.bsgt-operations-detail-actions .btn{flex:1}
+  .bsgt-operations-quick-document-list{grid-template-columns:1fr}
+  .bsgt-operations-quick-open{justify-self:stretch;width:100%;min-width:0}
   .bsgt-commodity-thumb.is-large{flex-basis:68px;width:68px;height:68px}
   .bsgt-operations-top-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bsgt-operations-tabs{padding:0 8px}.bsgt-operations-tabs button{padding:12px 9px;font-size:10px}

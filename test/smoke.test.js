@@ -233,7 +233,7 @@ async function main() {
       assert.ok(appHtml.includes('function canManageShipmentFiles(r)'));
       assert.ok(appHtml.includes('isBsgtPortalUser() && isBsgtRecord(r)'));
       assert.ok(appHtml.includes('async function deleteBaharDocument(r, key)'));
-      assert.ok(appHtml.includes("uploaded && canManageFiles ? `<button"));
+      assert.ok(appHtml.includes("uploaded && canDeleteFiles ? `<button"));
       assert.ok(appHtml.includes('حذف الملف'));
       assert.ok(appHtml.includes('ستبقى الخانة فارغة ويمكنك رفع ملف جديد لاحقاً'));
       assert.ok(appHtml.includes("shipmentFilesCache[r.id] = (shipmentFilesCache[r.id] || []).filter(item=>item.label!==label)"));
