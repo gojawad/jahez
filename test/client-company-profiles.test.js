@@ -16,6 +16,7 @@ function check(name, fn){ fn(); checks += 1; console.log(`✔ ${name}`); }
 
 check('existing clients remain the profile source of truth', () => {
   assert.match(js, /sb\.from\('clients'\)\.select/);
+  assert.ok(js.includes('syncConsigneeClientsFromApp'));
   assert.ok(sql.includes('alter table public.clients'));
   assert.ok(!sql.includes('create table if not exists public.clients'));
 });

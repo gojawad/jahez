@@ -98,7 +98,7 @@
     box.innerHTML = `
       <div class="ccp-shell">
         <section class="ccp-hero">
-          <div class="ccp-hero-copy"><div class="ccp-hero-icon">${iconMarkup('building')}</div><div><h2>بروفايل الشركات</h2><p>بيانات العملاء، هويتهم ومستنداتهم المعتمدة في مكان واحد.</p></div></div>
+          <div class="ccp-hero-copy"><div class="ccp-hero-icon">${iconMarkup('building')}</div><div><h2>بروفايل الشركات</h2><p>بروفايلات الشركات المدرجة كمرسل إليهم في معاملاتك.</p></div></div>
           <div class="ccp-count">${state.clients.length.toLocaleString('ar-EG')} شركة عميلة</div>
         </section>
         <div class="ccp-toolbar">
@@ -411,6 +411,7 @@
   async function open(){
     if(!canRead(currentRole())) return;
     injectModals();
+    if(typeof root.syncConsigneeClientsFromApp === 'function') await root.syncConsigneeClientsFromApp();
     const route=typeof parseHash==='function'?parseHash():{};
     const desiredId=route.v==='clientProfiles' ? route.id : '';
     if(state.selected) renderProfile();
