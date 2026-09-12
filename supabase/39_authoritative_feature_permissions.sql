@@ -174,7 +174,7 @@ begin
   insert into public.user_feature_permissions (user_id, permission_key, allowed)
   select p_user_id, catalog.permission_key, catalog.permission_key = any(v_keys)
   from public.feature_permission_catalog catalog
-  on conflict (user_id, permission_key) do update
+  on conflict on constraint user_feature_permissions_user_key do update
     set allowed = excluded.allowed, updated_at = now();
 
   update public.profiles

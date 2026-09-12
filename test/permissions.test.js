@@ -84,6 +84,10 @@ const tests = [
     assert.doesNotMatch(authoritativeMigration, /as qb\$/);
     assert.match(authoritativeMigration, /as \$permission\$/);
   }],
+  ['permission save uses an unambiguous conflict constraint', () => {
+    assert.match(authoritativeMigration, /on conflict on constraint user_feature_permissions_user_key do update/i);
+    assert.doesNotMatch(authoritativeMigration, /on conflict \(user_id, permission_key\) do update/i);
+  }],
   ['client maps initialized profile state before resolving access', () => assert.match(index, /featurePermissionsInitialized:p\.feature_permissions_initialized === true/)],
   ['client blocks role fallback for initialized profiles', () => assert.match(index, /feature_permissions_initialized === true\) return false/)],
   ['viewer write checkboxes are disabled in the admin UI', () => assert.match(index, /دور مشاهد فقط لا يسمح بصلاحيات الكتابة/)]
