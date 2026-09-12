@@ -17,6 +17,22 @@ const ROLE_PORTALS = {
   viewer:[],
   bsgt_user:['بوابة التحصيل التجاري']
 };
+const SHIPMENTS = Array.from({length:6}, (_, index) => ({
+  id:`00000000-0000-4000-8000-${String(index + 1).padStart(12,'0')}`,
+  status:index < 4 ? 'sent' : 'draft',
+  owner_id:'employee-1',
+  company_id:'bsgt-company',
+  created_at:`2026-0${4 + index}-05T08:00:00.000Z`,
+  updated_at:`2026-0${4 + index}-0${6 + index}T10:00:00.000Z`,
+  data:{
+    operationNo:`BSGTX-2026-${String(index + 1).padStart(4,'0')}`,
+    invoiceDate:`2026-0${4 + index}-0${6 + index}`,
+    totalAmount:`AED ${12000 + index * 1750}`,
+    exporter:index % 2 ? 'BAHAR SWAKEN GENERAL TRADING LLC' : 'NADIM TRADING ENTERPRISES',
+    consignee:index % 2 ? 'STANDER FOR IMPORT AND EXPORT CO.LTD' : 'ABUKLEEWA TRADING TRANSPORT & SERVICES CO.LTD',
+    shipType:index % 3 === 0 ? 'sea' : 'land'
+  }
+}));
 
 function chromiumPath() {
   return [
@@ -65,6 +81,7 @@ async function prepareRoleContext(browser, role) {
     if(request.method()==='OPTIONS') return route.fulfill({status:204,headers,body:''});
     if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
     if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200,headers,body:JSON.stringify([{id:'bsgt-company',name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',settings:{}}])});
+    if(url.pathname==='/rest/v1/shipments') return route.fulfill({status:200,headers,body:JSON.stringify(SHIPMENTS)});
     if(request.method()==='HEAD') return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/0'},body:''});
     return route.fulfill({status:200,headers,body:'[]'});
   });
@@ -89,11 +106,17 @@ async function main() {
     for(const role of Object.keys(ROLE_PORTALS)){
       const {context, profile} = await prepareRoleContext(browser, role);
       const page = await context.newPage();
+      const browserErrors = [];
+      page.on('pageerror', error=>browserErrors.push(error.message));
+      page.on('console', message=>{ if(message.type()==='error') browserErrors.push(message.text()); });
       await page.goto(`${APP_ORIGIN}/#v=dashboard`, {waitUntil:'domcontentloaded'});
       await page.locator('#employeeTopNav:not([hidden])').waitFor({timeout:20000});
       await page.locator('#viewDashboard.active .shipment-dashboard').waitFor({timeout:20000});
       assert.ok((await page.locator('.db-hero h2').textContent()).includes(profile.display_name));
       assert.ok(await page.locator('.db-employee-avatar img').count());
+      assert.strictEqual(await page.locator('.db-stat').count(), 4);
+      assert.ok((await page.locator('.db-stat-value').first().textContent()).includes('٦'));
+      assert.strictEqual(await page.locator('.db-company .db-stars').count(), 0);
       assert.deepStrictEqual(await page.locator('#employeePortalLinks a span').allTextContents(), ROLE_PORTALS[role]);
       assert.strictEqual(await page.locator('#employeeDashboardNav').getAttribute('class'), 'active');
       if(role==='viewer') assert.strictEqual(await page.locator('#navCreateShip').evaluate(node=>getComputedStyle(node).display), 'none');
@@ -102,6 +125,35 @@ async function main() {
       await page.reload({waitUntil:'domcontentloaded'});
       await page.locator('#viewDashboard.active .shipment-dashboard').waitFor({timeout:20000});
       assert.ok(page.url().endsWith('/#v=dashboard'));
+
+      if(role==='admin'){
+        fs.mkdirSync(path.join(__dirname,'output'), {recursive:true});
+        for(const width of [390,768,1440]){
+          await page.setViewportSize({width,height:900});
+          await page.locator('.db-hero').waitFor({state:'visible'});
+          await page.waitForTimeout(350);
+          const overflow = await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+          assert.ok(overflow <= 1, `dashboard overflowed by ${overflow}px at ${width}px`);
+          assert.notStrictEqual(await page.locator('.db-chart svg').evaluate(node=>getComputedStyle(node).display), 'none');
+          if(width < 900){
+            assert.strictEqual(await page.locator('.app-sidebar').evaluate(node=>node.classList.contains('is-open')), false);
+            const sidebarPosition = await page.locator('.app-sidebar').evaluate(node=>({
+              left:node.getBoundingClientRect().left,
+              right:node.getBoundingClientRect().right,
+              width:node.getBoundingClientRect().width,
+              viewport:window.innerWidth,
+              transform:getComputedStyle(node).transform
+            }));
+            assert.ok(sidebarPosition.left >= sidebarPosition.viewport, `sidebar remained visible at ${width}px: ${JSON.stringify(sidebarPosition)}`);
+            const dashboardFlow = await page.locator('.db-three-grid').evaluate(node=>({
+              display:getComputedStyle(node).display,
+              direction:getComputedStyle(node).flexDirection
+            }));
+            assert.deepStrictEqual(dashboardFlow, {display:'flex',direction:'column'});
+          }
+          await page.screenshot({path:path.join(__dirname,'output',`employee-dashboard-${width}.png`),fullPage:true});
+        }
+      }
 
       if(role==='editor'){
         await page.goto(`${APP_ORIGIN}/experiments/bs-collection/`, {waitUntil:'domcontentloaded'});
@@ -112,6 +164,7 @@ async function main() {
         await page.locator('body:not(.portal-access-loading) .lab-header').waitFor({timeout:20000});
         assert.ok((await page.locator('#portalUserName').textContent()).includes(profile.display_name));
       }
+      assert.deepStrictEqual(browserErrors, []);
       await context.close();
       console.log(`Employee dashboard browser role ${role}: passed`);
     }

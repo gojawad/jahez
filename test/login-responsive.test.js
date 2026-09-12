@@ -148,19 +148,20 @@ async function main() {
           document.getElementById('viewDashboard').classList.add('active');
           const root = getComputedStyle(document.documentElement);
           return {
-            heroBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-hero')).backgroundImage,
-            heroStatsBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-hero-stats')).backgroundImage,
+            heroImage:document.querySelector('.shipment-dashboard .db-hero-image')?.getAttribute('src'),
+            heroShadeBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-hero-shade')).backgroundImage,
+            statBackground:getComputedStyle(document.querySelector('.shipment-dashboard .db-stat')).backgroundColor,
             insightBackground:getComputedStyle(document.querySelector('.db-insight')).backgroundImage,
             chartStroke:document.querySelector('.db-chart path[stroke]')?.getAttribute('stroke'),
             brandPrimary:root.getPropertyValue('--brand-primary').trim(),
             brandDark:root.getPropertyValue('--brand-dark').trim()
           };
         });
-        assert.ok(dashboardTheme.heroBackground.includes('rgb(234, 27, 35)'));
-        assert.ok(dashboardTheme.heroBackground.includes('rgb(208, 17, 25)'));
-        assert.ok(dashboardTheme.heroStatsBackground.includes('rgb(255, 255, 255)'));
-        assert.ok(dashboardTheme.insightBackground.includes('rgb(63, 63, 70)') || dashboardTheme.insightBackground.includes('rgb(37, 39, 43)'));
-        assert.strictEqual(dashboardTheme.chartStroke.toUpperCase(), '#D01119');
+        assert.strictEqual(dashboardTheme.heroImage, 'jahez-login-bsgt.png');
+        assert.ok(dashboardTheme.heroShadeBackground.includes('rgba(13, 24, 37'));
+        assert.strictEqual(dashboardTheme.statBackground, 'rgb(255, 255, 255)');
+        assert.ok(dashboardTheme.insightBackground.includes('rgb(23, 33, 45)'));
+        assert.strictEqual(dashboardTheme.chartStroke.toUpperCase(), '#EA1B23');
         assert.strictEqual(dashboardTheme.brandPrimary.toUpperCase(), '#EA1B23');
         assert.strictEqual(dashboardTheme.brandDark.toUpperCase(), '#D01119');
         await page.screenshot({path:path.join(OUTPUT, 'dashboard-brand-1440.png'), fullPage:false});

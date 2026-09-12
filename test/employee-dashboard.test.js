@@ -7,10 +7,12 @@ const portalAccess = require('../portal-access');
 
 const root = path.join(__dirname, '..');
 const appHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const dashboardCss = fs.readFileSync(path.join(root, 'employee-dashboard.css'), 'utf8');
 const importPermit = fs.readFileSync(path.join(root, 'import-permit.js'), 'utf8');
 const collectionHtml = fs.readFileSync(path.join(root, 'experiments', 'bs-collection', 'index.html'), 'utf8');
 const collectionJs = fs.readFileSync(path.join(root, 'experiments', 'bs-collection', 'collection-lab.js'), 'utf8');
 const bsgtSql = fs.readFileSync(path.join(root, 'supabase', '24_مستخدم_بوابة_BSGT.sql'), 'utf8');
+const dashboardRenderer = appHtml.slice(appHtml.indexOf('function renderTargetDashboard(){'), appHtml.indexOf('function renderDashboard(){'));
 
 let checks = 0;
 function check(name, fn) {
@@ -35,6 +37,27 @@ check('dashboard displays the current photo when present', () => {
   assert.ok(appHtml.includes('photo: prof.photo_url ||'));
   assert.ok(appHtml.includes('db-employee-avatar'));
   assert.ok(appHtml.includes('${avatarHtml(currentUser)}'));
+});
+
+check('enterprise dashboard uses the durable local logistics hero and live widgets', () => {
+  assert.ok(appHtml.includes('employee-dashboard.css?v=20260912-enterprise-2'));
+  assert.ok(dashboardRenderer.includes('src="jahez-login-bsgt.png"'));
+  assert.ok(dashboardRenderer.includes('الشركات الأكثر نشاطاً'));
+  assert.ok(dashboardRenderer.includes('const total = records.length;'));
+});
+
+check('enterprise dashboard does not introduce ratings or invented comparison trends', () => {
+  assert.ok(!dashboardRenderer.includes('db-stars'));
+  assert.ok(!dashboardRenderer.includes('تقييم'));
+  assert.ok(!dashboardRenderer.includes('مقارنة بالشهر الماضي'));
+  assert.ok(!dashboardRenderer.includes('أداء الفريق'));
+});
+
+check('enterprise dashboard remains isolated and responsive', () => {
+  assert.ok(dashboardCss.includes('body:has(#viewDashboard.active)'));
+  assert.ok(dashboardCss.includes('@media (max-width: 1080px)'));
+  assert.ok(dashboardCss.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'));
+  assert.ok(dashboardCss.includes('transform: translateX(100%) !important'));
 });
 
 check('bsgt_user gets only the commercial collection shortcut', () => {
@@ -104,5 +127,5 @@ check('refresh routes are preserved while unauthorized routes return to dashboar
   assert.ok(collectionJs.includes('rememberPortalLocation()'));
 });
 
-assert.ok(checks >= 14);
+assert.ok(checks >= 17);
 console.log(`\n${checks} employee dashboard checks passed`);
