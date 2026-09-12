@@ -208,7 +208,7 @@ async function main() {
       assert.ok(appHtml.includes('--contract-table-y:${contractLayout.tableTopMm}mm'));
       assert.ok(appHtml.includes("grid-template-areas:'en value ar'"));
       assert.ok(appHtml.includes('cc-contract">تعديل العقد'));
-      assert.ok(companyWizard.includes('window.openBaharContractEditor = id =>'));
+      assert.ok(companyWizard.includes('window.openBaharContractEditor = async id =>'));
       assert.ok(companyWizard.includes('contractBranding:clone(draft)'));
       assert.ok(companyWizard.includes('موضع ختم العقد فقط'));
       assert.ok(companyWizard.includes('إضافة / استبدال ختم العقد'));
@@ -221,7 +221,8 @@ async function main() {
       assert.ok(companyWizard.includes("['stamp','qr']"));
       assert.ok(!companyWizard.includes('bce-show-header'));
       assert.ok(!companyWizard.includes("transformFields('header'"));
-      assert.ok(appHtml.includes('company-wizard.js?v=20260909-document-controls'));
+      assert.ok(appHtml.includes('company-wizard.js?v=20260912-client-contract-assets'));
+      assert.ok(appHtml.includes('contract-client-assets.js?v=20260912-1'));
       assert.ok(companyWizard.includes('تحريك الجدول لأعلى أو أسفل'));
       assert.ok(companyWizard.includes('Office 307 Al Faheem Building'));
       assert.ok(!appHtml.includes('${decorations(false,true)}${brand()}'));

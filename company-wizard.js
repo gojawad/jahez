@@ -660,7 +660,10 @@
   const transformFields = (key, title, position, maxWidth = 35) => `<section class="bce-transform" data-transform="${key}"><h4>${title}</h4><div class="bce-grid"><label>أفقي <b data-value="xPercent">${position.xPercent}</b>%<input data-prop="xPercent" type="range" min="0" max="96" step=".5" value="${position.xPercent}"></label><label>عمودي <b data-value="yPercent">${position.yPercent}</b>%<input data-prop="yPercent" type="range" min="0" max="94" step=".5" value="${position.yPercent}"></label><label>الحجم <b data-value="widthPercent">${position.widthPercent}</b>%<input data-prop="widthPercent" type="range" min="4" max="${maxWidth}" step=".5" value="${position.widthPercent}"></label><label>التدوير <b data-value="rotate">${position.rotate}</b>°<input data-prop="rotate" type="range" min="-180" max="180" step="1" value="${position.rotate}"></label></div></section>`;
   let overlay;
   let companyId = '';
+  let recordId = '';
   let draft = defaults();
+  let profileContext = null;
+  let profileLoadError = '';
   let previewTimer;
 
   function ensureOverlay(){
@@ -709,11 +712,64 @@
     });
   }
 
-  function contractRecord(){
+  function contractRecords(){
     if(typeof records === 'undefined') return null;
-    return records.find(record => record.companyId === companyId && (typeof isBsgtRecord !== 'function' || isBsgtRecord(record)))
-      || records.find(record => typeof isBsgtRecord === 'function' && isBsgtRecord(record))
-      || null;
+    return records.filter(record => record.companyId === companyId && (typeof isBsgtRecord !== 'function' || isBsgtRecord(record)));
+  }
+
+  function contractRecord(){
+    const available = contractRecords() || [];
+    return available.find(record => record.id === recordId) || available[0] || null;
+  }
+
+  function currentApproval(){
+    const record = contractRecord();
+    return window.JahezContractClientAssets?.approvalFromRecord(record) || {};
+  }
+
+  function approvalPosition(approval, key, fallback){
+    return {
+      xPercent:Number(approval[`buyer${key}X`]) || fallback.xPercent,
+      yPercent:Number(approval[`buyer${key}Y`]) || fallback.yPercent,
+      widthPercent:Number(approval[`buyer${key}Scale`]) || fallback.widthPercent,
+      rotate:0
+    };
+  }
+
+  async function loadProfileContext(){
+    const record = contractRecord();
+    profileContext = null;
+    profileLoadError = '';
+    if(!record) return;
+    try{
+      profileContext = await prepareBaharContractClientAssets(record);
+    }catch(error){
+      console.error('contract client profile assets', error);
+      profileLoadError = error?.message || 'تعذر تحميل أصول بروفايل الشركة.';
+    }
+  }
+
+  function collectApproval(){
+    const stampFileId = overlay.querySelector('.bce-buyer-stamp-select')?.value || null;
+    const signatureFileId = overlay.querySelector('.bce-buyer-signature-select')?.value || null;
+    const signature = profileContext?.files?.find(file=>file.id === signatureFileId) || null;
+    const position = key => Object.fromEntries([...overlay.querySelectorAll(`[data-transform="${key}"] input`)].map(input => [input.dataset.prop, Number(input.value)]));
+    const stampPosition = position('buyerStamp');
+    const signaturePosition = position('buyerSignature');
+    return {
+      clientId:profileContext?.client?.id || null,
+      stampFileId,
+      signatureFileId,
+      signatoryId:signature?.signatory_id || null,
+      useStamp:Boolean(stampFileId && overlay.querySelector('.bce-use-buyer-stamp')?.checked),
+      useSignature:Boolean(signatureFileId && overlay.querySelector('.bce-use-buyer-signature')?.checked),
+      buyerStampX:stampPosition.xPercent,
+      buyerStampY:stampPosition.yPercent,
+      buyerStampScale:stampPosition.widthPercent,
+      buyerSignatureX:signaturePosition.xPercent,
+      buyerSignatureY:signaturePosition.yPercent,
+      buyerSignatureScale:signaturePosition.widthPercent
+    };
   }
 
   function attachMovable(frame, selector, key, title){
@@ -727,12 +783,15 @@
     element.addEventListener('pointerdown', event => {
       event.preventDefault();
       element.setPointerCapture(event.pointerId);
-      const current = collect()[`${key}Position`];
+      const buyerApproval = key === 'buyerStamp' || key === 'buyerSignature' ? collectApproval() : null;
+      const current = buyerApproval
+        ? approvalPosition(buyerApproval, key === 'buyerStamp' ? 'Stamp' : 'Signature', {xPercent:50,yPercent:80,widthPercent:15})
+        : collect()[`${key}Position`];
       const start = {x:event.clientX,y:event.clientY,left:current.xPercent,top:current.yPercent};
       const move = moveEvent => {
         const left = Math.max(0, Math.min(96, start.left + (moveEvent.clientX-start.x) / sheet.clientWidth * 100));
         const top = Math.max(0, Math.min(94, start.top + (moveEvent.clientY-start.y) / sheet.clientHeight * 100));
-        const position = Object.assign({}, collect()[`${key}Position`], {xPercent:Math.round(left*2)/2,yPercent:Math.round(top*2)/2});
+        const position = Object.assign({}, current, {xPercent:Math.round(left*2)/2,yPercent:Math.round(top*2)/2});
         syncTransform(key, position);
         element.style.left = position.xPercent + '%';
         element.style.top = position.yPercent + '%';
@@ -749,6 +808,8 @@
 
   function attachPreviewDrag(frame){
     attachMovable(frame, '.bahar-contract-stamp', 'stamp', 'اسحب الختم لتغيير موضعه في العقد فقط');
+    attachMovable(frame, '.bahar-contract-buyer-stamp', 'buyerStamp', 'اسحب ختم العميل داخل العقد فقط');
+    attachMovable(frame, '.bahar-contract-buyer-signature', 'buyerSignature', 'اسحب توقيع العميل داخل العقد فقط');
   }
 
   function renderPreview(){
@@ -761,11 +822,14 @@
       return;
     }
     draft = collect();
+    const approval = collectApproval();
+    const previewRecord = Object.assign({}, record, {clientContractApproval:approval});
+    window.JahezContractClientAssets?.attachRuntime(previewRecord, profileContext, approval);
     const originalSettings = companyEntry.settings || {};
     let sheet = '';
     try{
       companyEntry.settings = Object.assign({}, originalSettings, {contractBranding:clone(draft)});
-      sheet = buildSheet(record, 'contract', 'en');
+      sheet = buildSheet(previewRecord, 'contract', 'en');
     } finally {
       companyEntry.settings = originalSettings;
     }
@@ -780,7 +844,9 @@
 
   async function save(button){
     const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
+    const record = contractRecord();
     if(!companyEntry || !isBahar(companyEntry)) throw new Error('تعذر تحديد شركة بحر سواكن.');
+    if(!record) throw new Error('لا توجد شحنة BSGT لحفظ إعدادات عقدها.');
     const original = button.textContent;
     button.disabled = true;
     button.textContent = 'جارٍ الحفظ...';
@@ -788,6 +854,11 @@
       draft = collect();
       const settings = Object.assign({}, companyEntry.settings || {}, {contractBranding:clone(draft)});
       await saveCompanyById(companyEntry.id, settings);
+      const approval = collectApproval();
+      const saved = await dbSaveRecord(Object.assign({}, record, {clientContractApproval:approval}));
+      if(!saved) throw new Error('تعذر حفظ اختيار ختم وتوقيع العميل على الشحنة.');
+      recordId = saved.id;
+      await loadProfileContext();
       if(typeof toast === 'function') toast('تم حفظ إعدادات عقد بحر سواكن');
       renderPreview();
     } finally {
@@ -796,13 +867,37 @@
     }
   }
 
+  function buyerAssetsSection(record){
+    const available = contractRecords() || [];
+    const approval = currentApproval();
+    const client = profileContext?.client || null;
+    const sameClient = !approval.clientId || approval.clientId === client?.id;
+    const stamps = profileContext?.files?.filter(file=>file.file_type === 'stamp') || [];
+    const signatures = profileContext?.files?.filter(file=>file.file_type === 'signature') || [];
+    const signatoryById = new Map((profileContext?.signatories || []).map(person=>[person.id,person]));
+    const selectedStamp = sameClient ? approval.stampFileId : null;
+    const selectedSignature = sameClient ? approval.signatureFileId : null;
+    const selectedSignatureFile = signatures.find(file=>file.id === selectedSignature);
+    const selectedPerson = selectedSignatureFile?.signatory_id ? signatoryById.get(selectedSignatureFile.signatory_id) : null;
+    const warnings = profileContext ? window.JahezContractClientAssets?.validateApproval(profileContext, approval).warnings || [] : [];
+    const option = (file, selected, person) => `<option value="${safe(file.id)}" ${file.id===selected?'selected':''}>${safe(file.title || file.original_name || file.id)}${person?` — ${safe(person.name)}${person.title?` (${safe(person.title)})`:''}`:''}</option>`;
+    const openProfile = `<button type="button" class="btn btn-ghost btn-small bce-open-client-profile" data-client-id="${safe(client?.id || '')}">فتح بروفايل الشركات</button>`;
+    const identity = profileLoadError
+      ? `<div class="bce-profile-warning">${safe(profileLoadError)}</div>`
+      : !client
+        ? `<div class="bce-profile-warning">لم يتم العثور على بروفايل لهذا المرسل إليه.</div>${openProfile}`
+        : `<div class="bce-profile-link"><span>المرسل إليه: <b>${safe(profileContext.consignee || record?.consignee || '')}</b></span><span>البروفايل المرتبط: <b>${safe(client.name_en || client.name || '')}</b></span>${openProfile}</div>`;
+    const warningHtml = warnings.length ? `<div class="bce-profile-warning">${warnings.map(safe).join('<br>')}</div>` : '';
+    return `<section class="bce-section bce-buyer-assets"><h4>ختم وتوقيع العميل</h4><p class="bce-section-note">تُحفظ الاختيارات على الشحنة المحددة فقط، ولا تغيّر ختم أو توقيع البائع.</p><label class="bce-field"><span>الشحنة / العقد</span><select class="bce-record-select">${available.map(item=>`<option value="${safe(item.id)}" ${item.id===record?.id?'selected':''}>${safe(item.operationNo || item.contractNo || item.invoiceNo || item.id)} — ${safe(item.consignee || 'بدون مرسل إليه')}</option>`).join('')}</select></label><div class="bce-profile-box">${identity}</div>${client?`<div class="bce-grid" style="margin-top:12px"><label class="bce-field"><span>ختم العميل</span><select class="bce-buyer-stamp-select"><option value="">— بدون اختيار —</option>${stamps.map(file=>option(file,selectedStamp)).join('')}</select><small>${stamps.length?'اختر الختم صراحةً.':'لا يوجد ختم محفوظ في بروفايل الشركة.'}</small></label><label class="bce-field"><span>توقيع العميل</span><select class="bce-buyer-signature-select"><option value="">— بدون اختيار —</option>${signatures.map(file=>option(file,selectedSignature,signatoryById.get(file.signatory_id))).join('')}</select><small>${signatures.length?'اختر التوقيع والشخص المرتبط به.':'لا يوجد توقيع محفوظ في بروفايل الشركة.'}</small></label></div><div class="bce-toggles" style="margin-top:12px"><label class="bce-toggle"><input type="checkbox" class="bce-use-buyer-stamp" ${approval.useStamp&&selectedStamp?'checked':''} ${stamps.length?'':'disabled'}> استخدام ختم العميل</label><label class="bce-toggle"><input type="checkbox" class="bce-use-buyer-signature" ${approval.useSignature&&selectedSignature?'checked':''} ${signatures.length?'':'disabled'}> استخدام توقيع العميل</label></div><div class="bce-signatory-summary">${selectedPerson?`الشخص المفوض: <b>${safe(selectedPerson.name)}</b>${selectedPerson.title?` — ${safe(selectedPerson.title)}`:''}`:'لا يوجد شخص مفوض مرتبط بالتوقيع المحدد.'}</div>${warningHtml}${transformFields('buyerStamp','موضع ختم العميل',approvalPosition(approval,'Stamp',{xPercent:56,yPercent:79,widthPercent:14}))}${transformFields('buyerSignature','موضع توقيع العميل',approvalPosition(approval,'Signature',{xPercent:58,yPercent:82,widthPercent:18}),45)}`:''}</section>`;
+  }
+
   function render(){
     const root = ensureOverlay();
     const companyEntry = typeof companyById === 'function' ? companyById(companyId) : null;
     draft = mergedSettings(companyEntry);
     root.innerHTML = `<style>
-      .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-section-note{margin:-6px 0 10px;color:#728195;font-size:12px;line-height:1.6}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-file-box{padding:12px;border:1px dashed #cbd9e7;border-radius:12px;background:#f8fbfe}.bce-file-thumb{height:92px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;color:#8796a7;font-size:12px}.bce-file-thumb img{max-width:100%;max-height:100%;object-fit:contain}.bce-file-actions{display:flex;gap:8px;margin-top:10px}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
-    </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>خلفية ورقة العقد وعناصره مستقلة عن الفاتورة ومحفوظة على الموقع.</p><section class="bce-section"><h4>خلفية وترويسة صفحة العقد</h4><p class="bce-section-note">ارفع صورة ورقة بحر سواكن الكاملة A4، بما فيها الترويسة والعلامة المائية والتذييل، بنفس آلية خلفية جدول الفاتورة.</p><div class="bce-file-box bce-header-file"><div class="bce-file-thumb">${draft.header?`<img src="${safe(draft.header)}" alt="خلفية ورقة العقد">`:'<span>لا توجد خلفية — صفحة العقد بيضاء</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-header-pick">رفع / استبدال الخلفية</button><button type="button" class="btn btn-ghost btn-small bce-header-remove">إزالة</button><input type="file" class="bce-header-input" accept="image/png,image/jpeg,image/webp" hidden></div></div></section><div class="bce-grid" style="margin-top:18px"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section><div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
+      .bce-overlay{padding:0!important;z-index:10050}.bce-overlay.open{display:block}.bce-shell{width:100vw;height:100dvh;background:#f2f6fb;display:flex;flex-direction:column;font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;direction:rtl}.bce-head{height:76px;flex:0 0 76px;padding:0 28px;background:#fff;border-bottom:1px solid #dce6f0;display:flex;align-items:center;justify-content:space-between}.bce-head h2{margin:0;color:#15395f;font-size:22px}.bce-head p{margin:4px 0 0;color:#718096;font-size:12px}.bce-close{width:40px;height:40px;border:1px solid #d6e1ec;border-radius:50%;background:#fff;color:#31506f;font-size:22px;cursor:pointer}.bce-workspace{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 480px;direction:ltr}.bce-preview{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;direction:rtl}.bce-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.bce-preview-head strong,.bce-preview-head small{display:block}.bce-preview-head small{color:#7c8b9d;margin-top:2px}.bce-zoom{display:flex;gap:6px}.bce-zoom button{padding:6px 10px;border:1px solid #cfdbe7;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.bce-stage{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;background:#dfe8f1;border:1px solid #cfdae5;border-radius:14px}.bce-frame-wrap{width:556px;height:786px;flex:0 0 auto}.bce-frame{display:block;width:210mm;height:297mm;border:0;background:#fff;transform:scale(.7);transform-origin:top left;box-shadow:0 16px 35px rgba(23,47,73,.2)}.bce-controls{min-height:0;overflow:auto;padding:22px;background:#fff;border-left:1px solid #dce6f0;direction:rtl}.bce-controls h3{margin:0 0 5px;color:#15395f}.bce-controls>p{margin:0 0 18px;color:#728195;font-size:12px;line-height:1.7}.bce-section{margin-top:18px;padding-top:16px;border-top:1px solid #e5ecf3}.bce-section h4{margin:0 0 12px;color:#173d64}.bce-section-note{margin:-6px 0 10px;color:#728195;font-size:12px;line-height:1.6}.bce-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.bce-field>span,.bce-transform label{display:block;font-size:12px;font-weight:700;color:#203e5d;margin-bottom:6px}.bce-field>div{display:flex;align-items:center;gap:6px}.bce-field input,.bce-field select,.bce-address{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-field input{text-align:center}.bce-field small{font-size:11px;color:#8492a2}.bce-address{min-height:76px;resize:vertical;direction:ltr;text-align:left}.bce-file-box{padding:12px;border:1px dashed #cbd9e7;border-radius:12px;background:#f8fbfe}.bce-file-thumb{height:92px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:#fff;color:#8796a7;font-size:12px}.bce-file-thumb img{max-width:100%;max-height:100%;object-fit:contain}.bce-file-actions{display:flex;gap:8px;margin-top:10px}.bce-toggles{display:flex;flex-wrap:wrap;gap:14px}.bce-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.bce-toggle input{width:auto}.bce-transform{margin-top:12px;padding:13px;border:1px solid #e0e8f0;border-radius:11px;background:#f8fafc}.bce-transform h4{margin:0 0 10px}.bce-transform input{display:block;width:100%;margin-top:5px}.bce-profile-box{margin-top:10px;padding:11px;border:1px solid #e0e8f0;border-radius:10px;background:#f8fafc}.bce-profile-link{display:grid;gap:5px;font-size:12px}.bce-profile-warning{margin:8px 0;padding:9px;border-radius:8px;background:#fff1f2;color:#b4232b;font-size:12px;line-height:1.6}.bce-signatory-summary{margin-top:10px;padding:9px;border-radius:8px;background:#eef6ff;color:#31506f;font-size:12px}.bce-open-client-profile{margin-top:8px}.bce-record-select{width:100%;border:1px solid #d5e0ea;border-radius:9px;padding:9px 10px;background:#fff;font:inherit}.bce-actions{position:sticky;bottom:-22px;margin:20px -22px -22px;padding:14px 22px;background:rgba(255,255,255,.96);border-top:1px solid #e1e9f1;display:flex;flex-wrap:wrap;gap:8px}.bce-actions button{min-height:38px}.bce-primary{background:#d71920!important;color:#fff!important;border-color:#d71920!important}@media(max-width:1050px){.bce-workspace{grid-template-columns:1fr}.bce-controls{border-left:0;border-bottom:1px solid #dce6f0;max-height:48vh}.bce-preview{min-height:52vh}.bce-frame-wrap{width:397px;height:562px}.bce-frame{transform:scale(.5)}}@media(max-width:620px){.bce-head{padding:0 14px}.bce-head h2{font-size:17px}.bce-controls{padding:16px}.bce-grid{grid-template-columns:1fr}.bce-frame-wrap{width:333px;height:472px}.bce-frame{transform:scale(.42)}}
+    </style><div class="bce-shell"><header class="bce-head"><div><h2>بوابة تعديل عقد بحر سواكن</h2><p>إعدادات مستقلة للعقد فقط ولا تغيّر الفواتير أو بقية المستندات</p></div><button type="button" class="bce-close" data-bce-close>×</button></header><div class="bce-workspace"><main class="bce-preview"><div class="bce-preview-head"><div><strong>المعاينة الحية للعقد</strong><small>صفحة A4 فعلية — اسحب الختم بالماوس</small></div><div class="bce-zoom"><button type="button" data-zoom=".55">55%</button><button type="button" data-zoom=".7">70%</button><button type="button" data-zoom=".85">85%</button></div></div><div class="bce-stage"><div class="bce-frame-wrap"><iframe class="bce-frame" title="معاينة عقد بحر سواكن"></iframe></div></div></main><aside class="bce-controls"><h3>تنسيق عقد البيع الدولي</h3><p>خلفية ورقة العقد وعناصره مستقلة عن الفاتورة ومحفوظة على الموقع.</p><section class="bce-section"><h4>خلفية وترويسة صفحة العقد</h4><p class="bce-section-note">ارفع صورة ورقة بحر سواكن الكاملة A4، بما فيها الترويسة والعلامة المائية والتذييل، بنفس آلية خلفية جدول الفاتورة.</p><div class="bce-file-box bce-header-file"><div class="bce-file-thumb">${draft.header?`<img src="${safe(draft.header)}" alt="خلفية ورقة العقد">`:'<span>لا توجد خلفية — صفحة العقد بيضاء</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-header-pick">رفع / استبدال الخلفية</button><button type="button" class="btn btn-ghost btn-small bce-header-remove">إزالة</button><input type="file" class="bce-header-input" accept="image/png,image/jpeg,image/webp" hidden></div></div></section><div class="bce-grid" style="margin-top:18px"><label class="bce-field"><span>هوامش الجدول</span><select class="bce-margin"><option value="narrow">ضيقة مثل Word — 1.27 سم</option><option value="normal">عادية مثل Word — 2.54 سم</option><option value="custom">مخصصة</option></select></label>${numberField('contractTableTopMm','تحريك الجدول لأعلى أو أسفل',draft.contractTableTopMm,-25,25,.5,'mm')}${numberField('contractTitleFontSize','حجم عنوان العقد',draft.contractTitleFontSize,5,14,.1,'px')}${numberField('contractDetailLabelFontSize','حجم مسميات البيانات',draft.contractDetailLabelFontSize,4.5,12,.1,'px')}${numberField('contractDetailValueFontSize','حجم قيم البيانات',draft.contractDetailValueFontSize,4.5,12,.1,'px')}${numberField('contractClauseFontSize','حجم نص البنود',draft.contractClauseFontSize,4.5,11,.1,'px')}${numberField('contractSignatureFontSize','حجم نص التوقيعات',draft.contractSignatureFontSize,4.5,14,.1,'px')}${numberField('contractLineHeight','تباعد السطور',draft.contractLineHeight,.9,1.4,.05,'مفرد')}${numberField('contractCellPaddingMm','هوامش الخلايا',draft.contractCellPaddingMm,.1,2,.05,'mm')}${numberField('contractRowMinHeightMm','أقل ارتفاع للصف',draft.contractRowMinHeightMm,2.5,7,.1,'mm')}${numberField('contractPageSideMm','الهامش الجانبي المخصص',draft.contractPageSideMm,6,30,.1,'mm')}</div><section class="bce-section"><h4>عنوان البائع في العقد</h4><textarea class="bce-address">${safe(draft.sellerAddress)}</textarea></section><section class="bce-section"><h4>عناصر العقد</h4><div class="bce-toggles"><label class="bce-toggle"><input type="checkbox" class="bce-show-stamp" ${draft.showStamp?'checked':''}> إظهار الختم</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr" ${draft.showQr?'checked':''}> إظهار QR</label><label class="bce-toggle"><input type="checkbox" class="bce-show-qr-caption" ${draft.showQrCaption?'checked':''}> إظهار نص QR</label></div>${transformFields('stamp','موضع ختم العقد فقط',draft.stampPosition)}${transformFields('qr','موضع QR في العقد فقط',draft.qrPosition)}</section>${buyerAssetsSection(contractRecord())}<div class="bce-actions"><button type="button" class="btn bce-primary bce-save">حفظ إعدادات العقد</button><button type="button" class="btn btn-ghost bce-print">حفظ وفتح عقد فعلي</button><button type="button" class="btn btn-ghost bce-reset">استرجاع القيم الافتراضية</button><button type="button" class="btn btn-ghost" data-bce-close>إغلاق</button></div></aside></div></div>`;
     const contractElements = root.querySelector('.bce-show-stamp').closest('.bce-section');
     contractElements.querySelector('.bce-transform').insertAdjacentHTML('beforebegin', `<div class="bce-file-box bce-stamp-file" style="margin-top:12px"><div class="bce-file-thumb">${draft.useContractStamp?(draft.contractStamp?`<img src="${safe(draft.contractStamp)}" alt="ختم العقد">`:'<span>ختم العقد مخفي — ارفع صورة جديدة لإظهاره</span>'):'<span>يستخدم ختم الفاتورة الحالي</span>'}</div><div class="bce-file-actions"><button type="button" class="btn btn-ghost btn-small bce-stamp-pick">إضافة / استبدال ختم العقد</button><button type="button" class="btn btn-ghost btn-small bce-stamp-remove">إزالة من العقد</button><button type="button" class="btn btn-ghost btn-small bce-stamp-shared">استخدام ختم الفاتورة</button><input type="file" class="bce-stamp-input" accept="image/png,image/jpeg,image/webp" hidden></div></div>`);
     root.querySelector('.bce-margin').value = draft.contractMarginPreset;
@@ -858,6 +953,25 @@
       stampCard.querySelector('.bce-file-thumb').innerHTML = '<span>يستخدم ختم الفاتورة الحالي</span>';
       schedulePreview();
     });
+    root.querySelector('.bce-record-select')?.addEventListener('change', async event => {
+      recordId = event.currentTarget.value;
+      await loadProfileContext();
+      render();
+    });
+    root.querySelector('.bce-open-client-profile')?.addEventListener('click', () => {
+      const clientId = profileContext?.client?.id || '';
+      close();
+      if(typeof switchView === 'function') switchView('clientProfiles');
+      if(clientId) setTimeout(()=>window.ClientCompanyProfiles?.openClient(clientId),0);
+    });
+    root.querySelector('.bce-buyer-signature-select')?.addEventListener('change', event => {
+      const file = profileContext?.files?.find(item=>item.id === event.currentTarget.value);
+      const person = profileContext?.signatories?.find(item=>item.id === file?.signatory_id);
+      const summary = root.querySelector('.bce-signatory-summary');
+      if(summary) summary.innerHTML = person
+        ? `الشخص المفوض: <b>${safe(person.name)}</b>${person.title?` — ${safe(person.title)}`:''}`
+        : 'لا يوجد شخص مفوض مرتبط بالتوقيع المحدد.';
+    });
     root.querySelectorAll('input,select,textarea').forEach(input => input.addEventListener('input', schedulePreview));
     root.querySelectorAll('.bce-transform input').forEach(input => input.addEventListener('input', () => {
       const group = input.closest('.bce-transform');
@@ -888,15 +1002,21 @@
     renderPreview();
   }
 
-  window.openBaharContractEditor = id => {
-    const companyEntry = typeof companyById === 'function' ? companyById(id) : null;
+  window.openBaharContractEditor = async id => {
+    const directRecord = typeof records !== 'undefined' ? records.find(record=>record.id === id) : null;
+    const requestedCompanyId = directRecord?.companyId || id;
+    const companyEntry = typeof companyById === 'function' ? companyById(requestedCompanyId) : null;
     if(!companyEntry || !isBahar(companyEntry)){
       alert('بوابة العقد متاحة لشركة بحر سواكن فقط.');
       return;
     }
-    companyId = id;
-    render();
+    companyId = companyEntry.id;
+    recordId = directRecord?.id || contractRecords()?.[0]?.id || '';
+    const root = ensureOverlay();
+    root.innerHTML = '<div class="bce-shell" style="display:grid;place-items:center"><b>جاري تحميل بروفايل المرسل إليه وأصول العقد...</b></div>';
     overlay.classList.add('open');
+    await loadProfileContext();
+    render();
   };
 })();
 
