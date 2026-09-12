@@ -846,7 +846,7 @@ async function financeTradeContextAllowed(profile){
   if(profile?.role==='admin') return true;
   const {data,error}=await sb.rpc('get_bsgt_workspace_permissions',{});
   if(error) throw error;
-  return (data||[]).some(permission=>permission.section==='finance'&&permission.can_view);
+  return (data||[]).some(permission=>['finance','management'].includes(permission.section)&&permission.can_view);
 }
 
 async function loadTradeFileContext(){

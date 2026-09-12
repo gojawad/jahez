@@ -1,0 +1,63 @@
+'use strict';
+
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const management=require('../bsgt-management');
+const root=path.join(__dirname,'..');
+const sql=fs.readFileSync(path.join(root,'supabase','33_bsgt_management_phase4.sql'),'utf8');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const portal=fs.readFileSync(path.join(root,'experiments','bs-collection','collection-lab.js'),'utf8');
+let passed=0;
+function check(value,message){assert.ok(value,message);passed+=1;}
+
+const base={revision_no:2,metadata:{documentKinds:['letter','undertaking','exchange']}};
+check(management.requiredDocumentTypes({metadata:{}}).length===3,'default document kinds');
+check(JSON.stringify(management.requiredDocumentTypes({metadata:{documentKinds:['letter']}}))==='["letter"]','metadata document kinds');
+check(JSON.stringify(management.requiredDocumentTypes({metadata:{documentKinds:['letter','letter','bad']}}))==='["letter"]','document kinds are normalized');
+check(management.evaluateBsgtManagementReadiness(base,[]).completed===false,'empty documents are incomplete');
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:1,document_type:'letter',is_active:true}]).signedTypes.length===0,'old revision is ignored');
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:false}]).signedTypes.length===0,'archived document is ignored');
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:true},{revision_no:2,document_type:'letter',is_active:true}]).signedTypes.length===1,'duplicate document type counts once');
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:true}]).missingTypes.length===2,'missing types are reported');
+const completeDocs=['letter','undertaking','exchange'].map(document_type=>({revision_no:2,document_type,is_active:true}));
+check(management.evaluateBsgtManagementReadiness(base,completeDocs).completed===true,'current revision can complete');
+check(management.mergeAllowed({bsgtStage:'final_accepted'},null,completeDocs)===null,'unlinked file delegates to legacy');
+check(management.mergeAllowed({bsgtStage:'management_review'},{...base,status:'final_accepted'},completeDocs)===false,'shipment stage gates merge');
+check(management.mergeAllowed({bsgtStage:'final_accepted'},{...base,status:'under_management_review'},completeDocs)===false,'file stage gates merge');
+check(management.mergeAllowed({bsgtStage:'final_accepted'},{...base,status:'final_accepted'},completeDocs)===true,'accepted current revision can merge');
+check(management.statusLabel('returned_to_operations')==='معاد إلى العمليات','operations return label');
+check(management.statusLabel('returned_to_finance')==='معاد إلى المالية','finance return label');
+
+check(sql.includes('revision_no integer not null default 1'),'revision column');
+check(sql.includes('management_reviewed_by uuid references public.profiles(id)'),'review actor column');
+check(sql.includes('final_accepted_by uuid references public.profiles(id)'),'accept actor column');
+check(sql.includes("'returned_to_operations'"),'operations return status');
+check(sql.includes("'returned_to_finance'"),'finance return status');
+check(sql.includes('create table if not exists public.trade_collection_file_documents'),'document table');
+check(sql.includes('create table if not exists public.trade_collection_file_events'),'event table');
+check(sql.includes("values ('trade-collection-documents', 'trade-collection-documents', false)"),'private bucket');
+check(sql.includes('create or replace function public.start_bsgt_management_review'),'start review RPC');
+check(sql.includes("set bsgt_stage = 'management_review'"),'start review shipment transition');
+check(sql.includes('create or replace function public.return_bsgt_trade_file'),'return RPC');
+check(sql.includes('set status = v_target_status, revision_no = revision_no + 1'),'return increments revision');
+check(sql.includes("v_shipment_stage := 'operations_draft'"),'return to operations transition');
+check(sql.includes("v_shipment_stage := 'ready_for_finance'"),'return to finance transition');
+check(sql.includes('create or replace function public.final_accept_bsgt_trade_file'),'accept RPC');
+check(sql.includes("set bsgt_stage = 'final_accepted'"),'accept shipment transition');
+check(sql.includes('revision_no = v_file.revision_no')&&sql.includes('and is_active'),'current active documents only');
+check(sql.includes("v_file.status not in ('draft', 'returned_to_operations', 'returned_to_finance')"),'same trade file can be resent');
+check(!sql.includes('workflow_stage ='),'legacy workflow status untouched');
+check(html.includes(".in('status',['sent_to_remitting','under_management_review'])"),'server status filter');
+check(html.includes('Promise.all([sb.from(\'trade_collection_file_shipments\')'),'bulk relation loading');
+check(html.includes("runBsgtManagementRpc('final_accept_bsgt_trade_file'"),'accept wired');
+check(html.includes("runBsgtManagementRpc('return_bsgt_trade_file'"),'return wired');
+check(html.includes('async function ensureBsgtFinalPackageAllowed(shipmentId)'),'central merge adapter');
+check(html.includes("workflowMode:'legacy'"),'legacy merge fallback');
+check(html.includes('adminOverride:false')&&html.includes("workflowMode:'trade_file'"),'admin cannot bypass linked workflow');
+check(html.includes("['returned_to_operations','returned_to_finance'].includes(file.status)"),'finance reopen behavior');
+check(html.includes('tradeContextByShipment'),'operations return context');
+check(portal.includes("['finance','management'].includes(permission.section)"),'management receives read-only collection preview access');
+check(passed>=33,`expected at least 33 Phase 4 checks, got ${passed}`);
+
+console.log(`BSGT management Phase 4: ${passed} checks passed`);

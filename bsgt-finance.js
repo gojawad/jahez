@@ -7,7 +7,11 @@
 
   const FILE_STATUS_LABELS = Object.freeze({
     draft: 'مسودة',
-    sent_to_remitting: 'تم الإرسال للبنك المرسل'
+    sent_to_remitting: 'تم الإرسال للبنك المرسل',
+    under_management_review: 'قيد مراجعة الإدارة',
+    returned_to_operations: 'معاد إلى العمليات',
+    returned_to_finance: 'معاد إلى المالية',
+    final_accepted: 'مقبول نهائياً'
   });
 
   function moneyInfo(value, fallbackCurrency) {

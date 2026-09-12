@@ -150,8 +150,10 @@ async function main() {
       assert.ok(appHtml.includes('قبول المستندات وإكمال الشحنة'));
       assert.ok(appHtml.includes('مكتملة ومعتمدة'));
       assert.ok(appHtml.includes('function ensureBsgtPackageMergeAllowed(record'));
-      assert.ok(appHtml.includes('const access = bsgtPackageMergeAccess(latest.record, latest.files)'));
-      assert.ok(appHtml.includes('return {...latest, ...access}'));
+      assert.ok(appHtml.includes('async function ensureBsgtFinalPackageAllowed(shipmentId)'));
+      assert.ok(appHtml.includes("workflowMode:'legacy'"));
+      assert.ok(appHtml.includes("workflowMode:'trade_file'"));
+      assert.ok(appHtml.includes('adminOverride:false'));
       assert.ok(appHtml.includes('async function requestBsgtPackageMerge(record, triggerButton)'));
       const bsgtMergeSource = appHtml.slice(appHtml.indexOf('async function mergeBsgtPackageLocally'), appHtml.indexOf('window.refreshAllPublishedBsgtQrPackages'));
       assert.ok(bsgtMergeSource.indexOf('ensureBsgtPackageMergeAllowed(r)') < bsgtMergeSource.indexOf('PDFDocument.create()'));

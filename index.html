@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-1">
 <link rel="stylesheet" href="bsgt-operations.css?v=20260912-1">
 <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
+<link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
 <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
 <style>
 
@@ -5852,6 +5853,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="bsgt-workspace.js?v=20260912-1"></script>
 <script src="bsgt-operations.js?v=20260912-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
+<script src="bsgt-management.js?v=20260912-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
@@ -9050,8 +9052,8 @@ function switchView(v, options){
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
 
-const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}};
-const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], selected:new Set(), detailId:null};
+const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}};
+const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], events:[], selected:new Set(), detailId:null};
 let bsgtWorkspaceFormContext = false;
 
 function bsgtOperationsPermission(requireEdit = false){
@@ -9090,8 +9092,9 @@ function renderBsgtOperationsRows(){
   }
   const rows = state.rows.map(record=>{
     const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, state.filesByShipment[record.id] || []);
+    const tradeContext=state.tradeContextByShipment[record.id];
     return `<article class="bsgt-operations-row">
-      <div data-label="رقم العملية"><b>${escapeHtml(record.operationNo||'—')}</b><small>${escapeHtml(record.invoiceNo||record.proformaNo||'')}</small></div>
+      <div data-label="رقم العملية"><b>${escapeHtml(record.operationNo||'—')}</b><small>${escapeHtml(record.invoiceNo||record.proformaNo||'')}</small>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span><small>${escapeHtml(tradeContext.note||'راجع ملاحظات الإدارة.')}</small>`:''}</div>
       <div data-label="المرسل إليه"><b>${escapeHtml(record.consignee||'—')}</b></div>
       <div data-label="الصنف"><b>${escapeHtml(record.itemDesc||'—')}</b></div>
       <div data-label="تاريخ الإنشاء"><b>${escapeHtml(formatShipmentAuditDate(record.createdAt))}</b></div>
@@ -9133,19 +9136,35 @@ async function loadBsgtOperationsPage(){
     if(requestId !== bsgtOperationsListState.requestId) return;
     const pageRecords = (data || []).map(rowToRecord);
     const ids = pageRecords.map(record=>record.id);
-    let fileRows = [];
+    let fileRows = [], tradeLinks=[];
     if(ids.length){
-      const result = await sb.from('shipment_files')
-        .select('id,shipment_id,document_type,label')
-        .in('shipment_id', ids);
-      if(result.error) throw result.error;
-      fileRows = result.data || [];
+      const [fileResult,linkResult]=await Promise.all([
+        sb.from('shipment_files').select('id,shipment_id,document_type,label').in('shipment_id', ids),
+        sb.from('trade_collection_file_shipments').select('trade_file_id,shipment_id').in('shipment_id', ids)
+      ]);
+      if(fileResult.error) throw fileResult.error;
+      if(linkResult.error) throw linkResult.error;
+      fileRows=fileResult.data||[]; tradeLinks=linkResult.data||[];
+    }
+    const tradeContextByShipment={};
+    const tradeFileIds=[...new Set(tradeLinks.map(link=>link.trade_file_id))];
+    if(tradeFileIds.length){
+      const [tradeFileResult,eventResult]=await Promise.all([
+        sb.from('trade_collection_files').select('id,operation_no,status').in('id',tradeFileIds).eq('status','returned_to_operations'),
+        sb.from('trade_collection_file_events').select('trade_file_id,event_type,note,created_at').in('trade_file_id',tradeFileIds).eq('event_type','returned_to_operations').order('created_at',{ascending:false})
+      ]);
+      if(tradeFileResult.error) throw tradeFileResult.error;
+      if(eventResult.error) throw eventResult.error;
+      const filesById=new Map((tradeFileResult.data||[]).map(file=>[file.id,file]));
+      const latestEvent=new Map();(eventResult.data||[]).forEach(event=>{if(!latestEvent.has(event.trade_file_id))latestEvent.set(event.trade_file_id,event);});
+      tradeLinks.forEach(link=>{const file=filesById.get(link.trade_file_id);if(file)tradeContextByShipment[link.shipment_id]={operationNo:file.operation_no,note:latestEvent.get(file.id)?.note||''};});
     }
     const filesByShipment = {};
     fileRows.forEach(file=>(filesByShipment[file.shipment_id] ||= []).push(file));
     bsgtOperationsListState.rows = pageRecords;
     bsgtOperationsListState.total = count || 0;
     bsgtOperationsListState.filesByShipment = filesByShipment;
+    bsgtOperationsListState.tradeContextByShipment = tradeContextByShipment;
     pageRecords.forEach(record=>{
       const index = records.findIndex(existing=>existing.id===record.id);
       if(index >= 0) records[index] = record; else records.push(record);
@@ -9247,13 +9266,17 @@ function renderBsgtTradeFileDetail(){
   const rowMap=new Map(bsgtFinanceAllRows().map(row=>[row.id,row]));
   const links=bsgtFinanceState.links.filter(link=>link.trade_file_id===file.id), shipments=links.map(link=>rowMap.get(link.shipment_id)).filter(Boolean);
   const summary=window.JahezBsgtFinance.summarizeShipments(shipments), isDraft=file.status==='draft', canEdit=bsgtFinancePermission(true);
+  const canResend=['returned_to_operations','returned_to_finance'].includes(file.status), canSend=isDraft||canResend;
+  const allReady=shipments.length>0&&shipments.every(row=>row.bsgtStage==='ready_for_finance');
+  const returnEvent=bsgtFinanceState.events.find(event=>event.trade_file_id===file.id&&['returned_to_operations','returned_to_finance'].includes(event.event_type));
   const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
   const profile=currentAccessProfile(), creator=file.created_by===profile?.id?(profile.display_name||profile.email||'الحساب الحالي'):String(file.created_by||'—').slice(0,8);
   host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
     <div class="bsgt-finance-summary"><div class="bsgt-finance-stat"><span>رقم الملف</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-finance-stat"><span>عدد الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-finance-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-finance-stat"><span>تاريخ الإنشاء</span><b>${escapeHtml(formatShipmentAuditDate(file.created_at))}</b></div></div>
     ${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. لا يمكن إرسال الملف للبنك المرسل.</div>':''}
+    ${returnEvent?`<div class="bsgt-finance-warning"><b>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}:</b> ${escapeHtml(returnEvent.note||'راجع ملاحظات الإدارة.')}</div>`:''}
     <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>الشحنات المرتبطة</h3><p>أرقام الشحنات الأصلية لا تتغير داخل الملف التجاري.</p></div>${canEdit&&isDraft&&bsgtFinanceState.selected.size?`<button type="button" class="btn btn-ghost" id="bsgtTradeAddSelected">إضافة المحدد (${bsgtFinanceState.selected.size})</button>`:''}</header><div class="bsgt-finance-table">${shipments.map(row=>{const money=window.JahezBsgtFinance.shipmentMoney(row);return `<div class="bsgt-finance-row"><span></span><div><b>${escapeHtml(row.operationNo||'—')}</b></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div>${canEdit&&isDraft?`<button type="button" class="btn btn-danger btn-small" data-bsgt-trade-remove="${escapeHtml(row.id)}">إزالة</button>`:'<span class="bsgt-finance-status">مرتبط</span>'}</div></div>`;}).join('')||'<div class="bsgt-finance-empty">لا توجد شحنات مرتبطة.</div>'}</div></section>
-    <section class="bsgt-finance-bank"><label>البنك المرسل<input id="bsgtTradeRemittingBank" value="${escapeHtml(file.remitting_bank||'Abu Dhabi Islamic Bank')}" ${(!canEdit||!isDraft)?'readonly':''}></label>${canEdit&&isDraft?`<button type="button" class="btn bsgt-finance-send" id="bsgtTradeSend" ${(!shipments.length||!summary.sameCurrency)?'disabled':''}>${icon('arrow',14)} إرسال للبنك المرسل</button>`:'<span class="bsgt-finance-file-status is-sent">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>'}</section>
+    <section class="bsgt-finance-bank"><label>البنك المرسل<input id="bsgtTradeRemittingBank" value="${escapeHtml(file.remitting_bank||'Abu Dhabi Islamic Bank')}" ${(!canEdit||!canSend)?'readonly':''}></label>${canEdit&&canSend?`<button type="button" class="btn bsgt-finance-send" id="bsgtTradeSend" ${(!allReady||!summary.sameCurrency)?'disabled':''}>${icon('arrow',14)} ${canResend?'إعادة إرسال الملف':'إرسال للبنك المرسل'}</button>`:'<span class="bsgt-finance-file-status is-sent">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>'}</section>
     <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>مستندات التحصيل</h3><p>خطاب التحصيل · خطاب التعهد · الكمبيالة، وجميعها مستبعدة من QR.</p></div></header></section>
     <section class="bsgt-finance-timeline"><div class="bsgt-finance-event"><b>تم إنشاء الملف</b><small>${escapeHtml(formatShipmentAuditDate(file.created_at))}</small></div><div class="bsgt-finance-event"><b>تم ربط ${shipments.length} شحنات</b><small>داخل ${escapeHtml(file.operation_no)}</small></div>${file.sent_to_remitting_at?`<div class="bsgt-finance-event"><b>تم الإرسال للبنك المرسل</b><small>${escapeHtml(formatShipmentAuditDate(file.sent_to_remitting_at))}</small></div>`:''}</section>
   </section>`;
@@ -9278,6 +9301,7 @@ async function removeFromBsgtTradeFile(tradeFileId,shipmentId){
 
 async function sendBsgtTradeFile(file,shipments,summary){
   if(!bsgtFinancePermission(true)||!summary.sameCurrency) return;
+  if(!shipments.length||shipments.some(row=>row.bsgtStage!=='ready_for_finance')) return toast('يجب أن تكون كل الشحنات المرتبطة جاهزة للمالية قبل الإرسال.','err');
   const bank=document.getElementById('bsgtTradeRemittingBank')?.value.trim(); if(!bank) return toast('أدخل اسم البنك المرسل.','err');
   if(!confirm(`إرسال ${shipments.length} شحنة ضمن ${file.operation_no} إلى ${bank}؟`)) return;
   const metadata={documentSettings:{remittingBank:bank},documentKinds:['letter','undertaking','exchange'],amountSnapshot:summary.amount,currency:summary.currency,shipmentNumbers:shipments.map(row=>row.operationNo),qrIncluded:false};
@@ -9297,11 +9321,11 @@ async function loadBsgtFinance(){
     ]);
     if(readyResult.error) throw readyResult.error; if(fileResult.error) throw fileResult.error;
     const files=fileResult.data||[], fileIds=files.map(file=>file.id);
-    let links=[]; if(fileIds.length){ const result=await sb.from('trade_collection_file_shipments').select('id,trade_file_id,shipment_id,created_at').in('trade_file_id',fileIds); if(result.error) throw result.error; links=result.data||[]; }
+    let links=[], events=[]; if(fileIds.length){ const [linkResult,eventResult]=await Promise.all([sb.from('trade_collection_file_shipments').select('id,trade_file_id,shipment_id,created_at').in('trade_file_id',fileIds),sb.from('trade_collection_file_events').select('trade_file_id,event_type,note,created_at').in('trade_file_id',fileIds).in('event_type',['returned_to_operations','returned_to_finance']).order('created_at',{ascending:false})]); if(linkResult.error) throw linkResult.error; if(eventResult.error) throw eventResult.error; links=linkResult.data||[]; events=eventResult.data||[]; }
     const linkedIds=[...new Set(links.map(link=>link.shipment_id))];
     let linkedRows=[]; if(linkedIds.length){ const result=await sb.from('shipments').select('*').in('id',linkedIds); if(result.error) throw result.error; linkedRows=(result.data||[]).map(rowToRecord); }
     if(requestId!==bsgtFinanceState.requestId) return;
-    bsgtFinanceState.readyRows=(readyResult.data||[]).map(rowToRecord); bsgtFinanceState.files=files; bsgtFinanceState.links=links; bsgtFinanceState.linkedRows=linkedRows;
+    bsgtFinanceState.readyRows=(readyResult.data||[]).map(rowToRecord); bsgtFinanceState.files=files; bsgtFinanceState.links=links; bsgtFinanceState.linkedRows=linkedRows; bsgtFinanceState.events=events;
     const validReady=new Set(bsgtFinanceState.readyRows.map(row=>row.id)); bsgtFinanceState.selected=new Set([...bsgtFinanceState.selected].filter(id=>validReady.has(id)));
     renderBsgtFinanceReady(); renderBsgtFinanceFiles(); updateBsgtFinanceSelection(); if(bsgtFinanceState.detailId) renderBsgtTradeFileDetail();
   }catch(error){ console.error('load BSGT finance',error); readyHost.innerHTML=`<div class="bsgt-finance-error">تعذر تحميل المالية: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`; filesHost.innerHTML='<div class="bsgt-finance-error">تعذر تحميل ملفات العمليات التجارية.</div>'; }
@@ -9311,6 +9335,129 @@ function wireBsgtFinanceShell(){
   document.getElementById('bsgtFinanceCreateBtn')?.addEventListener('click',openBsgtFinanceConfirmation);
   document.getElementById('bsgtFinanceConfirmCancel')?.addEventListener('click',()=>document.getElementById('bsgtFinanceConfirm').hidden=true);
   document.getElementById('bsgtFinanceConfirmSubmit')?.addEventListener('click',createBsgtTradeFile);
+}
+
+const bsgtManagementState={requestId:0,files:[],links:[],shipments:[],documents:[],events:[],operationDocuments:[],profiles:[],detailId:null,busy:false};
+
+function bsgtManagementPermission(requireEdit=false){
+  const permission=window.JahezBsgtWorkspace?.permissionFor('management',currentAccessProfile(),bsgtWorkspacePermissionRows);
+  return Boolean(permission&&(!requireEdit||permission.canEdit));
+}
+
+function renderBsgtManagementShell(){
+  return `<div class="bsgt-management" id="bsgtManagementRoot">
+    <div class="bsgt-management-board">
+      <section class="bsgt-management-lane"><header><h3>بانتظار مراجعة الإدارة</h3><p>ملفات أرسلتها المالية إلى البنك المرسل وتنتظر بدء المراجعة.</p></header><div class="bsgt-management-list" id="bsgtManagementWaiting"><div class="bsgt-management-loading">جاري التحميل…</div></div></section>
+      <section class="bsgt-management-lane"><header><h3>قيد المراجعة</h3><p>ملفات مفتوحة للتوقيع والملاحظات والقرار النهائي.</p></header><div class="bsgt-management-list" id="bsgtManagementReview"><div class="bsgt-management-loading">جاري التحميل…</div></div></section>
+    </div>
+    <div id="bsgtManagementDetail"></div>
+    <div class="bsgt-management-modal" id="bsgtManagementReturnModal" hidden><div class="bsgt-management-modal-card" role="dialog" aria-modal="true"><h3>إرجاع ملف التحصيل</h3><div class="bsgt-management-return-options"><label><input type="radio" name="bsgtReturnTarget" value="operations" checked> إلى العمليات</label><label><input type="radio" name="bsgtReturnTarget" value="finance"> إلى المالية</label></div><textarea id="bsgtManagementReturnNote" placeholder="سبب الإرجاع مطلوب"></textarea><div class="bsgt-management-modal-actions"><button type="button" class="btn btn-ghost" id="bsgtManagementReturnCancel">إلغاء</button><button type="button" class="btn bsgt-management-return" id="bsgtManagementReturnSubmit">تأكيد الإرجاع</button></div></div></div>
+  </div>`;
+}
+
+function bsgtManagementShipments(fileId){
+  const ids=new Set(bsgtManagementState.links.filter(link=>link.trade_file_id===fileId).map(link=>link.shipment_id));
+  return bsgtManagementState.shipments.filter(row=>ids.has(row.id));
+}
+function bsgtManagementDocuments(fileId){return bsgtManagementState.documents.filter(row=>row.trade_file_id===fileId);}
+function bsgtManagementEvents(fileId){return bsgtManagementState.events.filter(row=>row.trade_file_id===fileId);}
+function bsgtManagementActor(actorId){const row=bsgtManagementState.profiles.find(item=>item.id===actorId);return row?.display_name||row?.email||String(actorId||'—').slice(0,8);}
+
+function renderBsgtManagementCards(status,hostId){
+  const host=document.getElementById(hostId); if(!host) return;
+  const rows=bsgtManagementState.files.filter(file=>file.status===status);
+  if(!rows.length){host.innerHTML='<div class="bsgt-management-empty">لا توجد ملفات في هذه المرحلة.</div>';return;}
+  host.innerHTML=rows.map(file=>{
+    const shipments=bsgtManagementShipments(file.id);
+    const summary=window.JahezBsgtFinance.summarizeShipments(shipments);
+    const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):'—';
+    return `<article class="bsgt-management-card"><div class="bsgt-management-card-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-management-badge ${status==='under_management_review'?'is-review':''}">${escapeHtml(window.JahezBsgtManagement.statusLabel(status))}</span></div><div class="bsgt-management-card-meta"><span>${shipments.length} شحنة</span><span>${escapeHtml(total)}</span><span>المراجعة ${Number(file.revision_no)||1}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-management-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
+  }).join('');
+  host.querySelectorAll('[data-bsgt-management-open]').forEach(button=>button.addEventListener('click',()=>openBsgtManagementFile(button.dataset.bsgtManagementOpen)));
+}
+
+function bsgtManagementEventLabel(event){
+  return ({sent_to_remitting:'إرسال للبنك المرسل',management_review_started:'بدء مراجعة الإدارة',signed_document_uploaded:'رفع مستند موقع',signed_document_archived:'أرشفة مستند موقع',management_note:'ملاحظة إدارية',returned_to_operations:'إرجاع إلى العمليات',returned_to_finance:'إرجاع إلى المالية',final_accepted:'قبول نهائي'})[event.event_type]||event.event_type;
+}
+
+function openBsgtManagementFile(id){
+  bsgtManagementState.detailId=id; renderBsgtManagementDetail();
+  setTimeout(()=>document.getElementById('bsgtManagementDetail')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+}
+
+function renderBsgtManagementDetail(){
+  const host=document.getElementById('bsgtManagementDetail'); if(!host) return;
+  const file=bsgtManagementState.files.find(item=>item.id===bsgtManagementState.detailId); if(!file){host.replaceChildren();return;}
+  const shipments=bsgtManagementShipments(file.id), documents=bsgtManagementDocuments(file.id), events=bsgtManagementEvents(file.id);
+  const readiness=window.JahezBsgtManagement.evaluateBsgtManagementReadiness(file,documents);
+  const summary=window.JahezBsgtFinance.summarizeShipments(shipments), canEdit=bsgtManagementPermission(true), reviewing=file.status==='under_management_review';
+  const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):'—';
+  const currentDocs=new Map(documents.filter(document=>document.is_active&&Number(document.revision_no)===(Number(file.revision_no)||1)).map(document=>[document.document_type,document]));
+  const operationRows=shipments.flatMap(shipment=>{
+    const generated=[['contract','العقد'],['proforma','الفاتورة المبدئية'],['invoice','الفاتورة النهائية'],['packing','قائمة التعبئة']].map(([kind,label])=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(label)} · ${escapeHtml(shipment.operationNo||'—')}</b><small>مستند مولد من بيانات الشحنة</small></div><span class="bsgt-management-doc-state is-ready">جاهز للمعاينة</span><div class="bsgt-management-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-management-generated="${kind}" data-shipment-id="${escapeHtml(shipment.id)}">معاينة</button></div></div>`);
+    const uploaded=bsgtManagementState.operationDocuments.filter(document=>document.shipment_id===shipment.id).map(document=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(document.label||document.document_type||document.name||'مرفق')}</b><small>${escapeHtml(shipment.operationNo||'—')}</small></div><span class="bsgt-management-doc-state is-ready">مرفوع</span><div class="bsgt-management-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-management-operation-file="${escapeHtml(document.path)}" data-file-name="${escapeHtml(document.name||document.label||'document')}">معاينة</button></div></div>`);
+    return generated.concat(uploaded);
+  }).join('');
+  const collectionRows=window.JahezBsgtManagement.requiredDocumentTypes(file).map(type=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(type))}</b><small>نسخة التحصيل غير الموقعة · مستبعدة من QR</small></div><span class="bsgt-management-doc-state is-ready">متاحة</span><div class="bsgt-management-doc-actions"><a class="btn btn-ghost btn-small" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">معاينة</a></div></div>`).join('');
+  const signedRows=readiness.requiredTypes.map(type=>{const document=currentDocs.get(type);return `<div class="bsgt-management-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(type))}</b><small>${document?escapeHtml(document.file_name):`مطلوب للمراجعة رقم ${Number(file.revision_no)||1}`}</small></div><span class="bsgt-management-doc-state ${document?'is-ready':''}">${document?'مكتمل':'ناقص'}</span><div class="bsgt-management-doc-actions">${document?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-management-signed-open="${escapeHtml(document.storage_path)}">معاينة</button>`:''}${canEdit&&reviewing?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-management-upload="${type}">${document?'استبدال':'رفع مستند'}</button>`:''}${document&&canEdit&&reviewing?`<button type="button" class="btn btn-danger btn-small" data-bsgt-management-archive="${escapeHtml(document.id)}">أرشفة</button>`:''}</div></div>`;}).join('');
+  host.innerHTML=`<section class="bsgt-management-detail"><header class="bsgt-management-detail-head"><div><h3>${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtManagement.statusLabel(file.status))} · المراجعة ${Number(file.revision_no)||1}</p></div><div class="bsgt-management-actions"><button type="button" class="btn btn-ghost" id="bsgtManagementClose">إغلاق</button>${canEdit&&file.status==='sent_to_remitting'?'<button type="button" class="btn bsgt-management-primary" id="bsgtManagementStart">بدء المراجعة</button>':''}${canEdit&&reviewing?'<button type="button" class="btn bsgt-management-return" id="bsgtManagementReturn">إرجاع</button><button type="button" class="btn bsgt-management-primary" id="bsgtManagementAccept">قبول نهائي</button>':''}</div></header>
+    <div class="bsgt-management-summary"><div class="bsgt-management-stat"><span>رقم العملية</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-management-stat"><span>الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-management-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-management-stat"><span>البنك المرسل</span><b>${escapeHtml(file.remitting_bank||'—')}</b></div><div class="bsgt-management-stat"><span>اكتمال الموقع</span><b>${escapeHtml(readiness.progress)}</b></div></div>
+    <section class="bsgt-management-section"><header><h4>الشحنات المرتبطة</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${shipments.map(row=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.consignee||'—')}</small></div><span>${escapeHtml(row.itemDesc||'—')}</span><div>${escapeHtml(row.invoiceNo||row.proformaNo||'—')}</div></div>`).join('')}</div></section>
+    <section class="bsgt-management-section"><header><h4>مستندات العمليات</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${operationRows||'<div class="bsgt-management-empty">لا توجد مستندات.</div>'}</div></section>
+    <section class="bsgt-management-section"><header><h4>مستندات التحصيل</h4><small>قراءة فقط ومستبعدة من QR</small></header><div class="bsgt-management-docs">${collectionRows}</div></section>
+    <section class="bsgt-management-section"><header><div><h4>المستندات الموقعة</h4><small>يُحتسب فقط المستند النشط في المراجعة الحالية</small></div><b>${escapeHtml(readiness.progress)}</b></header><div class="bsgt-management-progress"><span style="width:${readiness.requiredTypes.length?Math.round(readiness.signedTypes.length/readiness.requiredTypes.length*100):0}%"></span></div><div class="bsgt-management-docs">${signedRows}</div></section>
+    <section class="bsgt-management-section"><header><h4>ملاحظة الإدارة</h4><small>${canEdit&&reviewing?'تُحفظ في سجل الملف':'قراءة فقط'}</small></header>${canEdit&&reviewing?'<div class="bsgt-management-note"><textarea id="bsgtManagementNote" placeholder="أضف ملاحظة للمراجعة"></textarea><button type="button" class="btn btn-ghost" id="bsgtManagementNoteSave">حفظ الملاحظة</button></div>':''}<div class="bsgt-management-docs">${events.filter(event=>event.event_type==='management_note').map(event=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(bsgtManagementActor(event.actor_id))}</b><small>${escapeHtml(formatShipmentAuditDate(event.created_at))}</small></div><span>${escapeHtml(event.note||'')}</span><div>مراجعة ${event.revision_no}</div></div>`).join('')||'<div class="bsgt-management-empty">لا توجد ملاحظات.</div>'}</div></section>
+    <section class="bsgt-management-section"><header><h4>التسلسل الزمني</h4><small>${events.length} حدث</small></header><div class="bsgt-management-timeline">${events.map(event=>`<div class="bsgt-management-event"><b>${escapeHtml(bsgtManagementEventLabel(event))}</b><span>${escapeHtml(event.note||`${event.from_status||''}${event.to_status?` ← ${event.to_status}`:''}`)}</span><small>${escapeHtml(bsgtManagementActor(event.actor_id))} · ${escapeHtml(formatShipmentAuditDate(event.created_at))} · م${event.revision_no}</small></div>`).join('')||'<div class="bsgt-management-empty">لا توجد أحداث بعد.</div>'}</div></section>
+  </section>`;
+  document.getElementById('bsgtManagementClose')?.addEventListener('click',()=>{bsgtManagementState.detailId=null;host.replaceChildren();});
+  document.getElementById('bsgtManagementStart')?.addEventListener('click',()=>runBsgtManagementRpc('start_bsgt_management_review',{p_trade_file_id:file.id},'بدأت مراجعة الملف.'));
+  document.getElementById('bsgtManagementAccept')?.addEventListener('click',()=>acceptBsgtManagementFile(file));
+  document.getElementById('bsgtManagementReturn')?.addEventListener('click',()=>openBsgtManagementReturn(file.id));
+  document.getElementById('bsgtManagementNoteSave')?.addEventListener('click',()=>saveBsgtManagementNote(file.id));
+  host.querySelectorAll('[data-bsgt-management-upload]').forEach(button=>button.addEventListener('click',()=>uploadBsgtSignedDocument(file,button.dataset.bsgtManagementUpload)));
+  host.querySelectorAll('[data-bsgt-management-archive]').forEach(button=>button.addEventListener('click',()=>archiveBsgtSignedDocument(button.dataset.bsgtManagementArchive)));
+  host.querySelectorAll('[data-bsgt-management-signed-open]').forEach(button=>button.addEventListener('click',()=>openBsgtSignedDocument(button.dataset.bsgtManagementSignedOpen)));
+  host.querySelectorAll('[data-bsgt-management-operation-file]').forEach(button=>button.addEventListener('click',()=>openShipmentFile(button.dataset.bsgtManagementOperationFile,button.dataset.fileName)));
+  host.querySelectorAll('[data-bsgt-management-generated]').forEach(button=>button.addEventListener('click',()=>{const shipment=shipments.find(row=>row.id===button.dataset.shipmentId);if(shipment)openBsgtGeneratedDocument(shipment,button.dataset.bsgtManagementGenerated);}));
+}
+
+async function runBsgtManagementRpc(name,args,successMessage){
+  if(!bsgtManagementPermission(true)||bsgtManagementState.busy) return;
+  bsgtManagementState.busy=true; netStart();
+  try{const {error}=await sb.rpc(name,args);if(error)throw error;toast(successMessage);await loadBsgtManagement();}
+  catch(error){console.error(name,error);toast(error.message||'تعذر تنفيذ الإجراء.','err');}
+  finally{bsgtManagementState.busy=false;netEnd();}
+}
+
+async function uploadBsgtSignedDocument(file,type){
+  if(!bsgtManagementPermission(true)||bsgtManagementState.busy) return;
+  const input=document.createElement('input');input.type='file';input.accept='application/pdf,image/*';
+  input.addEventListener('change',async()=>{const selected=input.files?.[0];if(!selected)return;const clean=selected.name.replace(/[^a-zA-Z0-9._-]+/g,'_');const path=`${file.id}/${Number(file.revision_no)||1}/${type}/${Date.now()}_${clean}`;bsgtManagementState.busy=true;netStart();try{const upload=await sb.storage.from('trade-collection-documents').upload(path,selected,{upsert:false,contentType:selected.type||'application/octet-stream'});if(upload.error)throw upload.error;const saved=await sb.rpc('register_bsgt_signed_document',{p_trade_file_id:file.id,p_document_type:type,p_storage_path:path,p_file_name:selected.name,p_mime_type:selected.type||null,p_file_size:selected.size});if(saved.error){await sb.storage.from('trade-collection-documents').remove([path]);throw saved.error;}toast('تم حفظ المستند الموقع.');await loadBsgtManagement();}catch(error){toast(error.message||'تعذر رفع المستند.','err');}finally{bsgtManagementState.busy=false;netEnd();}});
+  input.click();
+}
+async function openBsgtSignedDocument(path){const {data,error}=await sb.storage.from('trade-collection-documents').createSignedUrl(path,300);if(error)return toast(error.message,'err');window.open(data.signedUrl,'_blank','noopener');}
+async function archiveBsgtSignedDocument(id){if(!confirm('أرشفة هذا المستند؟ سيبقى محفوظاً في السجل ولن يُحتسب ضمن المراجعة الحالية.'))return;await runBsgtManagementRpc('archive_bsgt_signed_document',{p_document_id:id},'تمت أرشفة المستند.');}
+async function saveBsgtManagementNote(id){const note=document.getElementById('bsgtManagementNote')?.value.trim();if(!note)return toast('اكتب الملاحظة أولاً.','err');await runBsgtManagementRpc('add_bsgt_management_note',{p_trade_file_id:id,p_note:note},'تم حفظ الملاحظة.');}
+async function acceptBsgtManagementFile(file){const readiness=window.JahezBsgtManagement.evaluateBsgtManagementReadiness(file,bsgtManagementDocuments(file.id));if(!readiness.completed)return toast('أكمل جميع المستندات الموقعة المطلوبة أولاً.','err');if(!confirm(`قبول ${file.operation_no} نهائياً وفتح دمج حزم الشحنات المرتبطة؟`))return;await runBsgtManagementRpc('final_accept_bsgt_trade_file',{p_trade_file_id:file.id},'تم القبول النهائي للملف.');}
+function openBsgtManagementReturn(id){const modal=document.getElementById('bsgtManagementReturnModal');if(!modal)return;modal.dataset.tradeFileId=id;document.getElementById('bsgtManagementReturnNote').value='';modal.hidden=false;}
+function wireBsgtManagementShell(){
+  document.getElementById('bsgtManagementReturnCancel')?.addEventListener('click',()=>document.getElementById('bsgtManagementReturnModal').hidden=true);
+  document.getElementById('bsgtManagementReturnSubmit')?.addEventListener('click',async()=>{const modal=document.getElementById('bsgtManagementReturnModal'),target=document.querySelector('input[name="bsgtReturnTarget"]:checked')?.value,note=document.getElementById('bsgtManagementReturnNote')?.value.trim();if(!note)return toast('سبب الإرجاع مطلوب.','err');modal.hidden=true;await runBsgtManagementRpc('return_bsgt_trade_file',{p_trade_file_id:modal.dataset.tradeFileId,p_target:target,p_note:note},'تم إرجاع الملف مع الحفاظ على رقم العملية.');});
+}
+
+async function loadBsgtManagement(){
+  const waiting=document.getElementById('bsgtManagementWaiting'),review=document.getElementById('bsgtManagementReview');if(!waiting||!review||!bsgtManagementPermission(false))return;
+  const companyId=resolveBsgtCompanyId();if(!companyId){waiting.innerHTML='<div class="bsgt-management-error">تعذر تحديد شركة بحر سواكن.</div>';return;}
+  const requestId=++bsgtManagementState.requestId;
+  try{
+    const fileResult=await sb.from('trade_collection_files').select('*').eq('company_id',companyId).in('status',['sent_to_remitting','under_management_review']).order('updated_at',{ascending:false});if(fileResult.error)throw fileResult.error;
+    const files=fileResult.data||[],fileIds=files.map(file=>file.id);let links=[],shipments=[],documents=[],events=[],operationDocuments=[],profiles=[];
+    if(fileIds.length){const [linkResult,documentResult,eventResult]=await Promise.all([sb.from('trade_collection_file_shipments').select('*').in('trade_file_id',fileIds),sb.from('trade_collection_file_documents').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false}),sb.from('trade_collection_file_events').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false})]);if(linkResult.error)throw linkResult.error;if(documentResult.error)throw documentResult.error;if(eventResult.error)throw eventResult.error;links=linkResult.data||[];documents=documentResult.data||[];events=eventResult.data||[];}
+    const shipmentIds=[...new Set(links.map(link=>link.shipment_id))];if(shipmentIds.length){const [shipmentResult,operationDocumentResult]=await Promise.all([sb.from('shipments').select('*').in('id',shipmentIds),sb.from('shipment_files').select('id,shipment_id,document_type,label,name,path').in('shipment_id',shipmentIds)]);if(shipmentResult.error)throw shipmentResult.error;if(operationDocumentResult.error)throw operationDocumentResult.error;shipments=(shipmentResult.data||[]).map(rowToRecord);operationDocuments=operationDocumentResult.data||[];}
+    const profileIds=[...new Set(events.map(event=>event.actor_id).filter(Boolean))];if(profileIds.length){const result=await sb.from('profiles').select('id,email,display_name').in('id',profileIds);if(result.error)throw result.error;profiles=result.data||[];}
+    if(requestId!==bsgtManagementState.requestId)return;Object.assign(bsgtManagementState,{files,links,shipments,documents,events,operationDocuments,profiles});
+    renderBsgtManagementCards('sent_to_remitting','bsgtManagementWaiting');renderBsgtManagementCards('under_management_review','bsgtManagementReview');if(bsgtManagementState.detailId)renderBsgtManagementDetail();
+  }catch(error){console.error('load BSGT management',error);waiting.innerHTML=`<div class="bsgt-management-error">تعذر تحميل مراجعة الإدارة: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;review.innerHTML='<div class="bsgt-management-error">تعذر تحميل الملفات.</div>';}
 }
 
 function renderBsgtWorkspace(requestedSection){
@@ -9339,6 +9486,10 @@ function renderBsgtWorkspace(requestedSection){
     content.innerHTML = renderBsgtFinanceShell();
     wireBsgtFinanceShell();
     loadBsgtFinance();
+  }else if(activeSection === 'management'){
+    content.innerHTML = renderBsgtManagementShell();
+    wireBsgtManagementShell();
+    loadBsgtManagement();
   }else{
     content.innerHTML = `
       <div class="bsgt-workspace-placeholder">
@@ -9593,6 +9744,24 @@ function bsgtPackageMergeAccess(r, files){
     adminOverride,
     reason: adminOverride ? 'صلاحية المدير تسمح بدمج الحزمة.' : JahezShipmentWorkflow.packageMergeBlockReason(r, files)
   };
+}
+
+async function ensureBsgtFinalPackageAllowed(shipmentId){
+  const latest=await fetchLatestShipmentWorkflowState(shipmentId);
+  const linkResult=await sb.from('trade_collection_file_shipments').select('trade_file_id').eq('shipment_id',shipmentId).maybeSingle();
+  if(linkResult.error) throw linkResult.error;
+  if(!linkResult.data){
+    const legacy=bsgtPackageMergeAccess(latest.record,latest.files);
+    return {...latest,...legacy,workflowMode:'legacy'};
+  }
+  const fileResult=await sb.from('trade_collection_files').select('*').eq('id',linkResult.data.trade_file_id).single();
+  if(fileResult.error) throw fileResult.error;
+  const documentResult=await sb.from('trade_collection_file_documents').select('*').eq('trade_file_id',fileResult.data.id);
+  if(documentResult.error) throw documentResult.error;
+  const allowed=window.JahezBsgtManagement.mergeAllowed(latest.record,fileResult.data,documentResult.data||[]);
+  let reason='لا يمكن دمج الحزمة قبل القبول النهائي لملف التحصيل التجاري.';
+  if(fileResult.data.status==='final_accepted'&&latest.record.bsgtStage==='final_accepted') reason='المستندات الموقعة للمراجعة الحالية غير مكتملة.';
+  return {...latest,allowed:Boolean(allowed),adminOverride:false,reason,workflowMode:'trade_file',tradeFile:fileResult.data,signedDocuments:documentResult.data||[]};
 }
 
 function renderShipmentAcceptanceState(r, evaluation){
@@ -19451,13 +19620,12 @@ window.bsgtPdfPreviewBlob = async function bsgtPdfPreviewBlob(record, kind='invo
 
 async function ensureBsgtPackageMergeAllowed(record, {showDialog = false} = {}){
   if(!isBsgtRecord(record)) return {allowed:true, record, files:[]};
-  const latest = await fetchLatestShipmentWorkflowState(record.id);
-  const access = bsgtPackageMergeAccess(latest.record, latest.files);
-  const {allowed, reason} = access;
+  const latest = await ensureBsgtFinalPackageAllowed(record.id);
+  const {allowed, reason} = latest;
   if(!allowed && showDialog){
     await showShipmentWorkflowDialog({title:'لا يمكن دمج الحزمة', message:reason});
   }
-  return {...latest, ...access};
+  return latest;
 }
 
 function bsgtWorkflowGateError(reason){

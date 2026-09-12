@@ -44,3 +44,4 @@
 .bsgt-operations-submit .btn-primary:disabled{background:#d8dde5!important;color:#7b8798!important;box-shadow:none!important}
 @media(max-width:1050px){.bsgt-operations-row{grid-template-columns:repeat(3,minmax(0,1fr))}.bsgt-operations-row.is-head{display:none}.bsgt-operations-row>[data-label]::before{content:attr(data-label);display:block;margin-bottom:3px;color:#7b8798;font-size:9px}.bsgt-operations-groups{grid-template-columns:1fr}}
 @media(max-width:650px){.bsgt-operations-head{align-items:stretch;flex-direction:column}.bsgt-operations-row{grid-template-columns:1fr 1fr;padding:14px}.bsgt-operations-summary{grid-template-columns:1fr}.bsgt-operations-submit{align-items:stretch;flex-direction:column}}
+.bsgt-operations-returned{display:inline-flex;width:max-content;max-width:100%;margin-top:5px;padding:3px 7px;border-radius:999px;color:#a61b22;background:#fff1f2;font-size:9px;font-weight:800}
