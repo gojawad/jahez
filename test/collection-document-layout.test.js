@@ -33,6 +33,7 @@ function supabaseStub() {
     {id:'22222222-2222-4222-8222-222222222222', company_id:'c1', status:'issued', data:{operationNo:'BSGTX-2026-0015', invoiceNo:'CY260719', invoiceDate:'2026-07-19', billNo:'NGP3944936', totalAmount:'USD 18795.00', consignee:'STANDER FOR IMPORT AND EXPORT CO.LTD', consigneeAddress:'SOUQ LIBYA BLOCK(4)', itemDesc:'CURTAIN'}}
   ];
   return `window.__testCollectionShipments=${JSON.stringify(shipments)};
+  window.__testCollectionCompany={id:'c1',name_ar:'',name_en:'BAHAR SWAKEN GENERAL TRADING LLC',settings:JSON.parse(localStorage.getItem('__testSharedCollectionSettings')||'{}')};
   window.supabase={createClient:function(){return {
     auth:{
       getSession:async()=>({data:{session:{user:{id:'u1',email:'admin@jahez.test'},access_token:'test-token'}},error:null}),
@@ -40,14 +41,26 @@ function supabaseStub() {
       onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),
       signOut:async()=>({error:null})
     },
+    rpc:async function(name){
+      if(name==='get_user_portal_permissions') return {data:[{portal_key:'commercial_collection',can_view:true}],error:null};
+      if(name==='get_user_feature_permissions') return {data:[{permission_key:'commercial_collection.view',allowed:true}],error:null};
+      return {data:[],error:null};
+    },
     from:function(table){
       let updatePayload=null, eqColumn='', eqValue='';
-      const result=()=>table==='companies'
-        ? {data:[{id:'c1',name_ar:'',name_en:'BAHAR SWAKEN GENERAL TRADING LLC',settings:{}}],error:null}
-        : table==='shipments' ? {data:window.__testCollectionShipments,error:null}
-        : table==='payments' ? {data:[],error:null}
-        : table==='profiles' ? {data:{display_name:'Admin',role:'admin',photo_url:''},error:null}
-        : {data:null,error:null};
+      const result=()=>{
+        if(table==='companies'){
+          if(updatePayload){
+            Object.assign(window.__testCollectionCompany,updatePayload);
+            localStorage.setItem('__testSharedCollectionSettings',JSON.stringify(window.__testCollectionCompany.settings||{}));
+          }
+          return {data:[window.__testCollectionCompany],error:null};
+        }
+        if(table==='shipments') return {data:window.__testCollectionShipments,error:null};
+        if(table==='payments') return {data:[],error:null};
+        if(table==='profiles') return {data:{display_name:'Portal User',role:localStorage.getItem('__testPortalRole')||'admin',photo_url:''},error:null};
+        return {data:null,error:null};
+      };
       const api={
         select(){return api},
         eq(column,value){eqColumn=column;eqValue=value;return api},
@@ -88,8 +101,15 @@ async function main() {
       contentType:'application/javascript',
       body:supabaseStub()
     }));
+    await page.addInitScript(()=>{
+      if(localStorage.getItem('__testCollectionLayoutSeeded')) return;
+      localStorage.setItem('__testCollectionLayoutSeeded','1');
+      localStorage.setItem('bsCollectionTextOffsets',JSON.stringify({letter:{x:5,y:0,scale:100}}));
+      localStorage.setItem('bsCollectionDocumentEditorMetaV1',JSON.stringify({letter:{savedAt:'2026-09-12T08:00:00.000Z'}}));
+    });
     await page.goto(`${BASE}/experiments/bs-collection/`, {waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')||'{}').collectionDocumentLayouts?.documents?.letter?.textOffset?.x===5);
     const theme = await page.evaluate(()=>( {
       primary:getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim(),
       dark:getComputedStyle(document.documentElement).getPropertyValue('--brand-dark').trim(),
@@ -100,6 +120,31 @@ async function main() {
     assert.strictEqual(theme.dark.toUpperCase(), '#D01119');
     assert.ok(theme.header.includes('rgb(25, 27, 32)'));
     assert.strictEqual(theme.selected, 'rgb(208, 17, 25)');
+
+    await page.locator('[data-step-section="preview-section"]').click();
+    await page.locator('#textOffsetX').evaluate(element=>{
+      element.value='7';
+      element.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    await page.locator('#saveDocumentLayoutBtn').click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')||'{}').collectionDocumentLayouts?.documents?.letter?.textOffset?.x===7);
+    const sharedLayout=await page.evaluate(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')).collectionDocumentLayouts);
+    assert.strictEqual(sharedLayout.documents.letter.textOffset.x,7);
+    assert.ok(sharedLayout.meta.letter.savedAt);
+
+    await page.evaluate(()=>{
+      localStorage.setItem('__testPortalRole','staff');
+      localStorage.setItem('bsCollectionTextOffsets',JSON.stringify({letter:{x:-4,y:0,scale:100}}));
+    });
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    assert.strictEqual(await page.evaluate(()=>textOffsetForPreview().x),7,'employee receives the centrally saved layout instead of stale local formatting');
+    assert.strictEqual(await page.locator('#saveDocumentLayoutBtn').isVisible(),false,'employee cannot edit or publish document layouts');
+
+    await page.evaluate(()=>localStorage.setItem('__testPortalRole','admin'));
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    await page.locator('[data-step-section="picker-section"]').click();
     await page.screenshot({path:path.join(OUTPUT, 'collection-portal.png'), fullPage:false});
     await page.locator('.shipment-card').nth(0).click();
     await page.locator('.shipment-card').nth(1).click();

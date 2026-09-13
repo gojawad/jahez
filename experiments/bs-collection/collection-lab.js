@@ -16,6 +16,12 @@ const remittingSubmissionStorageKey = 'bsCollectionRemittingSubmissions';
 const sectionCollapseStorageKey = 'bsCollectionSectionCollapsed';
 const stampTransformStorageKey = 'bsCollectionStampTransformA4';
 const collectionDocumentEditorMetaStorageKey = 'bsCollectionDocumentEditorMetaV1';
+const collectionDocumentLayoutFields = [
+  ['textOffset',collectionTextOffsetStorageKey],
+  ['textBlockOffsets',collectionTextBlockOffsetStorageKey],
+  ['textStyles',collectionTextStyleStorageKey],
+  ['textLayers',collectionTextLayerStorageKey]
+];
 const collectionDocumentLabels = {
   // Add future generated documents here; QR inclusion stays opt-in and is off
   // for all commercial-collection documents by design.
@@ -40,6 +46,8 @@ let selectedTextStyle = null;
 let remittingBatches = [];
 let portalRole = '';
 let sharedCollectionBranding = {};
+let sharedCollectionCompany = null;
+let sharedCollectionDocumentLayouts = null;
 let layoutHistory = [];
 let layoutRedoHistory = [];
 let restoringLayoutHistory = false;
@@ -81,6 +89,74 @@ function redoLayout(){
   restoreLayoutSnapshot(layoutRedoHistory.pop());
 }
 function documentEditorMeta(){ try { return JSON.parse(localStorage.getItem(collectionDocumentEditorMetaStorageKey)||'{}')||{}; } catch (_) { return {}; } }
+function collectionStoredObject(key){ try { return JSON.parse(localStorage.getItem(key)||'{}')||{}; } catch (_) { return {}; } }
+function collectionDocumentLayoutFor(preview){
+  const layout={};
+  collectionDocumentLayoutFields.forEach(([field,key])=>{ layout[field]=collectionStoredObject(key)[preview]||{}; });
+  const stamp=collectionStoredObject(stampTransformStorageKey);
+  layout.stampPosition=stamp.positions?.[preview]||null;
+  return layout;
+}
+function applySharedCollectionDocumentLayouts(layouts){
+  if(!layouts?.documents || typeof layouts.documents!=='object') return false;
+  const previews=Object.keys(collectionDocumentLabels);
+  collectionDocumentLayoutFields.forEach(([field,key])=>{
+    const values=collectionStoredObject(key);
+    previews.forEach(preview=>{
+      const documentLayout=layouts.documents[preview];
+      if(documentLayout&&Object.prototype.hasOwnProperty.call(documentLayout,field)) values[preview]=documentLayout[field]||{};
+      else delete values[preview];
+    });
+    localStorage.setItem(key,JSON.stringify(values));
+  });
+  const stamp=collectionStoredObject(stampTransformStorageKey);
+  stamp.positions=stamp.positions||{};
+  previews.forEach(preview=>{
+    const position=layouts.documents[preview]?.stampPosition;
+    if(position) stamp.positions[preview]=position;
+    else delete stamp.positions[preview];
+  });
+  delete stamp.xMm; delete stamp.yMm; delete stamp.scale; delete stamp.widthMm;
+  if(Number(layouts.stampWidthMm)>0) stamp.widthMm=Number(layouts.stampWidthMm);
+  localStorage.setItem(stampTransformStorageKey,JSON.stringify(stamp));
+  localStorage.setItem(collectionDocumentEditorMetaStorageKey,JSON.stringify(layouts.meta||{}));
+  dirtyDocumentLayouts.clear();
+  return true;
+}
+function savedLocalCollectionDocumentLayouts(){
+  const meta=documentEditorMeta();
+  const previews=Object.keys(collectionDocumentLabels).filter(preview=>meta[preview]?.savedAt);
+  if(!previews.length) return null;
+  const stamp=collectionStoredObject(stampTransformStorageKey);
+  return {
+    version:1,
+    documents:Object.fromEntries(previews.map(preview=>[preview,collectionDocumentLayoutFor(preview)])),
+    stampWidthMm:Number(stamp.widthMm)>0?Number(stamp.widthMm):null,
+    meta:Object.fromEntries(previews.map(preview=>[preview,meta[preview]])),
+    updatedAt:new Date().toISOString()
+  };
+}
+async function persistSharedCollectionDocumentLayouts(layouts){
+  if(!sharedCollectionCompany?.id) throw new Error('تعذّر تحديد شركة بحر سواكن.');
+  const settings=Object.assign({},sharedCollectionCompany.settings||{}, {collectionDocumentLayouts:layouts});
+  const {error}=await sb.from('companies').update({settings}).eq('id',sharedCollectionCompany.id);
+  if(error) throw error;
+  sharedCollectionCompany.settings=settings;
+  sharedCollectionDocumentLayouts=layouts;
+}
+async function loadSharedCollectionDocumentLayouts(company){
+  sharedCollectionCompany=company;
+  const remote=company?.settings?.collectionDocumentLayouts;
+  if(applySharedCollectionDocumentLayouts(remote)){
+    sharedCollectionDocumentLayouts=remote;
+    return;
+  }
+  if(portalRole!=='admin') return;
+  const migrated=savedLocalCollectionDocumentLayouts();
+  if(!migrated) return;
+  try{ await persistSharedCollectionDocumentLayouts(migrated); }
+  catch(error){ console.warn('collection document layout migration',error); }
+}
 function savedAtLabel(value){
   if(!value) return 'لم يتم الحفظ يدوياً بعد';
   try { return `آخر حفظ: ${new Intl.DateTimeFormat('ar-AE',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))}`; }
@@ -99,20 +175,35 @@ function updateDocumentEditorState(){
   document.querySelectorAll('[data-preview]').forEach(button=>button.classList.toggle('active',button.dataset.preview===state.preview));
 }
 function markDocumentLayoutDirty(){ dirtyDocumentLayouts.add(state.preview); updateDocumentEditorState(); }
-function saveCurrentDocumentLayout(){
+async function saveCurrentDocumentLayout(){
   if(portalRole!=='admin') return;
-  const meta=documentEditorMeta();
-  meta[state.preview]={savedAt:new Date().toISOString()};
-  try { localStorage.setItem(collectionDocumentEditorMetaStorageKey,JSON.stringify(meta)); }
-  catch (_) { alert('تعذّر حفظ إعدادات المستند على هذا الجهاز.'); return; }
-  dirtyDocumentLayouts.delete(state.preview);
-  updateDocumentEditorState();
   const button=$('saveDocumentLayoutBtn');
-  if(button){
-    const original=button.innerHTML;
-    button.innerHTML='<i class="bx bx-check"></i> تم حفظ المستند';
-    button.classList.add('is-saved');
-    setTimeout(()=>{ button.innerHTML=original; button.classList.remove('is-saved'); },1600);
+  const original=button?.innerHTML||'';
+  if(button){ button.disabled=true; button.innerHTML='<i class="bx bx-loader-alt bx-spin"></i> جاري الحفظ'; }
+  try{
+    const savedAt=new Date().toISOString();
+    const localMeta=documentEditorMeta();
+    const stamp=collectionStoredObject(stampTransformStorageKey);
+    const next={
+      version:1,
+      documents:Object.assign({},sharedCollectionDocumentLayouts?.documents||{}, {[state.preview]:collectionDocumentLayoutFor(state.preview)}),
+      stampWidthMm:Number(stamp.widthMm)>0?Number(stamp.widthMm):(sharedCollectionDocumentLayouts?.stampWidthMm||null),
+      meta:Object.assign({},sharedCollectionDocumentLayouts?.meta||{},localMeta,{[state.preview]:{savedAt}}),
+      updatedAt:savedAt
+    };
+    await persistSharedCollectionDocumentLayouts(next);
+    localStorage.setItem(collectionDocumentEditorMetaStorageKey,JSON.stringify(next.meta));
+    dirtyDocumentLayouts.delete(state.preview);
+    updateDocumentEditorState();
+    if(button){
+      button.innerHTML='<i class="bx bx-check"></i> تم الحفظ للموظفين';
+      button.classList.add('is-saved');
+      setTimeout(()=>{ button.disabled=false; button.innerHTML=original; button.classList.remove('is-saved'); },1600);
+    }
+  }catch(error){
+    console.error('collection document layout save',error);
+    if(button){ button.disabled=false; button.innerHTML=original; }
+    alert(`تعذّر حفظ إعدادات المستند للموظفين: ${error.message||error}`);
   }
 }
 const collectionListFields = {
@@ -223,6 +314,7 @@ function localCollectionBrandingSettings(){
   catch (_) { return {}; }
 }
 async function loadSharedCollectionBranding(company){
+  sharedCollectionCompany=company;
   const remote=Object.assign({},company?.settings?.collectionBranding||{});
   const local=localCollectionBrandingSettings();
   const hasLocalAssets=Boolean(local.background||local.stamp||local.signature);
@@ -235,6 +327,7 @@ async function loadSharedCollectionBranding(company){
       const settings=Object.assign({},company.settings||{}, {collectionBranding:merged,invoiceBranding:merged});
       const {error}=await sb.from('companies').update({settings}).eq('id',company.id);
       if(error) console.warn('collection branding sync',error);
+      else company.settings=settings;
     }
   }
 }
@@ -958,7 +1051,7 @@ async function init(){
     const input = $('settingsForm').elements[key];
     if(input) input.value = value;
   });
-  try{const {data:companies,error:ce}=await sb.from('companies').select('*');if(ce)throw ce;const bsgt=(companies||[]).find(c=>/بحر\s*سواكن|bahar\s*swaken/i.test(`${c.name_ar||''} ${c.name_en||''}`));if(!bsgt)throw new Error('لم يتم العثور على شركة بحر سواكن في بيانات الشركات.');await loadSharedCollectionBranding(bsgt);if(requestedTradeFileId){await loadTradeFileContext();}else{const [{data:rows,error:se},{data:paymentRows,error:pe}]=await Promise.all([sb.from('shipments').select('*').order('updated_at',{ascending:false}),sb.from('payments').select('*').order('paid_on')]);if(se)throw se;if(pe)console.warn('payments',pe);state.payments={};(paymentRows||[]).forEach(payment=>(state.payments[payment.shipment_id]??=[]).push(payment));state.shipments=(rows||[]).map(rowToShipment).filter(s=>s.companyId===bsgt.id);await migrateLegacyRemittingBatches(legacyRemittingBatches);rebuildRemittingBatches();}fillFilters();renderAll();if(!requestedTradeFileId)restoreRequestedCollectionOperation();}catch(error){$('shipmentList').innerHTML=`<div class="empty-state">تعذّر تحميل بوابة التحصيل التجاري: ${esc(error.message||error)}. تأكد من تسجيل الدخول في النظام الأساسي أولاً.</div>`;$('shipmentCount').textContent='لم تُحمّل البيانات';}}
+  try{const {data:companies,error:ce}=await sb.from('companies').select('*');if(ce)throw ce;const bsgt=(companies||[]).find(c=>/بحر\s*سواكن|bahar\s*swaken/i.test(`${c.name_ar||''} ${c.name_en||''}`));if(!bsgt)throw new Error('لم يتم العثور على شركة بحر سواكن في بيانات الشركات.');await loadSharedCollectionBranding(bsgt);await loadSharedCollectionDocumentLayouts(bsgt);if(requestedTradeFileId){await loadTradeFileContext();}else{const [{data:rows,error:se},{data:paymentRows,error:pe}]=await Promise.all([sb.from('shipments').select('*').order('updated_at',{ascending:false}),sb.from('payments').select('*').order('paid_on')]);if(se)throw se;if(pe)console.warn('payments',pe);state.payments={};(paymentRows||[]).forEach(payment=>(state.payments[payment.shipment_id]??=[]).push(payment));state.shipments=(rows||[]).map(rowToShipment).filter(s=>s.companyId===bsgt.id);await migrateLegacyRemittingBatches(legacyRemittingBatches);rebuildRemittingBatches();}fillFilters();renderAll();if(!requestedTradeFileId)restoreRequestedCollectionOperation();}catch(error){$('shipmentList').innerHTML=`<div class="empty-state">تعذّر تحميل بوابة التحصيل التجاري: ${esc(error.message||error)}. تأكد من تسجيل الدخول في النظام الأساسي أولاً.</div>`;$('shipmentCount').textContent='لم تُحمّل البيانات';}}
 ['searchInput','currencyFilter','consigneeFilter'].forEach(id=>$(id).addEventListener('input',renderPicker));
 $('settingsForm').addEventListener('input',event=>{if(!event.target.name)return;state.settings[event.target.name]=event.target.value;renderPreview();renderDebug();});
 $('settingsForm').addEventListener('change',event=>{
