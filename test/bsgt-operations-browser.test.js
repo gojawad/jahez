@@ -198,6 +198,7 @@ async function main(){
     assert.strictEqual(await page.locator('.bsgt-operations-row .bsgt-commodity-thumb').count(), 0, 'the shipment list has no commodity images or placeholders');
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb').count(), 0, 'the detail header has no commodity image or placeholder');
     assert.strictEqual(await page.locator('#bsgtCommodityImageAdmin').count(), 0, 'the commodity image change action is not rendered');
+    assert.match((await page.locator('[data-bsgt-ops-panel="overview"]').textContent()).replace(/\s+/g,' '), /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
     await page.waitForTimeout(200);
     assert.strictEqual(imageApiCalls, 0, 'Operations does not request the commodity image API');
 

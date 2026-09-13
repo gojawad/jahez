@@ -9510,7 +9510,7 @@ function bsgtOperationsMoney(record){
 function bsgtOperationsOverviewFields(record){
   const money = bsgtOperationsMoney(record);
   return [
-    ['رقم العملية',record.operationNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],
+    ['رقم العملية',record.operationNo],['رقم البوليصة',record.billNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],
     ['بلد المنشأ',record.countryOrigin||record.countryOfOrigin],['ميناء الشحن',record.portLoading],['ميناء الوصول',record.portDischarge],
     ['تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate],['عدد الحاويات',record.containers||record.containerCount||record.containerNo],
     ['الوزن',record.weight||record.totalWeight||record.grossWeight],['القيمة',money.amount],['العملة',money.currency]
