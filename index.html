@@ -6110,6 +6110,9 @@ async function loadRecords(){
 async function dbSaveRecord(rec){
   netStart();
   try{
+    // The public QR identity belongs to the shipment itself, not to a generated PDF.
+    // Existing records keep their token; newly created or legacy records get one once.
+    if(!rec.qrToken) rec.qrToken = newQrToken();
     const row = recordToRow(rec);
     const isUpdate = isUuid(rec.id);
     const bsgtAllowed = isBsgtRecord(rec) && bsgtOperationsPermission(true);
@@ -10656,7 +10659,7 @@ function refreshBsgtMergeControls(r){
     if(allowed){ button.removeAttribute('aria-disabled'); button.removeAttribute('title'); }
     else { button.setAttribute('aria-disabled','true'); button.title = reason; }
   });
-  if(packageButton && packageButton.dataset.workflowBusy !== 'true') packageButton.innerHTML = `${icon(allowed ? 'printer' : 'lock')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}`;
+  if(packageButton && packageButton.dataset.workflowBusy !== 'true') packageButton.innerHTML = `${icon(allowed ? 'printer' : 'lock')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}`;
   if(mergeButton && mergeButton.dataset.workflowBusy !== 'true') mergeButton.innerHTML = `${icon(allowed ? 'doc' : 'lock')} دمج الحزمة في ملف واحد`;
 }
 
@@ -17325,8 +17328,8 @@ function renderBsgtDetail(r){
         </div>
 
         <footer class="detail-actions">
-          ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR منشورة.</b> المسح يفتح آخر PDF محفوظ؛ بعد تعديل التنسيق اضغط «تحديث حزمة QR» لنشر النسخة الحالية.</p>' : '<p class="qr-package-status">بعد تجميع الحزمة سيظهر رمز QR في المستندات ويتيح فتح الحزمة الكاملة.</p>'}
-          ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
+          ${r.qrPackagePath ? '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعرض بيانات الشحنة ومستنداتها الحالية، والحزمة الكاملة متاحة منها.</p>' : '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعمل قبل تجميع PDF، وتعرض المستندات المتاحة تلقائياً.</p>'}
+          ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
           <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>`:''}
           ${reviewButtonsHtml(r)}
           ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
@@ -17436,8 +17439,8 @@ function openDetail(id, options = {}){
     </div>` : ''}
 
     <div class="detail-actions">
-      ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR منشورة.</b> المسح يفتح آخر PDF محفوظ؛ بعد تعديل التنسيق اضغط «تحديث حزمة QR» لنشر النسخة الحالية.</p>' : '<p class="qr-package-status">بعد تجميع الحزمة سيظهر رمز QR في المستندات ويتيح فتح الحزمة الكاملة.</p>'}
-      <button class="btn btn-gold" id="packageBtn">${icon('printer')} ${r.qrPackagePath ? 'تحديث حزمة QR' : 'تجميع الحزمة الكاملة PDF'}</button>
+      ${r.qrPackagePath ? '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعرض بيانات الشحنة ومستنداتها الحالية، والحزمة الكاملة متاحة منها.</p>' : '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعمل قبل تجميع PDF، وتعرض المستندات المتاحة تلقائياً.</p>'}
+      <button class="btn btn-gold" id="packageBtn">${icon('printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
       <button class="btn btn-ghost" id="mergeAllBtn">${icon('doc')} دمج الحزمة في ملف واحد</button>
       ${reviewButtonsHtml(r)}
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
@@ -18330,10 +18333,10 @@ function bolSheet(r){
 // ===== قالب الفاتورة الاحترافي (مبني بالكامل، مش صورة) =====
 function esc(t){ return escapeHtml(t==null?'':String(t)); }
 
-// ===== رابط QR القصير: حزمة العملية الكاملة من الخادم =====
+// ===== رابط QR القصير: صفحة التحقق الدائمة للشحنة =====
 // الرمز السري يُحفظ في الشحنة (qrToken) ويُطبع داخل QR كرابط قصير
-// /s/<token>. عند كل «تجميع الحزمة الكاملة PDF» يُرفع الملف المدموج إلى
-// التخزين ويُسجَّل مساره (qrPackagePath) فيفتحه الخادم لمن يمسح الرمز.
+// /s/<token>. الصفحة تعمل فور حفظ الشحنة، ووجود qrPackagePath يتحكم فقط
+// في ظهور رابط الحزمة الكاملة داخلها.
 function newQrToken(){
   const bytes = new Uint8Array(18);
   crypto.getRandomValues(bytes);
@@ -18359,13 +18362,13 @@ async function publishQrPackage(r, blob, silent=false){
   await ensureQrToken(r);
   const path = `qr-package/${r.id}/${Date.now()}.pdf`;
   const {error: upErr} = await sb.storage.from('shipment-files').upload(path, blob, {contentType:'application/pdf', cacheControl:'0', upsert:false});
-  if(upErr) throw new Error('تعذّر نشر حزمة QR: ' + upErr.message);
+  if(upErr) throw new Error('تعذّر نشر الحزمة الكاملة: ' + upErr.message);
   const previous = r.qrPackagePath;
   r.qrPackagePath = path;
   r.qrPublishedAt = new Date().toISOString();
   await persistQrFields(r);
   if(previous && previous !== path){ try{ await sb.storage.from('shipment-files').remove([previous]); }catch(e){} }
-  if(!silent) toast('تم تحديث حزمة رمز QR لهذه العملية ✓', 'ok');
+  if(!silent) toast('تم تحديث الحزمة الكاملة PDF لهذه العملية ✓', 'ok');
 }
 
 // The QR only contains a link to the protected shipment screen. The invoice
@@ -18374,7 +18377,7 @@ function shipmentOperationQr(r, className, position, qrSettingsOverride){
   if(!r?.id || typeof qrcode !== 'function') return '';
   try{
     const target = qrPackageUrl(r);
-    // A QR without a saved package must not expose an obsolete data page.
+    // Render only a persisted shipment token; package generation is independent.
     if(!target) return '';
     const code = qrcode(0, 'H');
     code.addData(target);
@@ -20700,7 +20703,7 @@ async function mergeFullPackage(r, lang, triggerBtn){
     if(isBsgtRecord(r)){
       step = 'تجهيز صفحات BSGT داخل المتصفح';
       const blob = await mergeBsgtPackageLocally(r, lang);
-      step = 'نشر الحزمة لرمز QR';
+      step = 'نشر الحزمة الكاملة';
       await publishQrPackage(r, blob);
       const url = URL.createObjectURL(blob);
       openPdfPreview(url, 'الحزمة الكاملة المدموجة');
@@ -20761,7 +20764,7 @@ async function mergeFullPackage(r, lang, triggerBtn){
 
     step = 'تحميل الملف النهائي المدموج';
     const blob = await ilovepdfDownload(token, server, finalTask);
-    step = 'نشر الحزمة لرمز QR';
+    step = 'نشر الحزمة الكاملة';
     await publishQrPackage(r, blob);
     const url = URL.createObjectURL(blob);
     openPdfPreview(url, 'الحزمة الكاملة مدموجة');
