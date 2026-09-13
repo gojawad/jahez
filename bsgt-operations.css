@@ -235,3 +235,33 @@
   #viewBsgtWorkspace .bsgt-operations-workspace.show-detail>.bsgt-operations-navigator{display:none}
   #viewBsgtWorkspace .bsgt-operations-workspace.show-detail>.bsgt-operations-detail{display:block}
 }
+
+@media(max-width:760px){
+  html:has(body.mobile-app-ready #viewBsgtWorkspace.active),
+  body.mobile-app-ready:has(#viewBsgtWorkspace.active){
+    height:auto;
+    min-height:100%;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  body.mobile-app-ready:has(#viewBsgtWorkspace.active){min-height:100dvh}
+  #viewBsgtWorkspace,
+  #viewBsgtWorkspace .bsgt-workspace,
+  #viewBsgtWorkspace .bsgt-workspace-shell,
+  #viewBsgtWorkspace .bsgt-workspace-content,
+  #viewBsgtWorkspace .bsgt-operations,
+  #viewBsgtWorkspace .bsgt-operations-workspace,
+  #viewBsgtWorkspace .bsgt-operations-navigator,
+  #viewBsgtWorkspace .bsgt-operations-detail,
+  #viewBsgtWorkspace .bsgt-operations-list{
+    height:auto;
+    max-height:none;
+  }
+  #viewBsgtWorkspace .bsgt-workspace-shell,
+  #viewBsgtWorkspace .bsgt-operations-workspace,
+  #viewBsgtWorkspace .bsgt-operations-navigator,
+  #viewBsgtWorkspace .bsgt-operations-detail,
+  #viewBsgtWorkspace .bsgt-operations-list{overflow:visible}
+}

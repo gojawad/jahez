@@ -188,7 +188,7 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-operations-ibm-1')), 'operations CSS uses the IBM font cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-mobile-scroll-1')), 'operations CSS uses the mobile scroll cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-full-shipment-1')), 'operations JS uses the full-shipment cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
     const operationsFonts=await page.locator('.bsgt-operations h3, .bsgt-operations input, .bsgt-operations select, .bsgt-operations button').evaluateAll(elements=>elements.map(element=>getComputedStyle(element).fontFamily));
@@ -224,14 +224,18 @@ async function main(){
     assert.ok(shipmentPageRequests.length>requestsBeforePaging, 'pagination requests the next server-side page');
     await page.evaluate(()=>{bsgtOperationsListState.page=1;bsgtOperationsListState.total=11;renderBsgtOperationsRows();});
 
-    for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
+    for(const {width,height} of [{width:390,height:844},{width:393,height:852},{width:430,height:932}]){
       await page.setViewportSize({width,height});
+      await page.evaluate(()=>window.scrollTo(0,0));
       assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, `${width}px shows the list first`);
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), false, `${width}px hides details before selection`);
       assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, `${width}px has no horizontal overflow`);
       await page.locator('[data-bsgt-operation-open]').click();
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, `${width}px opens full detail`);
       assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
+      await page.locator('[data-bsgt-ops-tab="documents"]').click();
+      assert.ok(await page.locator('[data-bsgt-ops-panel="documents"].active').isVisible(), `${width}px tabs remain functional`);
+      await page.locator('[data-bsgt-ops-tab="overview"]').click();
       await assertStageGeometry(page,width);
       const progressSeparation = await page.evaluate(()=>{
         const bar=document.querySelector('.bsgt-operations-progress-bar');
@@ -239,6 +243,30 @@ async function main(){
         return Boolean(bar&&stage&&bar.parentElement===stage.parentElement&&!bar.contains(stage)&&stage.offsetTop>bar.offsetTop+bar.offsetHeight);
       });
       assert.strictEqual(progressSeparation,true,`${width}px keeps document readiness separate from workflow stages`);
+      const scrollMetrics = await page.evaluate(async()=>{
+        const last=document.querySelector('[data-bsgt-ops-panel="overview"].active > :last-child');
+        window.scrollTo(0,0);
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        const before=window.scrollY;
+        window.scrollTo(0,document.documentElement.scrollHeight);
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        return {
+          before,
+          after:window.scrollY,
+          scrollHeight:document.documentElement.scrollHeight,
+          innerHeight:window.innerHeight,
+          lastBottom:last?.getBoundingClientRect().bottom||Infinity,
+          horizontalOverflow:document.documentElement.scrollWidth-window.innerWidth,
+          listOverflow:getComputedStyle(document.querySelector('.bsgt-operations-list')).overflowY,
+          detailOverflow:getComputedStyle(document.querySelector('.bsgt-operations-detail')).overflowY
+        };
+      });
+      assert.ok(scrollMetrics.scrollHeight>scrollMetrics.innerHeight, `${width}px has vertically scrollable long content`);
+      assert.ok(scrollMetrics.after>scrollMetrics.before, `${width}px changes window.scrollY`);
+      assert.ok(scrollMetrics.lastBottom<=scrollMetrics.innerHeight+1, `${width}px reaches the last overview element`);
+      assert.ok(scrollMetrics.horizontalOverflow<=1, `${width}px keeps horizontal overflow contained`);
+      assert.strictEqual(scrollMetrics.listOverflow,'visible',`${width}px list does not create a nested vertical scroller`);
+      assert.strictEqual(scrollMetrics.detailOverflow,'visible',`${width}px detail does not create a nested vertical scroller`);
       await page.locator('#bsgtOperationsMobileBack').click();
     }
     for(const viewport of [{width:1920,height:1080},{width:1536,height:864},{width:1440,height:900},{width:1366,height:768},{width:1024,height:768}]){
