@@ -18,6 +18,11 @@ function page(title, body) {
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>body{margin:0;background:#eef3f8;color:#102a43;font-family:Tahoma,'IBM Plex Sans Arabic',sans-serif}main{max-width:560px;margin:60px auto;background:#fff;border:1px solid #dce6f1;border-radius:16px;padding:32px;line-height:1.9}h1{font-size:22px;margin:0 0 10px;color:#9b1c24}p{margin:0}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${body}</p></main></body></html>`;
 }
 
+function preliminaryPage(operationNo) {
+  const operation = operationNo ? `<br><small>رقم العملية: ${escapeHtml(operationNo)}</small>` : '';
+  return page('الملف في المرحلة المبدئية', `لم يتم تجميع الحزمة الكاملة PDF حتى الآن.${operation}`);
+}
+
 function authHeaders() {
   const headers = { apikey: SERVICE_KEY };
   // المفاتيح الجديدة sb_secret_ تكفيها apikey، ومفاتيح JWT القديمة تحتاج Authorization أيضاً.
@@ -49,13 +54,13 @@ module.exports = async (req, res) => {
     }
     const packagePath = row.qrPackagePath;
     if (!packagePath || packagePath.includes('..')) {
-      return res.status(404).send(page('الحزمة لم تُنشر بعد', `افتح العملية ${escapeHtml(row.operationNo || '')} في البرنامج واضغط «تجميع الحزمة الكاملة PDF» لتحديث ما يفتحه هذا الرمز.`));
+      return res.status(200).send(preliminaryPage(row.operationNo));
     }
 
     const objectUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${packagePath.split('/').map(encodeURIComponent).join('/')}`;
     const file = await fetch(objectUrl, { headers: authHeaders() });
     if (file.status === 404) {
-      return res.status(404).send(page('ملف الحزمة غير موجود', 'أعد تجميع الحزمة من البرنامج ليُنشأ الملف من جديد.'));
+      return res.status(200).send(preliminaryPage(row.operationNo));
     }
     if (!file.ok) throw new Error(`storage download ${file.status}: ${await file.text()}`);
 

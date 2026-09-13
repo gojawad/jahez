@@ -17328,7 +17328,7 @@ function renderBsgtDetail(r){
         </div>
 
         <footer class="detail-actions">
-          ${r.qrPackagePath ? '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعرض بيانات الشحنة ومستنداتها الحالية، والحزمة الكاملة متاحة منها.</p>' : '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعمل قبل تجميع PDF، وتعرض المستندات المتاحة تلقائياً.</p>'}
+          ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR جاهزة.</b> المسح يفتح ملف PDF المدموج مباشرة.</p>' : '<p class="qr-package-status"><b>رمز QR فعال.</b> سيعرض أن الملف في المرحلة المبدئية حتى يتم تجميع الحزمة.</p>'}
           ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
           <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>`:''}
           ${reviewButtonsHtml(r)}
@@ -17439,7 +17439,7 @@ function openDetail(id, options = {}){
     </div>` : ''}
 
     <div class="detail-actions">
-      ${r.qrPackagePath ? '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعرض بيانات الشحنة ومستنداتها الحالية، والحزمة الكاملة متاحة منها.</p>' : '<p class="qr-package-status"><b>صفحة QR فعالة.</b> تعمل قبل تجميع PDF، وتعرض المستندات المتاحة تلقائياً.</p>'}
+      ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR جاهزة.</b> المسح يفتح ملف PDF المدموج مباشرة.</p>' : '<p class="qr-package-status"><b>رمز QR فعال.</b> سيعرض أن الملف في المرحلة المبدئية حتى يتم تجميع الحزمة.</p>'}
       <button class="btn btn-gold" id="packageBtn">${icon('printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
       <button class="btn btn-ghost" id="mergeAllBtn">${icon('doc')} دمج الحزمة في ملف واحد</button>
       ${reviewButtonsHtml(r)}

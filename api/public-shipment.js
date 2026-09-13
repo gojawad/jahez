@@ -154,6 +154,10 @@ module.exports = async (req, res) => {
   const token = String(req.query.token || '').trim();
   const id = String(req.query.id || '').trim();
   const documentId = String(req.query.document || '').trim();
+  // Old QR-page links now converge on the single merged package experience.
+  if (TOKEN_RE.test(token)) {
+    return res.redirect(302, `/api/qr-package?token=${encodeURIComponent(token)}`);
+  }
   if (!TOKEN_RE.test(token) && !UUID_RE.test(id)) {
     return res.status(400).send(errorPage('رابط الشحنة غير مكتمل', 'امسح رمز QR من الفاتورة مرة أخرى.'));
   }

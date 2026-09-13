@@ -153,7 +153,7 @@ const server = http.createServer((req, res) => {
   const qr = url.pathname.match(QR_ROUTE);
   if (qr) {
     // Keep the public URL unchanged while briefly showing the branded loader.
-    // The loader then opens the live shipment page with the same permanent token.
+    // The loader then opens the merged package, or its preliminary-stage message.
     url.pathname = '/qr-splash.html';
     return serveStatic(req, res, url);
   }

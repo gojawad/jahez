@@ -42,7 +42,7 @@
         document.querySelector('.status').textContent = 'رابط التحقق غير صحيح';
         return;
       }
-      const destination = `/api/public-shipment?token=${encodeURIComponent(match[1])}`;
+      const destination = `/api/qr-package?token=${encodeURIComponent(match[1])}`;
       window.setTimeout(() => location.replace(destination), 2300);
     })();
   </script>

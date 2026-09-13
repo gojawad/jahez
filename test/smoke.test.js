@@ -576,7 +576,7 @@ async function main() {
       assert.strictEqual(j.connected, false);
       assert.strictEqual(j.connectUrl, '/api/microsoft?action=connect');
     });
-    await check('/s/<token> QR route shows the branded loader before the live shipment page', async () => {
+    await check('/s/<token> QR route shows the branded loader before the merged package', async () => {
       const dockerfile = await fs.promises.readFile(path.join(__dirname, '..', 'Dockerfile'), 'utf8');
       assert.match(dockerfile, /COPY index\.html public-shipment\.html qr-splash\.html/);
       const bad = await fetch(`${BASE}/s/short`);
@@ -587,7 +587,7 @@ async function main() {
       const splashHtml = await splash.text();
       assert.match(splashHtml, /جاري تجهيز الملفات/);
       assert.match(splashHtml, /bsqt-qr-logo\.png/);
-      assert.match(splashHtml, /\/api\/public-shipment\?token=/);
+      assert.match(splashHtml, /\/api\/qr-package\?token=/);
       const pdf = await fetch(`${BASE}/api/qr-package?token=abcdefghijklmnopqrstuvwx`);
       assert.strictEqual(pdf.status, 503);
       assert.match(pdf.headers.get('content-type'), /text\/html/);

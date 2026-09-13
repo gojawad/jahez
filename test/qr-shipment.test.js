@@ -137,60 +137,39 @@ async function main() {
   try {
     await waitForApp(app);
 
-    const splash = await (await fetch(`${BASE}/s/${TOKEN}`)).text();
-    assert.match(splash, /\/api\/public-shipment\?token=/);
-    assert.doesNotMatch(splash, /\/api\/qr-package\?token=/);
+    const permanentUrl = `${BASE}/s/${TOKEN}`;
+    const packageUrl = `${BASE}/api/qr-package?token=${TOKEN}`;
+    const splash = await (await fetch(permanentUrl)).text();
+    assert.match(splash, /\/api\/qr-package\?token=/);
+    assert.doesNotMatch(splash, /\/api\/public-shipment\?token=/);
 
-    const permanentUrl = `${BASE}/api/public-shipment?token=${TOKEN}`;
-    const beforePackageResponse = await fetch(permanentUrl);
+    const oldPageResponse = await fetch(`${BASE}/api/public-shipment?token=${TOKEN}`, { redirect: 'manual' });
+    assert.strictEqual(oldPageResponse.status, 302);
+    assert.strictEqual(oldPageResponse.headers.get('location'), `/api/qr-package?token=${TOKEN}`);
+
+    const beforePackageResponse = await fetch(packageUrl);
     const beforePackage = await beforePackageResponse.text();
     assert.strictEqual(beforePackageResponse.status, 200);
-    assert.match(beforePackage, /الحزمة الكاملة قيد التجهيز/);
-    assert.match(beforePackage, /لم يتم إنشاء PDF الكامل بعد/);
+    assert.match(beforePackage, /الملف في المرحلة المبدئية/);
+    assert.match(beforePackage, /لم يتم تجميع الحزمة الكاملة PDF حتى الآن/);
     assert.match(beforePackage, /BSGTX-2026-0023/);
-    assert.match(beforePackage, /permit-v1\.pdf/);
-    assert.match(beforePackage, /bill\.pdf/);
-    assert.doesNotMatch(beforePackage, /TROLLEY CASE|INV-0023|BL-0023|PUBLIC TRADING LLC|7150|CHINA|ATBARA DRY PORT/);
-    assert.doesNotMatch(beforePackage, /api\/qr-package/);
-    assert.doesNotMatch(beforePackage, /SECRET BANK ACCOUNT|PRIVATE ADDRESS|PRIVATE ADMIN NOTE|USD 99999/);
-    assert.doesNotMatch(beforePackage, /private-collection-letter|خطاب التحصيل/);
-    assert.match(beforePackageResponse.headers.get('x-robots-tag'), /noindex/);
-
-    const documentResponse = await fetch(`${permanentUrl}&document=${files[0].id}`);
-    assert.strictEqual(documentResponse.status, 200);
-    assert.match(documentResponse.headers.get('content-type'), /application\/pdf/);
-    assert.strictEqual(await documentResponse.text(), '%PDF-doc');
+    assert.doesNotMatch(beforePackage, /permit-v1\.pdf|bill\.pdf|TROLLEY CASE|INV-0023|BL-0023|PUBLIC TRADING LLC/);
 
     shipment.data.qrPackagePath = `qr-package/${SHIPMENT_ID}/package.pdf`;
     shipment.data.qrPublishedAt = '2026-09-13T09:00:00Z';
-    const afterPackage = await (await fetch(permanentUrl)).text();
-    assert.match(afterPackage, /الحزمة الكاملة جاهزة/);
-    assert.match(afterPackage, /عرض الحزمة الكاملة PDF/);
-    assert.match(afterPackage, new RegExp(`/api/qr-package\\?token=${TOKEN}`));
-    const packageResponse = await fetch(`${BASE}/api/qr-package?token=${TOKEN}`);
+    const packageResponse = await fetch(packageUrl);
     assert.strictEqual(packageResponse.status, 200);
+    assert.match(packageResponse.headers.get('content-type'), /application\/pdf/);
     assert.strictEqual(await packageResponse.text(), '%PDF-package');
-
-    files.unshift({
-      ...files[0],
-      id: '22222222-2222-4222-8222-222222222224',
-      name: 'permit-v2.pdf',
-      path: `${SHIPMENT_ID}/permit-v2.pdf`,
-      created_at: '2026-09-13T10:00:00Z'
-    });
-    const afterDocumentUpdate = await (await fetch(permanentUrl)).text();
-    assert.match(afterDocumentUpdate, /permit-v2\.pdf/);
-    assert.doesNotMatch(afterDocumentUpdate, /permit-v1\.pdf/);
 
     const appHtml = await fs.promises.readFile(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(appHtml.includes('if(!rec.qrToken) rec.qrToken = newQrToken();'));
     assert.ok(appHtml.includes("const target = qrPackageUrl(r);"));
     assert.ok(!appHtml.slice(appHtml.indexOf('function shipmentOperationQr'), appHtml.indexOf('const INV_I18N')).includes('qrPackagePath'));
 
-    console.log('✔ permanent QR opens shipment before package generation');
-    console.log('✔ public documents update without changing the QR');
-    console.log('✔ full package button appears only after package generation');
-    console.log('✔ private and collection data remain excluded');
+    console.log('✔ permanent QR shows a preliminary-stage message before merging');
+    console.log('✔ old public shipment links no longer expose individual files');
+    console.log('✔ the same QR opens only the merged PDF after generation');
   } finally {
     app.kill('SIGTERM');
     await new Promise(resolve => fakeSupabase.close(resolve));
