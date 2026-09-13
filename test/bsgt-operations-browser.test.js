@@ -224,13 +224,60 @@ async function main(){
     assert.ok(shipmentPageRequests.length>requestsBeforePaging, 'pagination requests the next server-side page');
     await page.evaluate(()=>{bsgtOperationsListState.page=1;bsgtOperationsListState.total=11;renderBsgtOperationsRows();});
 
+    await page.evaluate(()=>{
+      const first=bsgtOperationsListState.rows[0];
+      bsgtOperationsListState.rows=Array.from({length:8},(_,index)=>index===0?first:{
+        ...first,
+        id:`11111111-1111-4111-8111-${String(index+1).padStart(12,'0')}`,
+        operationNo:`BSGTX-2026-${String(99-index).padStart(4,'0')}`,
+        itemDesc:`TEST GOODS ${index+1}`
+      });
+      bsgtOperationsListState.total=8;
+      renderBsgtOperationsRows();
+    });
+
     for(const {width,height} of [{width:390,height:844},{width:393,height:852},{width:430,height:932}]){
       await page.setViewportSize({width,height});
       await page.evaluate(()=>window.scrollTo(0,0));
       assert.strictEqual(await page.locator('.bsgt-operations-navigator').isVisible(), true, `${width}px shows the list first`);
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), false, `${width}px hides details before selection`);
       assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth), true, `${width}px has no horizontal overflow`);
-      await page.locator('[data-bsgt-operation-open]').click();
+      const listGeometry=await page.evaluate(()=>{
+        const box=element=>element.getBoundingClientRect().toJSON();
+        const workspace=document.querySelector('.bsgt-operations-workspace');
+        const navigator=document.querySelector('.bsgt-operations-navigator');
+        const tools=document.querySelector('.bsgt-operations-tools');
+        const search=document.querySelector('.bsgt-operations-search');
+        const filters=[...document.querySelectorAll('.bsgt-operations-tool-row label')].map(box);
+        const rows=[...document.querySelectorAll('.bsgt-operations-row')];
+        const lastRow=rows.at(-1);
+        const bottomNav=document.querySelector('.mobile-bottom-nav');
+        return {
+          workspace:box(workspace),navigator:box(navigator),tools:box(tools),search:box(search),filters,
+          rows:rows.map(row=>({row:box(row),badge:box(row.querySelector('.bsgt-stage-badge')),progress:box(row.querySelector('.bsgt-operations-progress'))})),
+          lastRow:box(lastRow),bottomNav:box(bottomNav),
+          searchHeight:search.getBoundingClientRect().height,
+          selectHeights:[...document.querySelectorAll('.bsgt-operations-tools select')].map(select=>select.getBoundingClientRect().height)
+        };
+      });
+      assert.ok(Math.abs(listGeometry.workspace.width-listGeometry.navigator.width)<=2, `${width}px navigator uses the full workspace width: ${listGeometry.workspace.width}/${listGeometry.navigator.width}`);
+      assert.ok(listGeometry.search.width>=listGeometry.tools.width-25, `${width}px search uses the tools width`);
+      assert.ok(listGeometry.searchHeight>=43, `${width}px search is touch friendly`);
+      assert.ok(listGeometry.selectHeights.every(value=>value>=43), `${width}px filters are touch friendly`);
+      assert.ok(listGeometry.filters.every(item=>item.width>120), `${width}px filters remain readable`);
+      assert.ok(listGeometry.rows.every(item=>item.row.left>=0&&item.row.right<=width&&item.badge.left>=item.row.left&&item.badge.right<=item.row.right&&item.progress.left>=item.row.left&&item.progress.right<=item.row.right), `${width}px cards, badges, and progress stay inside the viewport`);
+      await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+      await page.waitForTimeout(50);
+      const bottomClearance=await page.evaluate(()=>{
+        const last=document.querySelectorAll('.bsgt-operations-row');
+        const row=last[last.length-1].getBoundingClientRect();
+        const nav=document.querySelector('.mobile-bottom-nav').getBoundingClientRect();
+        return {rowBottom:row.bottom,navTop:nav.top,scrollY:window.scrollY};
+      });
+      assert.ok(bottomClearance.scrollY>0, `${width}px list scrolls vertically`);
+      assert.ok(bottomClearance.rowBottom<bottomClearance.navTop, `${width}px bottom navigation does not cover the last shipment`);
+      await page.evaluate(()=>window.scrollTo(0,0));
+      await page.locator('[data-bsgt-operation-open]').first().click();
       assert.strictEqual(await page.locator('.bsgt-operations-detail').isVisible(), true, `${width}px opens full detail`);
       assert.strictEqual(await page.locator('.bsgt-operations-mobile-back').isVisible(), true, `${width}px provides a back button`);
       await page.locator('[data-bsgt-ops-tab="documents"]').click();
@@ -323,7 +370,7 @@ async function main(){
     assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb').count(), 0, 'the detail remains image-free after responsive checks');
-    await page.locator('[data-bsgt-operation-open]').click();
+    await page.locator('[data-bsgt-operation-open]').first().click();
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
     await page.locator('#bsgtOperationsQuickDocumentsPanel').waitFor();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsQuickDocumentsPanel')?.textContent.includes('7 / 7'));

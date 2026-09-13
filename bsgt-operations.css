@@ -264,4 +264,167 @@
   #viewBsgtWorkspace .bsgt-operations-navigator,
   #viewBsgtWorkspace .bsgt-operations-detail,
   #viewBsgtWorkspace .bsgt-operations-list{overflow:visible}
+
+  body.mobile-app-ready:has(#viewBsgtWorkspace.active) .wrap{
+    padding-right:max(10px,env(safe-area-inset-right));
+    padding-bottom:0;
+    padding-left:max(10px,env(safe-area-inset-left));
+  }
+  #viewBsgtWorkspace .bsgt-workspace-content:has(> .bsgt-operations){
+    display:block;
+    width:100%;
+    min-width:0;
+    padding:12px;
+    text-align:initial;
+  }
+  #viewBsgtWorkspace .bsgt-operations{
+    width:100%;
+    max-width:none;
+    min-width:0;
+    gap:12px;
+    padding-bottom:calc(90px + env(safe-area-inset-bottom));
+  }
+  #viewBsgtWorkspace .bsgt-operations-head{
+    align-items:center;
+    gap:10px;
+    padding:12px;
+    border-radius:14px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-title{gap:8px}
+  #viewBsgtWorkspace .bsgt-operations-title-icon{display:none}
+  #viewBsgtWorkspace .bsgt-operations-head h3{margin-bottom:2px;font-size:18px}
+  #viewBsgtWorkspace .bsgt-operations-head p{font-size:10px;line-height:1.5}
+  #viewBsgtWorkspace .bsgt-operations-create{
+    flex:0 0 auto;
+    min-height:44px;
+    padding:8px 12px!important;
+    font-size:11px!important;
+    white-space:nowrap;
+  }
+  #viewBsgtWorkspace .bsgt-operations-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-kpi{
+    gap:9px;
+    min-height:72px;
+    padding:11px 12px;
+    border-radius:12px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-kpi:nth-child(3){grid-column:1/-1}
+  #viewBsgtWorkspace .bsgt-operations-kpi>span{flex-basis:38px;height:38px;border-radius:10px}
+  #viewBsgtWorkspace .bsgt-operations-kpi b{font-size:19px}
+  #viewBsgtWorkspace .bsgt-operations-kpi small{font-size:10px}
+  #viewBsgtWorkspace .bsgt-operations-workspace{
+    display:block;
+    width:100%;
+    max-width:none;
+    min-width:0;
+    border-radius:14px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-navigator{
+    width:100%;
+    max-width:none;
+    min-width:0;
+    border:0;
+  }
+  #viewBsgtWorkspace .bsgt-operations-tools{gap:10px;padding:12px}
+  #viewBsgtWorkspace .bsgt-operations-search{
+    width:100%;
+    min-height:44px;
+    padding-inline:12px;
+    border-radius:11px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-search input{height:42px;font-size:12px}
+  #viewBsgtWorkspace .bsgt-operations-tool-row{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-consignee-filter,
+  #viewBsgtWorkspace .bsgt-operations-sort-filter{gap:5px;font-size:10px}
+  #viewBsgtWorkspace .bsgt-operations-tools select{
+    height:44px;
+    min-height:44px;
+    padding-inline:10px;
+    font-size:11px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-list{width:100%;padding:2px 0 0;background:#fbfcfe}
+  #viewBsgtWorkspace .bsgt-operations-row{
+    align-items:flex-start;
+    width:auto;
+    max-width:none;
+    min-width:0;
+    margin:8px 10px 0;
+    padding:12px;
+    border:1px solid #e5eaf0;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:none;
+  }
+  #viewBsgtWorkspace .bsgt-operations-row:hover{background:#fff}
+  #viewBsgtWorkspace .bsgt-operations-row.is-selected{
+    margin:8px 10px 0;
+    padding:12px;
+    border:1px solid #ea1b23;
+    background:#fff7f7;
+    box-shadow:none;
+  }
+  #viewBsgtWorkspace .bsgt-operations-row-copy{width:100%;max-width:100%;min-width:0}
+  #viewBsgtWorkspace .bsgt-operations-row-copy>div{gap:10px}
+  #viewBsgtWorkspace .bsgt-operations-row-copy>div>b{min-width:0;font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #viewBsgtWorkspace .bsgt-operations-row-copy .bsgt-stage-badge{
+    flex:0 0 auto;
+    max-width:45%;
+    padding:5px 9px;
+    font-size:10px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #viewBsgtWorkspace .bsgt-operations-row-copy strong{margin-top:8px;font-size:14px}
+  #viewBsgtWorkspace .bsgt-operations-row-copy small{margin-top:3px;font-size:11px}
+  #viewBsgtWorkspace .bsgt-operations-row-copy em{margin-top:6px;font-size:10px}
+  #viewBsgtWorkspace .bsgt-operations-row-copy>.bsgt-operations-progress{
+    width:100%;
+    height:4px;
+    margin-top:8px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-row-arrow{display:none}
+  #viewBsgtWorkspace .bsgt-operations-pager{
+    min-height:52px;
+    margin:8px 10px 12px;
+    padding:8px 10px;
+    border:1px solid #e5eaf0;
+    border-radius:11px;
+    font-size:10px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-pager button{min-width:44px;min-height:44px}
+  #viewBsgtWorkspace .bsgt-operations-mobile-back{
+    min-height:44px;
+    margin:12px 12px 0;
+    padding:8px 12px;
+    font-size:11px;
+  }
+  #viewBsgtWorkspace .bsgt-operations-detail{width:100%;max-width:none;min-width:0}
+  #viewBsgtWorkspace .bsgt-operations-detail-head{gap:10px;padding:12px}
+  #viewBsgtWorkspace .bsgt-operations-detail-identity{width:100%}
+  #viewBsgtWorkspace .bsgt-operations-detail-identity>div{width:100%}
+  #viewBsgtWorkspace .bsgt-operations-detail-identity h3{font-size:16px}
+  #viewBsgtWorkspace .bsgt-operations-detail-actions .btn{min-height:44px}
+  #viewBsgtWorkspace .bsgt-operations-tabs{
+    max-width:100%;
+    padding-inline:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+  }
+  #viewBsgtWorkspace .bsgt-operations-tabs button{min-height:44px;padding:11px 10px;font-size:10px}
+  #viewBsgtWorkspace .bsgt-operations-quick-document-list{grid-template-columns:minmax(0,1fr)}
+  #viewBsgtWorkspace .bsgt-operation-doc-actions{flex-wrap:wrap}
+  #viewBsgtWorkspace .bsgt-operation-doc-actions .btn,
+  #viewBsgtWorkspace .bsgt-operations-attachment-list button{min-height:44px}
+}
+
+@media(max-width:430px){
+  #viewBsgtWorkspace .bsgt-operations-head p{display:none}
 }
