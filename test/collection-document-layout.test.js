@@ -96,6 +96,8 @@ async function main() {
     await waitForServer(server);
     browser = await chromium.launch({executablePath, headless:true, args:['--no-sandbox']});
     const page = await browser.newPage({viewport:{width:1440,height:1000}, deviceScaleFactor:1});
+    const consoleErrors=[];
+    page.on('console',message=>{ if(message.type()==='error') consoleErrors.push(message.text()); });
     await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', route=>route.fulfill({
       status:200,
       contentType:'application/javascript',
@@ -114,12 +116,26 @@ async function main() {
       primary:getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim(),
       dark:getComputedStyle(document.documentElement).getPropertyValue('--brand-dark').trim(),
       header:getComputedStyle(document.querySelector('.lab-header')).backgroundImage,
-      selected:getComputedStyle(document.querySelector('.section-heading span')).color
+      selected:getComputedStyle(document.querySelector('.section-heading span')).color,
+      stageRects:[...document.querySelectorAll('.portal-step-card')].map(card=>card.getBoundingClientRect().toJSON()),
+      stageTitleSize:parseFloat(getComputedStyle(document.querySelector('.portal-step-card strong')).fontSize),
+      activeStageBackground:getComputedStyle(document.querySelector('.portal-step-card.is-active')).backgroundImage,
+      searchHeight:document.querySelector('.filters label').getBoundingClientRect().height,
+      sectionRadius:parseFloat(getComputedStyle(document.querySelector('.picker-section')).borderRadius),
+      overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth
     }));
     assert.strictEqual(theme.primary.toUpperCase(), '#EA1B23');
     assert.strictEqual(theme.dark.toUpperCase(), '#D01119');
     assert.ok(theme.header.includes('rgb(25, 27, 32)'));
     assert.strictEqual(theme.selected, 'rgb(208, 17, 25)');
+    assert.strictEqual(theme.stageRects.length,5);
+    assert.ok(theme.stageRects.every(rect=>Math.abs(rect.top-theme.stageRects[0].top)<1),'desktop stages stay in one row');
+    assert.ok(theme.stageRects.every(rect=>Math.abs(rect.height-theme.stageRects[0].height)<1),'desktop stage cards have equal height');
+    assert.ok(theme.stageTitleSize>=13);
+    assert.notStrictEqual(theme.activeStageBackground,'none');
+    assert.ok(theme.searchHeight>=50&&theme.searchHeight<=54);
+    assert.ok(theme.sectionRadius>=18);
+    assert.ok(theme.overflow<=0);
 
     await page.locator('[data-step-section="preview-section"]').click();
     await page.locator('#textOffsetX').evaluate(element=>{
@@ -231,6 +247,23 @@ async function main() {
       '22222222-2222-4222-8222-222222222222'
     ]);
     assert.strictEqual(restored.activeOperationNo,operation.numbers[0]);
+
+    await page.setViewportSize({width:390,height:844});
+    await page.goto(`${BASE}/experiments/bs-collection/`,{waitUntil:'domcontentloaded'});
+    await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    await page.locator('[data-step-section="picker-section"]').click();
+    const mobile=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+      stageOverflow:document.querySelector('.portal-step-grid').scrollWidth-document.querySelector('.portal-step-grid').clientWidth,
+      filterColumns:getComputedStyle(document.querySelector('.filters')).gridTemplateColumns,
+      searchWidth:document.querySelector('.filters label').getBoundingClientRect().width,
+      panelWidth:document.querySelector('.picker-section').getBoundingClientRect().width
+    }));
+    assert.ok(mobile.overflow<=0,'mobile page has no horizontal overflow');
+    assert.ok(mobile.stageOverflow>0,'mobile stages use their contained horizontal scroller');
+    assert.ok(!mobile.filterColumns.includes(' '),'mobile filters form one column');
+    assert.ok(mobile.searchWidth<=mobile.panelWidth,'mobile search stays inside the panel');
+    assert.deepStrictEqual(consoleErrors,[],'collection portal has no console errors');
     console.log('Collection document reference tables: passed');
   } finally {
     if(browser) await browser.close();

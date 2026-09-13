@@ -493,7 +493,7 @@ async function main() {
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-4'));
-      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260912-2'));
+      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260913-premium-1'));
       assert.ok(collectionHtml.includes('role-collection-preview-only collection-enterprise-ui'));
       assert.strictEqual((collectionHtml.match(/href="\/#v=dashboard"/g) || []).length, 2);
       assert.ok(collectionHtml.includes('id="documentEditorShell"'));
@@ -502,10 +502,10 @@ async function main() {
       assert.strictEqual((collectionHtml.match(/data-step-section="(?:picker-section|draft-section|settings-section|preview-section|collection-portal-section)"/g) || []).length, 5);
       const collectionUiCss = await (await fetch(`${BASE}/experiments/bs-collection/collection-enterprise.css`)).text();
       assert.ok(collectionUiCss.includes('body.collection-enterprise-ui'));
-      assert.ok(collectionUiCss.includes('width: min(1550px, calc(100% - 48px))'));
+      assert.ok(collectionUiCss.includes('width: min(1760px, calc(100% - 48px))'));
       assert.ok(collectionUiCss.includes('grid-template-columns: repeat(5, minmax(0, 1fr))'));
-      assert.ok(collectionUiCss.includes('grid-template-columns: minmax(420px, 1fr) 230px 250px'));
-      assert.ok(collectionUiCss.includes('border: 1.5px solid #ea1b23'));
+      assert.ok(collectionUiCss.includes('grid-template-columns: minmax(420px, 1fr) minmax(190px, 230px) minmax(210px, 250px)'));
+      assert.ok(collectionUiCss.includes('border: 1px solid rgba(234, 27, 35, .68)'));
       assert.ok(collectionUiCss.includes('overflow-x: hidden'));
       const collectionJs = await (await fetch(`${BASE}/experiments/bs-collection/collection-lab.js`)).text();
       assert.ok(collectionJs.includes("const collectionDocumentEditorMetaStorageKey = 'bsCollectionDocumentEditorMetaV1'"));
