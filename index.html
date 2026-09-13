@@ -2492,7 +2492,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260912-full-shipment-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260913-wide-images-1">
 </head>
 <body class="landing-active">
 
@@ -5851,7 +5851,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="session-navigation.js?v=20260912-1"></script>
   <script src="bsgt-workspace.js?v=20260912-four-stage-workflow-1"></script>
 <script src="bsgt-operations.js?v=20260912-full-shipment-1"></script>
-<script src="commodity-images.js?v=20260912-master-detail-2"></script>
+<script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260912-1"></script>
 <script src="bsgt-relations.js?v=20260912-1"></script>
@@ -9454,7 +9454,7 @@ function bsgtCommodityKey(record){
 
 function renderBsgtCommodityThumb(record, large = false){
   const key = bsgtCommodityKey(record);
-  return `<span class="bsgt-commodity-thumb${large?' is-large':''}" data-commodity-key="${escapeHtml(key)}" title="صورة توضيحية للصنف"><span class="bsgt-commodity-placeholder">${icon(getShipmentIcon(record.itemDesc||'', record), large?24:18)}</span><img hidden loading="lazy" referrerpolicy="no-referrer" alt="صورة توضيحية للصنف"></span>`;
+  return `<span class="bsgt-commodity-thumb${large?' is-large':''}" data-commodity-key="${escapeHtml(key)}" title="صورة توضيحية للصنف"><span class="bsgt-commodity-placeholder">${icon(getShipmentIcon(record.itemDesc||'', record), large?24:18)}</span><img loading="lazy" referrerpolicy="no-referrer" alt="صورة توضيحية للصنف"></span>`;
 }
 
 function applyBsgtCommodityImage(result){

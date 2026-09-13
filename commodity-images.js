@@ -71,8 +71,17 @@
       const request = Promise.resolve()
         .then(()=>options.fetchImage({itemDesc, hsCode}))
         .then(value=>safeResult(value, itemDesc, hsCode))
-        .catch(()=>safeResult(null, itemDesc, hsCode))
-        .then(value=>{ cache.set(key, value); pending.delete(key); return value; });
+        .catch(error=>{
+          if(typeof console !== 'undefined' && typeof console.warn === 'function'){
+            console.warn('[commodity-image]', {itemDesc, reason:String(error?.message || 'request failed')});
+          }
+          return safeResult(null, itemDesc, hsCode);
+        })
+        .then(value=>{
+          if(!value.fallback) cache.set(key, value);
+          pending.delete(key);
+          return value;
+        });
       pending.set(key, request);
       return request;
     }

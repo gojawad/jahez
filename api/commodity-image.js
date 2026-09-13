@@ -89,38 +89,46 @@ async function deletePersistentCache(normalizedQuery){
 
 async function searchWikimedia(itemDesc, hsCode){
   const providerQuery = buildProviderQuery({itemDesc, hsCode});
-  const params = new URLSearchParams({
-    action:'query', format:'json', formatversion:'2', generator:'search', gsrnamespace:'6',
-    gsrsearch:providerQuery, gsrlimit:'8', prop:'imageinfo',
-    iiprop:'url|mime|extmetadata', iiurlwidth:'480', origin:'*'
-  });
-  let response;
-  for(let attempt=0; attempt<2; attempt++){
-    try{
-      response = await fetchWithTimeout(`${PROVIDER_URL}?${params}`, {headers:{'User-Agent':'JahezCommodityImages/1.0 (jahez.swaken.net)'}}, 5000);
-      if(response.ok) break;
-    }catch(error){
-      if(attempt === 1) throw error;
+  const providerQueries = [...new Set([
+    providerQuery,
+    buildProviderQuery({itemDesc}),
+    normalizeItemDesc(itemDesc)
+  ].filter(Boolean))];
+  for(const query of providerQueries){
+    const params = new URLSearchParams({
+      action:'query', format:'json', formatversion:'2', generator:'search', gsrnamespace:'6',
+      gsrsearch:query, gsrlimit:'8', prop:'imageinfo',
+      iiprop:'url|mime|extmetadata', iiurlwidth:'480', origin:'*'
+    });
+    let response;
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        response = await fetchWithTimeout(`${PROVIDER_URL}?${params}`, {headers:{'User-Agent':'JahezCommodityImages/1.0 (jahez.swaken.net)'}}, 5000);
+        if(response.ok) break;
+      }catch(error){
+        if(attempt === 1) throw error;
+      }
     }
+    if(!response?.ok) continue;
+    const payload = await response.json();
+    const candidates = (payload.query?.pages || []).map(page=>({page, info:page.imageinfo?.[0]})).filter(({page,info})=>{
+      const mime = String(info?.mime || '').toLowerCase();
+      const title = String(page?.title || '').toLowerCase();
+      return info && /^image\/(jpeg|png|webp)$/.test(mime) && !/(person|people|portrait|man |woman |child|boy |girl )/.test(title);
+    });
+    const selected = candidates[0];
+    if(!selected) continue;
+    const meta = selected.info.extmetadata || {};
+    return publicResult({
+      imageUrl:selected.info.url,
+      thumbnailUrl:selected.info.thumburl || selected.info.url,
+      sourceUrl:selected.info.descriptionurl,
+      sourceName:'Wikimedia Commons',
+      attribution:[stripMarkup(meta.Artist?.value || meta.Credit?.value), stripMarkup(meta.LicenseShortName?.value)].filter(Boolean).join(' · '),
+      query
+    }, query);
   }
-  if(!response?.ok) return publicResult(null, providerQuery);
-  const payload = await response.json();
-  const candidates = (payload.query?.pages || []).map(page=>({page, info:page.imageinfo?.[0]})).filter(({page,info})=>{
-    const mime = String(info?.mime || '').toLowerCase();
-    const title = String(page?.title || '').toLowerCase();
-    return info && /^image\/(jpeg|png|webp)$/.test(mime) && !/(person|people|portrait|man |woman |child|boy |girl )/.test(title);
-  });
-  const selected = candidates[0];
-  if(!selected) return publicResult(null, providerQuery);
-  const meta = selected.info.extmetadata || {};
-  return publicResult({
-    imageUrl:selected.info.url,
-    thumbnailUrl:selected.info.thumburl || selected.info.url,
-    sourceUrl:selected.info.descriptionurl,
-    sourceName:'Wikimedia Commons',
-    attribution:[stripMarkup(meta.Artist?.value || meta.Credit?.value), stripMarkup(meta.LicenseShortName?.value)].filter(Boolean).join(' · '),
-    query:providerQuery
-  }, providerQuery);
+  return publicResult(null, providerQuery);
 }
 
 async function resolveCommodity(itemDesc, hsCode){
@@ -131,12 +139,16 @@ async function resolveCommodity(itemDesc, hsCode){
   if(MEMORY_CACHE.has(normalizedQuery)) return MEMORY_CACHE.get(normalizedQuery);
   try{
     const cached = await readPersistentCache(normalizedQuery);
-    if(cached){ const result = publicResult(cached, buildProviderQuery({itemDesc:normalizedItem, hsCode:normalizedHs})); MEMORY_CACHE.set(normalizedQuery, result); return result; }
+    if(cached){
+      const result = publicResult(cached, buildProviderQuery({itemDesc:normalizedItem, hsCode:normalizedHs}));
+      if(!result.fallback){ MEMORY_CACHE.set(normalizedQuery, result); return result; }
+    }
   }catch(error){ console.warn('[commodity-image] cache read failed:', error.message); }
   const result = await searchWikimedia(normalizedItem, normalizedHs).catch(error=>{
     console.warn('[commodity-image] provider failed:', error.message);
     return publicResult(null, buildProviderQuery({itemDesc:normalizedItem, hsCode:normalizedHs}));
   });
+  if(result.fallback) return result;
   MEMORY_CACHE.set(normalizedQuery, result);
   const resolvedAt = new Date();
   const expiresAt = new Date(resolvedAt.getTime() + CACHE_DAYS * 86400000);

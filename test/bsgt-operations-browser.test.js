@@ -99,7 +99,16 @@ async function main(){
     let storageDeleteCalls = 0;
     let currentStage = 'operations_draft';
     let files = initialFiles.map(file=>({...file}));
-    await context.route(`${APP_ORIGIN}/api/commodity-image**`, route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({imageUrl:null,thumbnailUrl:null,fallback:true})}));
+    let imageApiCalls = 0;
+    await context.route('https://upload.wikimedia.org/jahez-test.png', route=>route.fulfill({
+      status:200,
+      contentType:'image/svg+xml',
+      body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#d01119"/></svg>'
+    }));
+    await context.route(`${APP_ORIGIN}/api/commodity-image**`, route=>{
+      imageApiCalls++;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({imageUrl:'https://upload.wikimedia.org/jahez-test.png',thumbnailUrl:'https://upload.wikimedia.org/jahez-test.png',sourceName:'Wikimedia Commons',fallback:false})});
+    });
     await context.route(`${SUPABASE_ORIGIN}/**`, async route=>{
       const request = route.request();
       const url = new URL(request.url());
@@ -170,9 +179,9 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260912-full-shipment-1')), 'operations CSS uses the full-shipment cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-wide-images-1')), 'operations CSS uses the wide-layout cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-full-shipment-1')), 'operations JS uses the full-shipment cache version');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260912-master-detail-2')), 'commodity images use the master/detail cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
 
     for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
       await page.setViewportSize({width,height});
@@ -195,13 +204,16 @@ async function main(){
       await page.setViewportSize(viewport);
       const layout = await page.evaluate(()=>{
         const workspace=document.querySelector('#viewBsgtWorkspace .bsgt-operations-workspace');
+        const view=document.querySelector('#viewBsgtWorkspace');
+        const sidebar=document.querySelector('.app-sidebar');
         const navigator=workspace?.querySelector(':scope > .bsgt-operations-navigator');
         const detail=workspace?.querySelector(':scope > .bsgt-operations-detail');
         const box = element=>element?.getBoundingClientRect().toJSON();
         return {
           display:workspace&&getComputedStyle(workspace).display,
           columns:workspace&&getComputedStyle(workspace).gridTemplateColumns,
-          workspace:box(workspace), navigator:box(navigator), detail:box(detail),
+          workspace:box(workspace), view:box(view), sidebar:box(sidebar), navigator:box(navigator), detail:box(detail),
+          viewportWidth:window.innerWidth,
           overflow:document.documentElement.scrollWidth<=window.innerWidth,
           workspaces:document.querySelectorAll('#viewBsgtWorkspace .bsgt-operations-workspace').length,
           navigators:document.querySelectorAll('#viewBsgtWorkspace .bsgt-operations-navigator').length,
@@ -216,6 +228,10 @@ async function main(){
       assert.ok(Math.abs(layout.navigator.top-layout.detail.top)<=1, `${viewport.width}px aligns navigator and detail tops`);
       assert.ok(layout.detail.top < layout.navigator.bottom, `${viewport.width}px keeps detail beside, not below, navigator`);
       assert.ok(layout.detail.width > layout.navigator.width, `${viewport.width}px gives detail the remaining width`);
+      if(viewport.width >= 1366){
+        const availableWidth = layout.viewportWidth - layout.sidebar.width;
+        assert.ok(layout.view.width >= availableWidth * .94, `${viewport.width}px uses at least 94% of the available width`);
+      }
       assert.strictEqual(layout.overflow, true, `${viewport.width}px has no horizontal overflow`);
       await assertStageGeometry(page,viewport.width);
     }
@@ -238,6 +254,10 @@ async function main(){
     assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb.is-large').count(), 1, 'the detail image frame is rendered');
+    await page.waitForTimeout(1000);
+    const commodityImageState = await page.evaluate(()=>[...document.querySelectorAll('.bsgt-commodity-thumb img')].map(image=>({src:image.src,hidden:image.hidden,complete:image.complete,naturalWidth:image.naturalWidth})));
+    assert.ok(imageApiCalls >= 1, `commodity image endpoint is requested: ${JSON.stringify(commodityImageState)}`);
+    assert.ok(commodityImageState.some(image=>!image.hidden && image.naturalWidth>0), `successful commodity image replaces the placeholder: ${JSON.stringify(commodityImageState)}`);
     await page.locator('[data-bsgt-operation-open]').click();
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
     await page.locator('#bsgtOperationsQuickDocumentsPanel').waitFor();
