@@ -340,7 +340,11 @@ async function main() {
       assert.ok(appHtml.includes('id="bsgt_unitPriceToggle"'));
       assert.ok(appHtml.includes('bsgtShowFinalUnitPrice: bsgtShowFinalUnitPrice'));
       assert.ok(companyWizard.includes('proforma || record.bsgtShowFinalUnitPrice !== false'));
+      assert.ok(companyWizard.includes("showUnitPriceValue ? safe(row.price) : ''"));
+      assert.ok(companyWizard.includes("isPack ? '' : '<th class=\"bs-product-header\">AED U. PRICE</th>"));
       assert.ok(appHtml.includes('isProforma || r.bsgtShowFinalUnitPrice !== false'));
+      assert.ok(appHtml.includes("showUnitPriceValue ? esc(item.price) : ''"));
+      assert.ok(appHtml.includes("'AED U. PRICE','AED AMOUNT'"));
       assert.ok(appHtml.includes('if(r.permitInvoice) return;'));
       assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
       assert.ok(permitSource.includes("const shouldConvert = data.convertToAed === true && sourceCurrency !== 'AED'"));
