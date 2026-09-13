@@ -2492,7 +2492,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260913-wide-images-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260913-operations-filter-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
 </head>
 <body class="landing-active">
@@ -9358,7 +9358,7 @@ function switchView(v, options){
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
 
-const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}, selectedId:null, activeTab:'overview', mobileDetail:false, search:'', sort:'newest', kpis:{total:0,draft:0,ready:0}};
+const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}, selectedId:null, activeTab:'overview', mobileDetail:false, search:'', consignee:'', consigneeOptions:[], consigneeCompanyId:null, sort:'newest', kpis:{total:0,draft:0,ready:0}};
 const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], events:[], selected:new Set(), detailId:null};
 let bsgtWorkspaceFormContext = false;
 let bsgtOperationsSearchTimer = null;
@@ -9433,14 +9433,29 @@ function renderBsgtOperationsShell(canEditOperations){
     <div class="bsgt-operations-workspace" id="bsgtOperationsWorkspace">
       <aside class="bsgt-operations-navigator">
         <div class="bsgt-operations-tools">
-          <label class="bsgt-operations-search">${icon('search',14)}<input id="bsgtOperationsSearch" type="search" placeholder="ابحث برقم العملية أو الصنف..." value="${escapeHtml(bsgtOperationsListState.search)}"></label>
-          <select id="bsgtOperationsSort" aria-label="ترتيب الشحنات"><option value="newest" ${bsgtOperationsListState.sort==='newest'?'selected':''}>الأحدث أولاً</option><option value="oldest" ${bsgtOperationsListState.sort==='oldest'?'selected':''}>الأقدم أولاً</option></select>
+          <label class="bsgt-operations-search">${icon('search',14)}<input id="bsgtOperationsSearch" type="search" placeholder="ابحث برقم العملية أو الصنف أو المرسل إليه..." value="${escapeHtml(bsgtOperationsListState.search)}"></label>
+          <div class="bsgt-operations-tool-row">
+            <label class="bsgt-operations-consignee-filter"><span>المرسل إليه</span><select id="bsgtOperationsConsignee" aria-label="المرسل إليه">${renderBsgtOperationsConsigneeOptions()}</select></label>
+            <label class="bsgt-operations-sort-filter"><span>الترتيب</span><select id="bsgtOperationsSort" aria-label="ترتيب الشحنات"><option value="newest" ${bsgtOperationsListState.sort==='newest'?'selected':''}>الأحدث أولاً</option><option value="oldest" ${bsgtOperationsListState.sort==='oldest'?'selected':''}>الأقدم أولاً</option></select></label>
+          </div>
         </div>
         <div class="bsgt-operations-list" id="bsgtOperationsList"><div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div></div>
       </aside>
       <main class="bsgt-operations-detail" id="bsgtOperationsDetail"><div class="bsgt-operations-detail-empty">${icon('box',25)}<b>اختر شحنة لعرض تفاصيلها</b><span>ستظهر المعلومات والمستندات هنا دون مغادرة الصفحة.</span></div></main>
     </div>
   </section>`;
+}
+
+function renderBsgtOperationsConsigneeOptions(){
+  const state=bsgtOperationsListState;
+  return `<option value="">كل المرسل إليهم</option>${state.consigneeOptions.map(value=>`<option value="${escapeHtml(value)}" ${state.consignee===value?'selected':''}>${escapeHtml(value)}</option>`).join('')}`;
+}
+
+function syncBsgtOperationsConsigneeFilter(){
+  const select=document.getElementById('bsgtOperationsConsignee');
+  if(!select) return;
+  select.innerHTML=renderBsgtOperationsConsigneeOptions();
+  select.value=bsgtOperationsListState.consignee;
 }
 
 function bsgtOperationsStageBadge(stage){
@@ -9565,8 +9580,8 @@ function renderBsgtOperationsDetail(record){
   const returnContext = bsgtOperationsListState.tradeContextByShipment[record.id];
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
-      <div class="bsgt-operations-detail-identity">${renderBsgtCommodityThumb(record,true)}<div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
-      <div class="bsgt-operations-detail-actions">${isAdmin()?`<button type="button" class="btn btn-ghost btn-small" id="bsgtCommodityImageAdmin">${icon('refresh',13)} تغيير صورة الصنف</button>`:''}<button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
+      <div class="bsgt-operations-detail-identity"><div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
+      <div class="bsgt-operations-detail-actions"><button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
     </header>
     ${summaries.length?`<div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value])=>`<div><span>${icon(ic,14)}</span><small>${label}</small><b>${escapeHtml(String(value))}</b></div>`).join('')}</div>`:''}
     <nav class="bsgt-operations-tabs" aria-label="أقسام الشحنة">
@@ -9581,7 +9596,6 @@ function renderBsgtOperationsDetail(record){
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='timeline'?'active':''}" data-bsgt-ops-panel="timeline"><div class="bsgt-timeline"><div id="stlList" class="stl-list"><div class="sf-loading">جاري تحميل الجدول الزمني…</div></div></div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='notes'?'active':''}" data-bsgt-ops-panel="notes"><div id="bsgtOperationsNotes" class="bsgt-operations-notes"><div class="sf-loading">جاري تحميل الملاحظات…</div></div>${bsgtOperationsPermission(true)?`<div class="bsgt-operations-note-form"><textarea id="bsgtOperationsNoteInput" rows="2" placeholder="أضف ملاحظة على الشحنة..."></textarea><button type="button" class="btn btn-primary" id="bsgtOperationsNoteSend">حفظ</button></div>`:''}</section>`;
   wireBsgtOperationsDetail(record);
-  hydrateBsgtCommodityImages([record]);
 }
 
 async function loadBsgtOperationsNotes(record){
@@ -9599,7 +9613,6 @@ function wireBsgtOperationsDetail(record){
   document.querySelector('[data-bsgt-open-full]')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   const send=document.getElementById('bsgtOperationsQuickSend');
   if(send&&!send.disabled) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
-  document.getElementById('bsgtCommodityImageAdmin')?.addEventListener('click',()=>changeBsgtCommodityImage(record));
   document.getElementById('bsgtOperationsMobileBack')?.addEventListener('click',()=>{
     bsgtOperationsListState.mobileDetail=false;
     document.getElementById('bsgtOperationsWorkspace')?.classList.remove('show-detail');
@@ -9659,7 +9672,6 @@ function renderBsgtOperationsRows(){
     const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, state.filesByShipment[record.id] || []);
     const tradeContext=state.tradeContextByShipment[record.id];
     return `<article class="bsgt-operations-row${state.selectedId===record.id?' is-selected':''}" data-bsgt-operation-open="${escapeHtml(record.id)}" tabindex="0">
-      ${renderBsgtCommodityThumb(record)}
       <div class="bsgt-operations-row-copy"><div><b>${escapeHtml(record.operationNo||'—')}</b>${bsgtOperationsStageBadge(record.bsgtStage)}</div><strong>${escapeHtml(record.itemDesc||'—')}</strong><small>${escapeHtml(record.consignee||'—')}</small><span class="bsgt-operations-progress"><i style="width:${evaluation.completedCount/7*100}%"></i></span><em>${evaluation.completedCount}/7 متطلبات</em>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span>`:''}</div>
       <span class="bsgt-operations-row-arrow">${icon('arrow',13)}</span>
     </article>`;
@@ -9681,7 +9693,6 @@ function renderBsgtOperationsRows(){
     bsgtOperationsListState.page = Number(button.dataset.bsgtPage) || 1;
     loadBsgtOperationsPage();
   }));
-  hydrateBsgtCommodityImages(state.rows);
 }
 
 async function loadBsgtOperationsPage(){
@@ -9691,6 +9702,13 @@ async function loadBsgtOperationsPage(){
   if(!companyId){
     host.innerHTML = '<div class="bsgt-operations-error">تعذر تحديد شركة بحر سواكن من بيانات الشركات.</div>';
     return;
+  }
+  const state=bsgtOperationsListState;
+  if(state.consigneeCompanyId && state.consigneeCompanyId!==companyId){
+    state.consignee='';
+    state.consigneeOptions=[];
+    state.consigneeCompanyId=null;
+    state.page=1;
   }
   const requestId = ++bsgtOperationsListState.requestId;
   host.innerHTML = '<div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div>';
@@ -9702,17 +9720,29 @@ async function loadBsgtOperationsPage(){
       .eq('company_id', companyId);
     const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
     if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);
+    if(bsgtOperationsListState.consignee) pageQuery=pageQuery.eq('data->>consignee',bsgtOperationsListState.consignee);
     pageQuery=pageQuery.order('created_at', {ascending:bsgtOperationsListState.sort==='oldest'}).range(from,to);
-    const [pageResult,draftResult,readyResult] = await Promise.all([
+    const consigneeOptionsRequest=bsgtOperationsListState.consigneeCompanyId===companyId
+      ? Promise.resolve(null)
+      : sb.from('shipments').select('data').eq('company_id',companyId).limit(1000);
+    const [pageResult,draftResult,readyResult,consigneeOptionsResult] = await Promise.all([
       pageQuery,
       sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft'),
-      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')
+      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance'),
+      consigneeOptionsRequest
     ]);
     const {data,count,error}=pageResult;
     if(error) throw error;
     if(draftResult.error) throw draftResult.error;
     if(readyResult.error) throw readyResult.error;
+    if(consigneeOptionsResult?.error) throw consigneeOptionsResult.error;
     if(requestId !== bsgtOperationsListState.requestId) return;
+    if(consigneeOptionsResult){
+      bsgtOperationsListState.consigneeOptions=[...new Set((consigneeOptionsResult.data||[]).map(row=>String(row.data?.consignee||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+      bsgtOperationsListState.consigneeCompanyId=companyId;
+      if(bsgtOperationsListState.consignee&&!bsgtOperationsListState.consigneeOptions.includes(bsgtOperationsListState.consignee)) bsgtOperationsListState.consignee='';
+      syncBsgtOperationsConsigneeFilter();
+    }
     const pageRecords = (data || []).map(rowToRecord);
     const ids = pageRecords.map(record=>record.id);
     let fileRows = [], tradeLinks=[];
@@ -10237,6 +10267,11 @@ function renderBsgtWorkspace(requestedSection){
     });
     document.getElementById('bsgtOperationsSort')?.addEventListener('change',event=>{
       bsgtOperationsListState.sort=event.target.value;
+      bsgtOperationsListState.page=1;
+      loadBsgtOperationsPage();
+    });
+    document.getElementById('bsgtOperationsConsignee')?.addEventListener('change',event=>{
+      bsgtOperationsListState.consignee=event.target.value;
       bsgtOperationsListState.page=1;
       loadBsgtOperationsPage();
     });

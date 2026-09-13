@@ -100,6 +100,7 @@ async function main(){
     let currentStage = 'operations_draft';
     let files = initialFiles.map(file=>({...file}));
     let imageApiCalls = 0;
+    const shipmentPageRequests = [];
     await context.route('https://upload.wikimedia.org/jahez-test.png', route=>route.fulfill({
       status:200,
       contentType:'image/svg+xml',
@@ -141,8 +142,16 @@ async function main(){
       }
       if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200,headers,body:JSON.stringify([{id:companyId,name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}}])});
       if(url.pathname==='/rest/v1/shipments'){
+        if(url.searchParams.get('select')==='data') return route.fulfill({status:200,headers,body:JSON.stringify([
+          {data:{consignee:'TEST BUYER'}},
+          {data:{consignee:'STANDER FOR IMPORT AND EXPORT CO.LTD'}}
+        ])});
+        if(request.method()==='GET'){
+          shipmentPageRequests.push(url.toString());
+        }
         const single = String(request.headers().accept||'').includes('vnd.pgrst.object');
-        return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/1'},body:JSON.stringify(single?shipmentRow(currentStage):[shipmentRow(currentStage)])});
+        const total=String(request.headers().prefer||'').includes('count=exact')?11:1;
+        return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?shipmentRow(currentStage):[shipmentRow(currentStage)])});
       }
       if(url.pathname==='/rest/v1/shipment_files'){
         shipmentFileReads++;
@@ -179,9 +188,39 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-wide-images-1')), 'operations CSS uses the wide-layout cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-operations-filter-1')), 'operations CSS uses the filter-layout cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-full-shipment-1')), 'operations JS uses the full-shipment cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
+    await page.waitForFunction(()=>document.querySelectorAll('#bsgtOperationsConsignee option').length===3);
+    assert.deepStrictEqual(await page.locator('#bsgtOperationsConsignee option').allTextContents(), ['كل المرسل إليهم','STANDER FOR IMPORT AND EXPORT CO.LTD','TEST BUYER'], 'consignee filter uses current BSGT shipment values');
+    assert.strictEqual(await page.locator('.bsgt-operations-row .bsgt-commodity-thumb').count(), 0, 'the shipment list has no commodity images or placeholders');
+    assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb').count(), 0, 'the detail header has no commodity image or placeholder');
+    assert.strictEqual(await page.locator('#bsgtCommodityImageAdmin').count(), 0, 'the commodity image change action is not rendered');
+    await page.waitForTimeout(200);
+    assert.strictEqual(imageApiCalls, 0, 'Operations does not request the commodity image API');
+
+    await page.locator('#bsgtOperationsSearch').fill('TEST');
+    await page.waitForTimeout(400);
+    assert.ok(new URL(shipmentPageRequests.at(-1)).searchParams.get('or')?.includes('TEST'), 'search is applied to the server-side query');
+    await page.locator('#bsgtOperationsConsignee').selectOption('TEST BUYER');
+    await page.waitForTimeout(100);
+    let latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
+    assert.strictEqual(latestShipmentQuery.searchParams.get('data->>consignee'), 'eq.TEST BUYER', 'consignee is applied to the server-side query');
+    assert.ok(latestShipmentQuery.searchParams.get('or')?.includes('TEST'), 'search and consignee filter are combined');
+    assert.match(await page.locator('.bsgt-operations-row').first().textContent(), /TEST BUYER/, 'selected consignee results remain visible');
+    await page.locator('#bsgtOperationsSearch').fill('');
+    await page.waitForTimeout(400);
+    await page.locator('#bsgtOperationsConsignee').selectOption('');
+    await page.waitForTimeout(100);
+    latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
+    assert.strictEqual(latestShipmentQuery.searchParams.has('data->>consignee'), false, 'all consignees clears the server-side filter');
+    await page.evaluate(()=>{bsgtOperationsListState.total=11;renderBsgtOperationsRows();});
+    const requestsBeforePaging=shipmentPageRequests.length;
+    await page.locator('[data-bsgt-page="2"]').click();
+    await page.waitForFunction(()=>bsgtOperationsListState.page===2);
+    await page.waitForTimeout(100);
+    assert.ok(shipmentPageRequests.length>requestsBeforePaging, 'pagination requests the next server-side page');
+    await page.evaluate(()=>{bsgtOperationsListState.page=1;bsgtOperationsListState.total=11;renderBsgtOperationsRows();});
 
     for(const {width,height} of [{width:390,height:844},{width:768,height:900}]){
       await page.setViewportSize({width,height});
@@ -253,11 +292,7 @@ async function main(){
     assert.deepStrictEqual(stagePresentations.sent_to_collecting,{current:null,completed:4,detail:'تم الإرسال للبنك المحصل',completeBadge:true});
     assert.strictEqual(await page.locator('.bsgt-operations-kpi').count(), 3, 'operations KPIs are rendered');
     assert.strictEqual(await page.locator('.bsgt-operations-row.is-selected').count(), 1, 'the selected shipment is highlighted');
-    assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb.is-large').count(), 1, 'the detail image frame is rendered');
-    await page.waitForTimeout(1000);
-    const commodityImageState = await page.evaluate(()=>[...document.querySelectorAll('.bsgt-commodity-thumb img')].map(image=>({src:image.src,hidden:image.hidden,complete:image.complete,naturalWidth:image.naturalWidth})));
-    assert.ok(imageApiCalls >= 1, `commodity image endpoint is requested: ${JSON.stringify(commodityImageState)}`);
-    assert.ok(commodityImageState.some(image=>!image.hidden && image.naturalWidth>0), `successful commodity image replaces the placeholder: ${JSON.stringify(commodityImageState)}`);
+    assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb').count(), 0, 'the detail remains image-free after responsive checks');
     await page.locator('[data-bsgt-operation-open]').click();
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
     await page.locator('#bsgtOperationsQuickDocumentsPanel').waitFor();

@@ -67,21 +67,18 @@
 .bsgt-operations-workspace{display:grid;grid-template-columns:360px minmax(0,1fr);direction:ltr;min-width:0;min-height:620px;border:1px solid #e5eaf0;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(21,35,59,.045);overflow:hidden}
 .bsgt-operations-navigator,.bsgt-operations-detail{direction:rtl;min-width:0}
 .bsgt-operations-navigator{display:flex;flex-direction:column;border-right:1px solid #e5eaf0;background:#fbfcfe}
-.bsgt-operations-tools{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:8px;padding:12px;border-bottom:1px solid #e5eaf0}
+.bsgt-operations-tools{display:grid;gap:8px;padding:12px;border-bottom:1px solid #e5eaf0}
 .bsgt-operations-search{display:flex;align-items:center;gap:7px;min-width:0;padding:0 10px;border:1px solid #dfe5ec;border-radius:10px;background:#fff;color:#718096}
 .bsgt-operations-search:focus-within{border-color:#ea1b23;box-shadow:0 0 0 3px rgba(234,27,35,.1)}
 .bsgt-operations-search input{width:100%;min-width:0;height:36px;border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;font-size:10px}
-.bsgt-operations-tools select{min-width:0;height:38px;padding:0 8px;border:1px solid #dfe5ec;border-radius:10px;background:#fff;color:#344054;font-size:10px}
+.bsgt-operations-tool-row{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:8px}
+.bsgt-operations-consignee-filter,.bsgt-operations-sort-filter{display:grid;min-width:0;gap:4px;color:#667085;font-size:8px;font-weight:700}
+.bsgt-operations-tools select{width:100%;min-width:0;height:36px;padding:0 8px;border:1px solid #dfe5ec;border-radius:10px;background:#fff;color:#344054;font-size:10px}
+.bsgt-operations-tools select:focus{border-color:#ea1b23;outline:0;box-shadow:0 0 0 3px rgba(234,27,35,.1)}
 .bsgt-operations-list{flex:1;overflow:auto;border:0;border-radius:0;background:transparent}
-.bsgt-operations-row{display:flex;position:relative;align-items:center;gap:10px;padding:13px 12px;border:0;border-bottom:1px solid #e9edf2;background:transparent;cursor:pointer;transition:background .18s,border-color .18s,box-shadow .18s}
+.bsgt-operations-row{display:flex;position:relative;align-items:center;gap:8px;padding:11px 12px;border:0;border-bottom:1px solid #e9edf2;background:transparent;cursor:pointer;transition:background .18s,border-color .18s,box-shadow .18s}
 .bsgt-operations-row:hover{background:#fff}
-.bsgt-operations-row.is-selected{margin:5px 7px;padding:12px 9px;border:1px solid #ea1b23;border-radius:12px;background:#fff7f7;box-shadow:0 5px 14px rgba(208,17,25,.07)}
-.bsgt-commodity-thumb{display:grid;position:relative;place-items:center;flex:0 0 56px;width:56px;height:56px;overflow:hidden;border:1px solid #e3e8ef;border-radius:12px;background:linear-gradient(145deg,#f7f9fb,#edf1f5);color:#8a97a8}
-.bsgt-commodity-thumb.is-large{flex-basis:82px;width:82px;height:82px;border-radius:16px}
-.bsgt-commodity-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .18s ease}
-.bsgt-commodity-thumb img:not([src]){visibility:hidden}
-.bsgt-commodity-thumb.has-image img{visibility:visible;opacity:1}
-.bsgt-commodity-placeholder{display:grid;place-items:center;width:100%;height:100%}
+.bsgt-operations-row.is-selected{margin:5px 7px;padding:10px 9px;border:1px solid #ea1b23;border-radius:12px;background:#fff7f7;box-shadow:0 5px 14px rgba(208,17,25,.07)}
 .bsgt-operations-row-copy{min-width:0;flex:1}
 .bsgt-operations-row-copy>div{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .bsgt-operations-row-copy>div>b{font-size:11px;direction:ltr}
@@ -89,7 +86,7 @@
 .bsgt-operations-row-copy strong{display:block;margin-top:4px;overflow:hidden;color:#15233b;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
 .bsgt-operations-row-copy small{display:block;margin-top:2px;overflow:hidden;color:#73839b;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
 .bsgt-operations-row-copy em{display:block;margin-top:3px;color:#7b8798;font-size:8px;font-style:normal}
-.bsgt-operations-row-copy>.bsgt-operations-progress{display:block;height:3px;margin-top:7px;overflow:hidden;border-radius:10px;background:#e4e8ee}
+.bsgt-operations-row-copy>.bsgt-operations-progress{display:block;height:2px;margin-top:6px;overflow:hidden;border-radius:10px;background:#e4e8ee}
 .bsgt-operations-row-copy>.bsgt-operations-progress i{display:block;height:100%;border-radius:inherit;background:linear-gradient(135deg,#ea1b23,#d01119)}
 .bsgt-operations-row-arrow{display:grid;place-items:center;flex:0 0 22px;color:#667085;transform:rotate(180deg)}
 .bsgt-operations-row .bsgt-operations-returned{font-size:8px}
@@ -101,7 +98,7 @@
 .bsgt-operations-detail-empty span{margin-top:5px;font-size:10px}
 .bsgt-operations-mobile-back{display:none}
 .bsgt-operations-detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;border-bottom:1px solid #e5eaf0}
-.bsgt-operations-detail-identity{display:flex;align-items:center;gap:13px;min-width:0}
+.bsgt-operations-detail-identity{display:flex;align-items:center;min-width:0}
 .bsgt-operations-detail-identity>div{min-width:0}
 .bsgt-operations-detail-identity h3{display:inline-block;margin:5px 8px 2px 0;color:#15233b;font-size:18px;direction:ltr}
 .bsgt-operations-detail-identity>div>b,.bsgt-operations-detail-identity small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -190,12 +187,10 @@
 @media(max-width:650px){
   .bsgt-operations-head{padding:14px}.bsgt-operations-head p{line-height:1.6}.bsgt-operations-title-icon{display:none}
   .bsgt-operations-kpis{grid-template-columns:1fr}.bsgt-operations-kpi{padding:12px 14px}
-  .bsgt-operations-tools{grid-template-columns:1fr 100px}
   .bsgt-operations-detail-head{align-items:flex-start;flex-direction:column;padding:13px}
   .bsgt-operations-detail-actions{width:100%}.bsgt-operations-detail-actions .btn{flex:1}
   .bsgt-operations-quick-document-list{grid-template-columns:1fr}
   .bsgt-operations-quick-open{justify-self:stretch;width:100%;min-width:0}
-  .bsgt-commodity-thumb.is-large{flex-basis:68px;width:68px;height:68px}
   .bsgt-operations-top-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bsgt-operations-tabs{padding:0 8px}.bsgt-operations-tabs button{padding:12px 9px;font-size:10px}
   .bsgt-operations-tab-panel{padding:10px}
