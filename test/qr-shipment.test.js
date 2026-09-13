@@ -148,9 +148,9 @@ async function main() {
     assert.match(beforePackage, /الحزمة الكاملة قيد التجهيز/);
     assert.match(beforePackage, /لم يتم إنشاء PDF الكامل بعد/);
     assert.match(beforePackage, /BSGTX-2026-0023/);
-    assert.match(beforePackage, /BL-0023/);
     assert.match(beforePackage, /permit-v1\.pdf/);
     assert.match(beforePackage, /bill\.pdf/);
+    assert.doesNotMatch(beforePackage, /TROLLEY CASE|INV-0023|BL-0023|PUBLIC TRADING LLC|7150|CHINA|ATBARA DRY PORT/);
     assert.doesNotMatch(beforePackage, /api\/qr-package/);
     assert.doesNotMatch(beforePackage, /SECRET BANK ACCOUNT|PRIVATE ADDRESS|PRIVATE ADMIN NOTE|USD 99999/);
     assert.doesNotMatch(beforePackage, /private-collection-letter|خطاب التحصيل/);

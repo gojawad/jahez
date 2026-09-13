@@ -95,36 +95,11 @@ function publicDocuments(files) {
   });
 }
 
-function field(label, value) {
-  const text = String(value || '').trim();
-  return text ? `<div class="field"><b>${escapeHtml(label)}</b><span>${escapeHtml(text)}</span></div>` : '';
-}
-
-function quantityText(r) {
-  return [r.totalQty || r.qty, r.qtyUnit].filter(value => String(value || '').trim()).join(' ');
-}
-
 function buildShipmentPage(row, files, token) {
   const r = Object.assign({}, row.data || {});
   const operationNo = r.operationNo || 'بيانات الشحنة';
-  const title = r.itemDesc || operationNo;
+  const title = `مستندات الشحنة | ${operationNo}`;
   const packageReady = Boolean(TOKEN_RE.test(token) && safeStoragePath(r.qrPackagePath));
-  const details = [
-    ['رقم العملية', operationNo],
-    ['رقم الفاتورة', r.invoiceNo],
-    ['تاريخ الفاتورة', r.invoiceDate],
-    ['رقم البوليصة', r.billNo || r.billOfLadingNo],
-    ['رقم الفاتورة المبدئية', r.proformaNo],
-    ['تاريخ الفاتورة المبدئية', r.proformaDate],
-    ['المستلم', r.consignee],
-    ['وصف البضاعة', r.itemDesc],
-    ['الكمية', quantityText(r)],
-    ['نوع التعبئة', r.qtyUnit || r.packageType],
-    ['HS Code', r.hsCode],
-    ['بلد المنشأ', r.countryOrigin],
-    ['ميناء الشحن', r.portLoading],
-    ['ميناء الوصول', r.portDischarge]
-  ].map(([label, value]) => field(label, value)).join('');
   const docs = files.map(file => {
     const label = DOCUMENT_LABELS[file.__publicType] || 'مرفق الشحنة';
     const href = `/api/public-shipment?token=${encodeURIComponent(token)}&document=${encodeURIComponent(file.id)}`;
@@ -133,7 +108,7 @@ function buildShipmentPage(row, files, token) {
   const packageAction = packageReady
     ? `<a class="package-button" href="/api/qr-package?token=${encodeURIComponent(token)}" target="_blank" rel="noopener">عرض الحزمة الكاملة PDF</a>`
     : '';
-  return page(title, `<header class="head"><div><div class="brand">BAHAR SWAKEN GENERAL TRADING L.L.C</div><h1>${escapeHtml(title)}</h1><div class="operation">${escapeHtml(operationNo)}</div></div><div class="verified"><i></i> صفحة تحقق رسمية</div></header><section class="status"><div><b>${packageReady ? 'الحزمة الكاملة جاهزة' : 'الحزمة الكاملة قيد التجهيز'}</b><span>${packageReady ? 'يمكن عرض أحدث نسخة من ملف PDF الكامل.' : 'لم يتم إنشاء PDF الكامل بعد، وبيانات الشحنة والمستندات المتاحة تظهر أدناه.'}</span></div>${packageAction}</section><section class="grid">${details || field('رقم العملية', operationNo)}</section><section class="section"><div class="section-title"><h2>مستندات الشحنة المتاحة</h2><span>${files.length} مستند</span></div><div class="docs">${docs || '<div class="empty">لا توجد مستندات عامة متاحة حتى الآن. ستظهر هنا تلقائياً بعد رفعها.</div>'}</div></section><footer class="foot">هذه الصفحة تعرض بيانات التحقق المسموح بها فقط، ولا تعرض البيانات الإدارية أو المصرفية الداخلية.</footer>`);
+  return page(title, `<header class="head"><div><div class="brand">BAHAR SWAKEN GENERAL TRADING L.L.C</div><h1>مستندات الشحنة</h1><div class="operation">${escapeHtml(operationNo)}</div></div><div class="verified"><i></i> صفحة تحقق رسمية</div></header><section class="status"><div><b>${packageReady ? 'الحزمة الكاملة جاهزة' : 'الحزمة الكاملة قيد التجهيز'}</b><span>${packageReady ? 'يمكن عرض أحدث نسخة من ملف PDF الكامل.' : 'لم يتم إنشاء PDF الكامل بعد، والمستندات المتاحة تظهر أدناه.'}</span></div>${packageAction}</section><section class="section"><div class="section-title"><h2>الملفات المتاحة</h2><span>${files.length} مستند</span></div><div class="docs">${docs || '<div class="empty">لا توجد ملفات متاحة حتى الآن. ستظهر هنا تلقائياً بعد رفعها.</div>'}</div></section><footer class="foot">صفحة التحقق من مستندات الشحنة.</footer>`);
 }
 
 async function loadPublicShipment(token, id) {
