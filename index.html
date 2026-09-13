@@ -9519,8 +9519,11 @@ function bsgtOperationsMoney(record){
 
 function bsgtOperationsOverviewFields(record){
   const money = bsgtOperationsMoney(record);
+  const quantity = String(record.totalQty || record.qty || record.numberOfPackages || '').trim();
+  const unit = String(record.qtyUnit || '').trim();
+  const shownQuantity = quantity && unit && !quantity.toLowerCase().includes(unit.toLowerCase()) ? `${quantity} ${unit}` : quantity;
   return [
-    ['رقم العملية',record.operationNo],['رقم البوليصة',record.billNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],
+    ['رقم العملية',record.operationNo],['رقم الفاتورة',record.invoiceNo],['رقم البوليصة',record.billNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],['الكمية',shownQuantity],
     ['بلد المنشأ',record.countryOrigin||record.countryOfOrigin],['ميناء الشحن',record.portLoading],['ميناء الوصول',record.portDischarge],
     ['تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate],['عدد الحاويات',record.containers||record.containerCount||record.containerNo],
     ['الوزن',record.weight||record.totalWeight||record.grossWeight],['القيمة',money.amount],['العملة',money.currency]

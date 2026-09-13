@@ -41,7 +41,7 @@ function shipmentRow(stage = 'operations_draft'){
     bsgt_stage_updated_at:'2026-09-12T06:00:00Z', operations_completed_at:stage==='ready_for_finance'?'2026-09-12T07:00:00Z':null,
     operations_completed_by:stage==='ready_for_finance'?userId:null,
     created_at:'2026-09-12T06:00:00Z', updated_at:'2026-09-12T06:00:00Z',
-    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',totalAmount:'USD 100.00'}
+    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',qtyUnit:'PACKAGES',totalAmount:'USD 100.00'}
   };
 }
 
@@ -198,7 +198,10 @@ async function main(){
     assert.strictEqual(await page.locator('.bsgt-operations-row .bsgt-commodity-thumb').count(), 0, 'the shipment list has no commodity images or placeholders');
     assert.strictEqual(await page.locator('.bsgt-operations-detail .bsgt-commodity-thumb').count(), 0, 'the detail header has no commodity image or placeholder');
     assert.strictEqual(await page.locator('#bsgtCommodityImageAdmin').count(), 0, 'the commodity image change action is not rendered');
-    assert.match((await page.locator('[data-bsgt-ops-panel="overview"]').textContent()).replace(/\s+/g,' '), /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
+    const overviewText=(await page.locator('[data-bsgt-ops-panel="overview"]').textContent()).replace(/\s+/g,' ');
+    assert.match(overviewText, /رقم الفاتورة\s*INV-99/, 'shipment overview shows the invoice number');
+    assert.match(overviewText, /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
+    assert.match(overviewText, /الكمية\s*10 PACKAGES/, 'shipment overview shows the quantity and unit');
     await page.waitForTimeout(200);
     assert.strictEqual(imageApiCalls, 0, 'Operations does not request the commodity image API');
 
