@@ -1,3 +1,5 @@
+#viewBsgtWorkspace .bsgt-operations,
+#viewBsgtWorkspace .bsgt-operations *{font-family:'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif}
 .bsgt-operations{display:grid;gap:16px;color:#17243a}
 .bsgt-operations-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 22px;border:1px solid #e5e7eb;border-radius:16px;background:#fff}
 .bsgt-operations-head h3{margin:0 0 4px;color:#15233b;font-size:22px}

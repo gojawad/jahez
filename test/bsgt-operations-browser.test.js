@@ -188,9 +188,11 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-operations-filter-1')), 'operations CSS uses the filter-layout cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-operations-ibm-1')), 'operations CSS uses the IBM font cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260912-full-shipment-1')), 'operations JS uses the full-shipment cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
+    const operationsFonts=await page.locator('.bsgt-operations h3, .bsgt-operations input, .bsgt-operations select, .bsgt-operations button').evaluateAll(elements=>elements.map(element=>getComputedStyle(element).fontFamily));
+    assert.ok(operationsFonts.length>0&&operationsFonts.every(font=>font.includes('IBM Plex Sans Arabic')), 'all Operations text controls use IBM Plex Sans Arabic');
     await page.waitForFunction(()=>document.querySelectorAll('#bsgtOperationsConsignee option').length===3);
     assert.deepStrictEqual(await page.locator('#bsgtOperationsConsignee option').allTextContents(), ['كل المرسل إليهم','STANDER FOR IMPORT AND EXPORT CO.LTD','TEST BUYER'], 'consignee filter uses current BSGT shipment values');
     assert.strictEqual(await page.locator('.bsgt-operations-row .bsgt-commodity-thumb').count(), 0, 'the shipment list has no commodity images or placeholders');
