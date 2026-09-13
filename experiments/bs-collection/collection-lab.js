@@ -45,6 +45,9 @@ let selectedTextBlock = null;
 let selectedTextStyle = null;
 let remittingBatches = [];
 let portalRole = '';
+let employeeStampMoveMode = false;
+// Employee placement belongs to this selection and document, never the shared template.
+const employeeStampPositions = new Map();
 let sharedCollectionBranding = {};
 let sharedCollectionCompany = null;
 let sharedCollectionDocumentLayouts = null;
@@ -237,6 +240,7 @@ function setPortalUserProfile(user, profile){
   portalRole=profile?.role||'';
   document.body.classList.toggle('role-bsgt-portal-user',portalRole==='bsgt_user');
   document.body.classList.toggle('role-collection-preview-only',portalRole!=='admin');
+  $('moveStampBtn').hidden=!portalRole||portalRole==='admin';
   const role=portalRoleLabels[profile?.role]||'الحساب الحالي';
   $('portalUserName').textContent=name;
   $('portalUserRole').textContent=role;
@@ -1107,6 +1111,13 @@ document.querySelectorAll('[data-collapse-section]').forEach(button=>button.addE
 }));
 document.querySelectorAll('[data-step-section]').forEach(card=>card.addEventListener('click',()=>openPortalSection(card.dataset.stepSection)));
 $('printAllBtn').addEventListener('click', printAllCollectionDocuments);
+$('moveStampBtn').addEventListener('click',()=>{
+  if(!portalRole||portalRole==='admin') return;
+  employeeStampMoveMode=!employeeStampMoveMode;
+  $('moveStampBtn').setAttribute('aria-pressed',String(employeeStampMoveMode));
+  $('moveStampBtn').innerHTML=employeeStampMoveMode?'<i class="bx bx-check"></i> تم تحديد موضع الختم':'<i class="bx bx-move"></i> تحريك الختم';
+  renderPreview();
+});
 $('saveDocumentLayoutBtn').addEventListener('click',saveCurrentDocumentLayout);
 $('previewFocusBtn').addEventListener('click',()=>{ document.querySelector('.preview-section')?.classList.add('is-preview-focus'); updateDocumentEditorState(); });
 $('closePreviewFocusBtn').addEventListener('click',()=>document.querySelector('.preview-section')?.classList.remove('is-preview-focus'));
@@ -1331,9 +1342,12 @@ function fitCollectionContent(content){
 
 function wireCollectionStampDrag(paper){
   const stamp = paper.querySelector('.collection-stamp-overlay');
-  if(!stamp || portalRole!=='admin') return;
+  if(!stamp || !portalRole) return;
+  const isAdmin=portalRole==='admin';
   const preview=state.preview;
-  const canResize=preview==='letter';
+  const placementKey=JSON.stringify([requestedTradeFileId||'', [...state.selected].sort(), preview]);
+  const canResize=isAdmin&&preview==='letter';
+  if(!isAdmin) stamp.querySelectorAll('.stamp-resize-handle').forEach(handle=>handle.remove());
   let saved = {widthMm:0,positions:{}};
   try { saved = Object.assign(saved, JSON.parse(localStorage.getItem(stampTransformStorageKey) || '{}')); } catch (_) {}
   saved.positions=saved.positions||{};
@@ -1346,7 +1360,7 @@ function wireCollectionStampDrag(paper){
   if(!saved.widthMm){
     saved.widthMm=defaultWidthMm*(Number(saved.scale)||1);
   }
-  const position=saved.positions[preview]||{
+  const position=(!isAdmin&&employeeStampPositions.get(placementKey))||saved.positions[preview]||{
     xMm:Number.isFinite(saved.xMm)?saved.xMm:(stampRect.left-paperRect.left)/pxPerMm,
     yMm:Number.isFinite(saved.yMm)?saved.yMm:(stampRect.top-paperRect.top)/pxPerMm
   };
@@ -1357,6 +1371,11 @@ function wireCollectionStampDrag(paper){
     stamp.style.width = `${Math.max(12,saved.widthMm)*pxPerMm}px`;
   };
   apply();
+  if(!isAdmin){
+    stamp.title=employeeStampMoveMode?'اسحب الختم إلى الموضع المطلوب':'اضغط تحريك الختم لتحديد موضعه';
+    stamp.style.cursor=employeeStampMoveMode?'grab':'default';
+    if(!employeeStampMoveMode) return;
+  }
   stamp.addEventListener('pointerdown', event=>{
     event.preventDefault();
     recordLayoutHistory();
@@ -1369,6 +1388,10 @@ function wireCollectionStampDrag(paper){
       if(!handle){
         position.xMm = start.baseX + dx;
         position.yMm = start.baseY + dy;
+        if(!isAdmin){
+          position.xMm=Math.max(0,Math.min(210-saved.widthMm,position.xMm));
+          position.yMm=Math.max(0,Math.min(297-saved.widthMm*(defaultHeightMm/defaultWidthMm),position.yMm));
+        }
       }else{
         const horizontal=handle.includes('e')||handle.includes('w');
         const vertical=handle.includes('n')||handle.includes('s');
@@ -1379,7 +1402,18 @@ function wireCollectionStampDrag(paper){
       }
       apply();
     };
-    const finish = ()=>{ try { localStorage.setItem(stampTransformStorageKey, JSON.stringify(saved)); } catch (_) {} markDocumentLayoutDirty(); stamp.removeEventListener('pointermove', move); stamp.removeEventListener('pointerup', finish); stamp.removeEventListener('pointercancel', finish); };
+    const finish = ()=>{
+      if(isAdmin){
+        try { localStorage.setItem(stampTransformStorageKey, JSON.stringify(saved)); } catch (_) {}
+        markDocumentLayoutDirty();
+      }else{
+        employeeStampPositions.set(placementKey,{...position});
+      }
+      if(!isAdmin) stamp.classList.remove('is-selected');
+      stamp.removeEventListener('pointermove', move);
+      stamp.removeEventListener('pointerup', finish);
+      stamp.removeEventListener('pointercancel', finish);
+    };
     stamp.addEventListener('pointermove', move);
     stamp.addEventListener('pointerup', finish);
     stamp.addEventListener('pointercancel', finish);

@@ -157,6 +157,55 @@ async function main() {
     assert.strictEqual(await page.evaluate(()=>textOffsetForPreview().x),7,'employee receives the centrally saved layout instead of stale local formatting');
     assert.strictEqual(await page.locator('#saveDocumentLayoutBtn').isVisible(),false,'employee cannot edit or publish document layouts');
 
+    await page.locator('[data-step-section="picker-section"]').click();
+    await page.locator('.shipment-card').first().click();
+    await page.locator('[data-step-section="preview-section"]').click();
+    await page.evaluate(()=>{
+      sharedCollectionBranding.stamp='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="45" fill="blue"/></svg>');
+      renderPreview();
+    });
+    const employeeBefore=await page.evaluate(()=>({
+      template:localStorage.getItem('__testSharedCollectionSettings'),
+      stamp:localStorage.getItem('bsCollectionStampTransformA4'),
+      texts:localStorage.getItem('bsCollectionTextOffsets')
+    }));
+    await page.locator('#moveStampBtn').click();
+    const stamp=page.locator('#documentPreview .collection-stamp-overlay');
+    await stamp.scrollIntoViewIfNeeded();
+    const stampBefore=await stamp.boundingBox();
+    await page.mouse.move(stampBefore.x+stampBefore.width/2,stampBefore.y+stampBefore.height/2);
+    await page.mouse.down();
+    await page.mouse.move(stampBefore.x+stampBefore.width/2-40,stampBefore.y+stampBefore.height/2-30,{steps:5});
+    await page.mouse.up();
+    const moved=await stamp.evaluate(node=>({left:node.style.left,top:node.style.top}));
+    assert.ok((await stamp.boundingBox()).x<stampBefore.x-30,'employee can drag the stamp');
+    assert.strictEqual(await stamp.locator('.stamp-resize-handle').count(),0,'employee cannot resize the stamp');
+    await page.locator('#moveStampBtn').click();
+    assert.deepStrictEqual(await stamp.evaluate(node=>({left:node.style.left,top:node.style.top})),moved,'placement survives preview regeneration used by printing');
+    const employeeAfter=await page.evaluate(()=>({
+      template:localStorage.getItem('__testSharedCollectionSettings'),
+      stamp:localStorage.getItem('bsCollectionStampTransformA4'),
+      texts:localStorage.getItem('bsCollectionTextOffsets')
+    }));
+    assert.deepStrictEqual(employeeAfter,employeeBefore,'employee placement does not change shared or local template settings');
+    assert.strictEqual(await page.locator('.document-editor-panel').isVisible(),false);
+    const printed=await page.evaluate(()=>{
+      let html='';
+      const originalOpen=window.open;
+      window.open=()=>({document:{write(value){html=value},close(){}},print(){}});
+      try { printAllCollectionDocuments(); } finally { window.open=originalOpen; }
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      return [...doc.querySelectorAll('.collection-stamp-overlay')].map(node=>({left:node.style.left,top:node.style.top}));
+    });
+    assert.strictEqual(printed.length,3);
+    assert.deepStrictEqual(printed[0],moved,'printed collection letter uses the employee placement');
+    assert.notDeepStrictEqual(printed[1],moved,'other document positions remain independent');
+    await page.locator('[data-step-section="picker-section"]').click();
+    await page.locator('.shipment-card').first().click();
+    await page.locator('.shipment-card').nth(1).click();
+    await page.locator('[data-step-section="preview-section"]').click();
+    assert.notDeepStrictEqual(await stamp.evaluate(node=>({left:node.style.left,top:node.style.top})),moved,'another shipment does not inherit employee placement');
+
     await page.evaluate(()=>localStorage.setItem('__testPortalRole','admin'));
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor({state:'attached'});
