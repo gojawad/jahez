@@ -1312,7 +1312,7 @@
     // proforma/invoice it's opt-in per shipment via the entry form's "إظهار في الفاتورة" toggle.
     const showWeight = isPack || !!record.bsgtShowWeight;
     const showUnitPriceValue = !isPack && (proforma || record.bsgtShowFinalUnitPrice !== false);
-    const itemRows = visibleRows.map((row, index) => `<tr><td class="bs-product-value desc">${safe(row.description)}</td><td class="bs-product-value">${safe(row.quantity)}</td><td class="bs-product-value">${safe(row.packaging)}</td><td class="bs-product-value">${safe(row.hsCode)}</td>${showWeight ? `<td class="bs-product-value">${index === 0 ? safe(record.grossWeight || '—') : ''}</td>` : ''}${isPack ? '' : `<td class="bs-product-value">${showUnitPriceValue ? safe(row.price) : ''}</td><td class="bs-product-value">${safe(row.amount)}</td>`}</tr>`).join('');
+    const itemRows = visibleRows.map((row, index) => `<tr><td class="bs-product-value desc">${safe(row.description)}</td><td class="bs-product-value">${safe(row.quantity)}</td><td class="bs-product-value">${safe(row.packaging)}</td><td class="bs-product-value">${safe(row.hsCode)}</td>${showWeight ? `<td class="bs-product-value">${index === 0 ? safe(record.grossWeight || '—') : ''}</td>` : ''}${isPack ? '' : `<td class="bs-product-value">${showUnitPriceValue ? safe(row.price) : ''}</td><td class="bs-product-value">${showUnitPriceValue ? safe(row.amount) : ''}</td>`}</tr>`).join('');
     let bankRaw = (record.bankDetails || '').trim();
     if (!bankRaw) {
       const legacy = [];

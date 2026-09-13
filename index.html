@@ -15909,7 +15909,7 @@ function setBsgtUnitPriceToggle(on){
   document.getElementById('bsgt_unitPriceToggle').classList.toggle('btn-primary', on);
   document.getElementById('bsgt_unitPriceToggle').classList.toggle('btn-ghost', !on);
   document.getElementById('bsgt_unitPriceToggle').textContent = on ? 'ظاهر في النهائية ✓' : 'مخفي من النهائية';
-  document.getElementById('bsgt_unitPriceToggleHint').textContent = on ? 'يؤثر على الفاتورة النهائية فقط' : 'قيم سعر الوحدة مخفية — يبقى العمود والمبلغ الإجمالي ظاهرين';
+  document.getElementById('bsgt_unitPriceToggleHint').textContent = on ? 'يؤثر على الفاتورة النهائية فقط' : 'قيم سعر الوحدة ومبلغ كل صنف مخفية — يبقى العمودان والمبلغ الإجمالي ظاهرة';
 }
 document.getElementById('bsgt_unitPriceToggle').addEventListener('click', ()=> setBsgtUnitPriceToggle(!bsgtShowFinalUnitPrice));
 
@@ -18444,7 +18444,7 @@ function baharSwakenInvoiceSheet(r, kind, lang){
   }).filter((item, index) => index === 0 || item.description || item.quantity || item.packaging);
   const displayRows = Array.from({length:Math.max(5, items.length)}, (_, index) => items[index] || {});
   const showUnitPriceValue = isProforma || r.bsgtShowFinalUnitPrice !== false;
-  const rows = displayRows.map(item => `<tr><td class="desc">${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(item.packaging)}</td><td>${esc(item.hsCode)}</td><td>${esc(r.grossWeight||'—')}</td><td>${showUnitPriceValue ? esc(item.price) : ''}</td><td>${esc(item.amount)}</td></tr>`).join('');
+  const rows = displayRows.map(item => `<tr><td class="desc">${esc(item.description)}</td><td>${esc(item.quantity)}</td><td>${esc(item.packaging)}</td><td>${esc(item.hsCode)}</td><td>${esc(r.grossWeight||'—')}</td><td>${showUnitPriceValue ? esc(item.price) : ''}</td><td>${showUnitPriceValue ? esc(item.amount) : ''}</td></tr>`).join('');
   // تصغير تدريجي لجدول البنود مع زيادة عدد الأصناف — يمنع الجدول من الامتداد
   // فوق مكان الختم الثابت (كان بيحصل تداخل مزعج مع القوالب اللي فيها أصناف كتيرة).
   const baharRows = displayRows.length;
@@ -20487,7 +20487,7 @@ async function drawBsgtPdfPage(doc, record, kind, embeddedFonts){
   for(let index=1; index<=shownRows; index++) line(left, top-headH-index*rowH, right);
   headers.forEach((header,index) => bsgtPdfText(page, header, columns[index].x+3, top-5, columns[index].width-6, {font:bold,size:6.6,color:transparentCells ? ink : rgb(1,1,1),align:'center',maxLines:1}));
   rows.slice(0,shownRows).forEach((row,rowIndex) => {
-    const values = isPacking ? [row.description,row.quantity,row.packaging,row.hsCode,rowIndex === 0 ? (record.grossWeight || '') : ''] : [row.description,row.quantity,row.packaging,row.hsCode,showUnitPriceValue ? row.price : '',row.amount];
+    const values = isPacking ? [row.description,row.quantity,row.packaging,row.hsCode,rowIndex === 0 ? (record.grossWeight || '') : ''] : [row.description,row.quantity,row.packaging,row.hsCode,showUnitPriceValue ? row.price : '',showUnitPriceValue ? row.amount : ''];
     values.forEach((value,index) => bsgtPdfText(page, value || '', columns[index].x+4, top-headH-rowIndex*rowH-5, columns[index].width-8, {font,index,size:index===0 ? 8.5 : 8,color:ink,align:index===0?'left':'center',maxLines:1}));
   });
   top -= tableH + 9;
