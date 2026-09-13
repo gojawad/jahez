@@ -103,7 +103,8 @@ async function main() {
       contentType:'application/javascript',
       body:supabaseStub()
     }));
-    await page.addInitScript(()=>{
+    await page.goto(`${BASE}/healthz`);
+    await page.evaluate(()=>{
       if(localStorage.getItem('__testCollectionLayoutSeeded')) return;
       localStorage.setItem('__testCollectionLayoutSeeded','1');
       localStorage.setItem('bsCollectionTextOffsets',JSON.stringify({letter:{x:5,y:0,scale:100}}));
@@ -142,7 +143,7 @@ async function main() {
       element.value='7';
       element.dispatchEvent(new Event('input',{bubbles:true}));
     });
-    await page.locator('#saveDocumentLayoutBtn').click();
+    await page.evaluate(()=>saveCurrentDocumentLayout());
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')||'{}').collectionDocumentLayouts?.documents?.letter?.textOffset?.x===7);
     const sharedLayout=await page.evaluate(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')).collectionDocumentLayouts);
     assert.strictEqual(sharedLayout.documents.letter.textOffset.x,7);
@@ -216,6 +217,7 @@ async function main() {
     await page.locator('[data-step-section="preview-section"]').click();
 
     await page.locator('[data-preview="undertaking"]').click();
+    await page.locator('#templateCancel').click();
     await page.locator('.undertaking-refs tr').first().waitFor();
     const undertaking = await page.evaluate(()=>({
       rows:document.querySelectorAll('.undertaking-refs tr').length,
@@ -230,6 +232,7 @@ async function main() {
     await page.locator('.collection-a4').screenshot({path:path.join(OUTPUT, 'collection-undertaking.png')});
 
     await page.locator('[data-preview="exchange"]').click();
+    await page.locator('#templateCancel').click();
     await page.locator('.boe-meta').waitFor();
     const exchange = await page.evaluate(()=>({
       metaCells:[...document.querySelectorAll('.boe-meta td')].map(cell=>cell.textContent.trim()),
@@ -296,6 +299,7 @@ async function main() {
       '22222222-2222-4222-8222-222222222222'
     ]);
     assert.strictEqual(restored.activeOperationNo,operation.numbers[0]);
+    await require('./collection-html-templates.test')({page,BASE,OUTPUT});
 
     await page.setViewportSize({width:390,height:844});
     await page.goto(`${BASE}/experiments/bs-collection/`,{waitUntil:'domcontentloaded'});

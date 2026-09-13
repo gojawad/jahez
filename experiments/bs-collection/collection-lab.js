@@ -1096,10 +1096,10 @@ $('collectionListValues').addEventListener('click',event=>{
   }else if(state.settings[key]===value) state.settings[key]=key==='draweeAddress'?'':(collectionLists[key][0]||'');
   saveCollectionLists(); populateCollectionSelects(); renderCollectionListManager(); renderPreview(); renderDebug();
 });
-$('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;selectedTextBlock=null;selectedTextStyle=null;textBlockEditMode=false;renderPreview();});
+$('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;selectedTextBlock=null;selectedTextStyle=null;textBlockEditMode=false;renderPreview();window.CollectionHtmlTemplates?.open(state.preview);});
 $('groupByConsignee').addEventListener('click',()=>{const groups={};selectedShipments().forEach(r=>(groups[r.consignee||'غير محدد']??=[]).push(r));$('consigneeGroups').hidden=false;$('consigneeGroups').innerHTML=Object.entries(groups).map(([name,rows])=>`<b>${esc(name)}</b>: ${rows.map(r=>esc(r.shipmentNo)).join('، ')}`).join('<br>');});
 $('resetBtn').addEventListener('click',()=>{state.selected.clear();state.activeOperationNo='';state.overrides={};$('settingsForm').reset();Object.assign(state.settings,{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING L.L.C',authorizedPerson:'JAWAD ELMASRI',title:'Manager',draweeAddress:''});populateCollectionSelects();Object.entries(state.settings).forEach(([key,value])=>{const input=$('settingsForm').elements[key];if(input)input.value=value;});renderAll();});
-$('printBtn').addEventListener('click',()=>window.print());
+$('printBtn').addEventListener('click',()=>window.CollectionHtmlTemplates?.hasTemplate(state.preview)?CollectionHtmlTemplates.printSaved():window.print());
 $('recordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('portalBackBtn').addEventListener('click',()=>{
   window.JahezSessionNavigation.navigateBackToJahez({fallback:requestedTradeFileId?'/#v=bsgtWorkspace&section=finance':'/#v=dashboard'});
@@ -1119,7 +1119,7 @@ $('moveStampBtn').addEventListener('click',()=>{
   renderPreview();
 });
 $('saveDocumentLayoutBtn').addEventListener('click',saveCurrentDocumentLayout);
-$('previewFocusBtn').addEventListener('click',()=>{ document.querySelector('.preview-section')?.classList.add('is-preview-focus'); updateDocumentEditorState(); });
+$('previewFocusBtn').addEventListener('click',()=>{ if(window.CollectionHtmlTemplates?.hasTemplate(state.preview)) return CollectionHtmlTemplates.printSaved(); document.querySelector('.preview-section')?.classList.add('is-preview-focus'); updateDocumentEditorState(); });
 $('closePreviewFocusBtn').addEventListener('click',()=>document.querySelector('.preview-section')?.classList.remove('is-preview-focus'));
 $('resetStampBtn').addEventListener('click',()=>{ recordLayoutHistory(); try { localStorage.removeItem('bsCollectionStampOffset'); localStorage.removeItem(stampTransformStorageKey); } catch (_) {} markDocumentLayoutDirty(); renderPreview(); });
 $('textOffsetX').addEventListener('input',event=>saveTextOffset('x',event.target.value));
@@ -1214,6 +1214,7 @@ document.addEventListener('keydown',event=>{
 
 function printAllCollectionDocuments(){
   if(!selectedShipments().length){ alert('اختر شحنة واحدة على الأقل قبل طباعة المستندات.'); return; }
+  if(collectionDocumentKinds().some(kind=>window.CollectionHtmlTemplates?.hasTemplate(kind))) return CollectionHtmlTemplates.printAll();
   const originalPreview = state.preview;
   const previews = ['letter','undertaking','exchange'].map(kind=>{
     state.preview = kind;
@@ -1246,6 +1247,7 @@ function renderPreview(){
   const overflowNotice=$('documentOverflowNotice'); if(overflowNotice) overflowNotice.hidden=true;
   if(!rows.length){ $('documentPreview').innerHTML='<div class="empty-state">اختر شحنات أولاً لعرض مستندات التحصيل.</div>'; renderTextLayers($('documentPreview')); updateTextStyleControls(); return; }
   if(currencies.length!==1){ $('documentPreview').innerHTML='<div class="empty-state">لا يمكن إنشاء معاينة موحدة لمستند تحصيل متعدد العملات. اختر شحنات بعملة واحدة.</div>'; renderTextLayers($('documentPreview')); updateTextStyleControls(); return; }
+  if(window.CollectionHtmlTemplates?.renderSaved()) return;
   const collection=collectionTotal(rows), currency=collection.currency, total=collection.number, amount=formatMoney(currency,total), words=`${currency} ${amountWords(total)} ONLY`;
   const drawee=consignees.join(' / ')||'-';
   const draweeAddress=s.draweeAddress||rows[0].consigneeAddress||'-';

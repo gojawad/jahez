@@ -1,0 +1,41 @@
+body.collection-html-templates .document-editor-panel,
+body.collection-html-templates #saveDocumentLayoutBtn { display:none!important; }
+body.collection-html-templates .document-editor-shell { grid-template-columns:minmax(0,1fr); }
+.template-dialog { width:min(90vw,1400px); max-width:calc(100% - 24px); max-height:94dvh; padding:0; border:1px solid #e5e7eb; border-radius:18px; color:#1f2937; background:#fff; font-family:inherit; direction:rtl; box-shadow:0 24px 80px #11182733; }
+.template-dialog::backdrop { background:#11182788; }
+.template-dialog form { display:flex; flex-direction:column; max-height:90dvh; margin:0; }
+.template-dialog header { padding:20px 24px; border-bottom:1px solid #e5e7eb; }
+.template-dialog h2 { margin:0; font-size:20px; }
+.template-fields { padding:20px 24px; overflow:auto; display:grid; gap:18px; }
+.template-fields label { display:grid; gap:7px; font-size:13px; font-weight:600; min-width:0; }
+.template-fields input,.template-fields select,.template-fields textarea { box-sizing:border-box; width:100%; min-width:0; padding:10px 12px; border:1px solid #d1d5db; border-radius:9px; background:#fff; color:#1f2937; font:inherit; }
+.template-fields :is(input,select,textarea):focus { outline:2px solid #ea1b2333; border-color:#ea1b23; }
+.template-fields fieldset { margin:0; padding:14px; border:1px solid #e5e7eb; border-radius:12px; }
+.template-fields legend { padding:0 6px; font-size:14px; font-weight:600; }
+.template-measures { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.template-distances { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.template-margin-actions { display:flex; align-items:end; gap:16px; margin-top:12px; }
+.template-margin-actions label { width:130px; }
+.template-fields #templateHtml { min-height:340px; resize:vertical; font:13px/1.7 Consolas,'Courier New',monospace; direction:ltr; text-align:left; tab-size:2; white-space:pre; }
+.template-fields small { color:#6b7280; font-weight:400; line-height:1.7; overflow-wrap:anywhere; }
+.template-dialog footer { padding:16px 24px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:10px; background:#fff; }
+.template-dialog .btn-secondary { background:#fff; border:1px solid #f3a7ac; color:#d01119; }
+.template-dialog .btn-secondary:hover { background:#fff1f2; }
+.template-dialog [hidden] { display:none!important; }
+.template-error { margin:0; color:#b91c1c; font-size:13px; }
+#templatePreviewDialog { height:94dvh; }
+#templatePreviewDialog[open] { display:flex; flex-direction:column; }
+#templatePdfPreview { width:100%; flex:1; min-height:0; border:0; background:#f3f4f6; }
+.collection-html-frame { display:block; width:210mm; min-width:210mm; height:297mm; border:0; background:white; margin:auto; }
+.collection-html-page { position:relative; width:210mm; margin:auto; }
+.collection-html-page > .template-stamp { position:absolute; z-index:3; touch-action:none; cursor:grab; }
+.collection-html-page > .template-stamp img { width:100%; pointer-events:none; }
+.collection-html-page > .template-signature { display:none; }
+@media(max-width:760px){
+  .template-dialog { width:calc(100% - 16px); max-width:none; border-radius:12px; }
+  .template-dialog header,.template-fields,.template-dialog footer { padding:14px; }
+  .template-measures { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .template-dialog footer { flex-wrap:wrap; }
+  .template-fields #templateHtml { min-height:280px; }
+}
+@media print { .template-dialog { display:none!important; } }
