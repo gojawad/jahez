@@ -2468,11 +2468,15 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   .shipment-dashboard .db-hero-stats{padding:12px;border-radius:20px;}
   .shipment-dashboard .db-hero{min-height:150px;}
 }
-.auth-restore-screen{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#f8fafc;color:#14213d;padding:24px;text-align:center}
+.auth-restore-screen{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#fff;color:#14213d;padding:24px;text-align:center}
 .auth-restore-screen[hidden]{display:none}
-.auth-restore-card{width:min(420px,100%);padding:26px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 18px 48px rgba(20,33,61,.1)}
-.auth-restore-spinner{display:block;width:34px;height:34px;margin:0 auto 14px;border:3px solid #fee2e2;border-top-color:#ea1b23;border-radius:50%;animation:spin .8s linear infinite}
-.auth-restore-card strong,.auth-restore-card small{display:block}.auth-restore-card small{margin-top:7px;color:#6b7280}.auth-restore-card button{margin-top:16px}
+.auth-restore-card{width:auto;padding:0;border:0;background:transparent;box-shadow:none}
+.auth-restore-spinner{display:block;width:34px;height:34px;margin:0 auto;border:3px solid #fee2e2;border-top-color:#ea1b23;border-radius:50%;animation:spin .8s linear infinite}
+.auth-restore-card strong,.auth-restore-card small{display:none}.auth-restore-card button{margin-top:16px}
+.auth-restore-screen.is-recovery .auth-restore-card{width:min(420px,100%);padding:26px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;box-shadow:0 18px 48px rgba(20,33,61,.1)}
+.auth-restore-screen.is-recovery .auth-restore-spinner{margin-bottom:14px}
+.auth-restore-screen.is-recovery .auth-restore-card strong,.auth-restore-screen.is-recovery .auth-restore-card small{display:block}
+.auth-restore-screen.is-recovery .auth-restore-card small{margin-top:7px;color:#6b7280}
 </style>
   <link rel="stylesheet" href="wizard.css">
   <link rel="stylesheet" href="company-wizard.css">
@@ -7000,6 +7004,7 @@ function showLanding(){
 
 function showAuthRestoring(message){
   const screen = document.getElementById('authRestoreScreen');
+  screen.classList.remove('is-recovery');
   screen.hidden = false;
   document.getElementById('authRestoreTitle').textContent = 'جاري استرجاع جلسة الدخول';
   document.getElementById('authRestoreMessage').textContent = message || 'لحظات ونفتح نفس الصفحة التي كنت تعمل عليها.';
@@ -7008,6 +7013,7 @@ function showAuthRestoring(message){
 
 function showAuthRecovery(error){
   const screen = document.getElementById('authRestoreScreen');
+  screen.classList.add('is-recovery');
   screen.hidden = false;
   document.getElementById('authRestoreTitle').textContent = 'تعذر تحديث الجلسة مؤقتاً';
   document.getElementById('authRestoreMessage').textContent = 'اتصال الشبكة غير مستقر. لم يتم تسجيل خروجك ويمكنك إعادة المحاولة.';
@@ -7017,6 +7023,7 @@ function showAuthRecovery(error){
 
 function showAuthAccessDenied(message){
   const screen = document.getElementById('authRestoreScreen');
+  screen.classList.add('is-recovery');
   screen.hidden = false;
   document.getElementById('authRestoreTitle').textContent = 'تعذر فتح الحساب داخل النظام';
   document.getElementById('authRestoreMessage').textContent = message || 'جلسة الدخول موجودة، لكن تعذر تحميل الملف الشخصي أو الصلاحيات.';

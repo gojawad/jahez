@@ -69,6 +69,10 @@ async function main() {
       assert.ok(loginCss.includes('background-size: 100% 100%, 100% 100%, contain'));
       assert.ok(loginCss.includes('filter: blur(18px) saturate(.72)'));
       assert.ok(!loginCss.includes('transform: scale('));
+      assert.ok(appHtml.includes('.auth-restore-screen{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#fff'));
+      assert.ok(appHtml.includes('.auth-restore-card strong,.auth-restore-card small{display:none}'));
+      assert.ok(appHtml.includes("screen.classList.remove('is-recovery')"));
+      assert.ok(appHtml.includes("screen.classList.add('is-recovery')"));
       const heroResponse = await fetch(`${BASE}/jahez-login-bsgt.png`);
       assert.strictEqual(heroResponse.status, 200);
       assert.match(heroResponse.headers.get('content-type'), /image\/png/);
