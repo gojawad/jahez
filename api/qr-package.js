@@ -42,24 +42,49 @@ module.exports = async (req, res) => {
 
   try {
     const query = new URLSearchParams({
-      select: 'id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt',
+      select: 'id,operations_revision_id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt',
       'data->>qrToken': `eq.${token}`,
       limit: '1'
     });
-    const lookup = await fetch(`${SUPABASE_URL}/rest/v1/shipments?${query}`, { headers: authHeaders() });
+    let lookup = await fetch(`${SUPABASE_URL}/rest/v1/shipments?${query}`, { headers: authHeaders() });
+    if (!lookup.ok) {
+      const detail = await lookup.clone().json().catch(() => ({}));
+      // Compatibility during schema-first rollout only. Never fall back when
+      // a revision exists but its package cannot be read.
+      if (detail.code === '42703' && String(detail.message).includes('operations_revision_id')) {
+        query.set('select', 'id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt');
+        lookup = await fetch(`${SUPABASE_URL}/rest/v1/shipments?${query}`, { headers: authHeaders() });
+      }
+    }
     if (!lookup.ok) throw new Error(`shipment lookup ${lookup.status}: ${await lookup.text()}`);
     const [row] = await lookup.json();
     if (!row) {
       return res.status(404).send(page('الشحنة غير موجودة', 'الرمز لا يطابق أي عملية، أو حُذفت العملية.'));
     }
-    const packagePath = row.qrPackagePath;
+    let packagePath = row.qrPackagePath;
+    let bucket = BUCKET;
+    if (row.operations_revision_id) {
+      const revisionQuery = new URLSearchParams({
+        select: 'id,package_path', id: `eq.${row.operations_revision_id}`,
+        shipment_id: `eq.${row.id}`, approved_at: 'not.is.null', limit: '1'
+      });
+      const revisionResponse = await fetch(`${SUPABASE_URL}/rest/v1/bsgt_operations_revisions?${revisionQuery}`, { headers: authHeaders() });
+      if (!revisionResponse.ok) throw new Error(`operations revision lookup ${revisionResponse.status}`);
+      const [revision] = await revisionResponse.json();
+      if (!revision || revision.package_path !== `${row.id}/${row.operations_revision_id}/package.pdf`) {
+        throw new Error('Approved operations package is unavailable');
+      }
+      packagePath = revision.package_path;
+      bucket = 'bsgt-operations-packages';
+    }
     if (!packagePath || packagePath.includes('..')) {
       return res.status(200).send(preliminaryPage(row.operationNo));
     }
 
-    const objectUrl = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${packagePath.split('/').map(encodeURIComponent).join('/')}`;
+    const objectUrl = `${SUPABASE_URL}/storage/v1/object/${bucket}/${packagePath.split('/').map(encodeURIComponent).join('/')}`;
     const file = await fetch(objectUrl, { headers: authHeaders() });
     if (file.status === 404) {
+      if (row.operations_revision_id) throw new Error('Approved operations PDF is missing');
       return res.status(200).send(preliminaryPage(row.operationNo));
     }
     if (!file.ok) throw new Error(`storage download ${file.status}: ${await file.text()}`);

@@ -178,8 +178,8 @@ async function main() {
       }
       if(role==='bsgt_user'){
         await page.goto(`${APP_ORIGIN}/experiments/bs-collection/`, {waitUntil:'domcontentloaded'});
-        await page.locator('body:not(.portal-access-loading) .lab-header').waitFor({timeout:20000});
-        assert.ok((await page.locator('#portalUserName').textContent()).includes(profile.display_name));
+        await page.waitForURL(url=>url.pathname==='/'&&url.hash.startsWith('#v='),{timeout:20000});
+        assert.strictEqual(await page.locator('.lab-header').count(),0,'unscoped portal never lists all shipments');
       }
       assert.deepStrictEqual(browserErrors, []);
       await context.close();

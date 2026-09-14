@@ -57,6 +57,8 @@ function supabaseStub() {
           return {data:[window.__testCollectionCompany],error:null};
         }
         if(table==='shipments') return {data:window.__testCollectionShipments,error:null};
+        if(table==='trade_collection_files') return {data:{id:'layout-fixture',operation_no:'TC-LAYOUT',status:'draft',metadata:{}},error:null};
+        if(table==='trade_collection_file_shipments') return {data:window.__testCollectionShipments.map(row=>({shipment_id:row.id})),error:null};
         if(table==='payments') return {data:[],error:null};
         if(table==='profiles') return {data:{display_name:'Portal User',role:localStorage.getItem('__testPortalRole')||'admin',photo_url:''},error:null};
         return {data:null,error:null};
@@ -65,6 +67,7 @@ function supabaseStub() {
         select(){return api},
         eq(column,value){eqColumn=column;eqValue=value;return api},
         order(){return api},
+        in(){return api},
         update(payload){updatePayload=payload;return api},
         insert(){return api},
         single(){
@@ -110,8 +113,11 @@ async function main() {
       localStorage.setItem('bsCollectionTextOffsets',JSON.stringify({letter:{x:5,y:0,scale:100}}));
       localStorage.setItem('bsCollectionDocumentEditorMetaV1',JSON.stringify({letter:{savedAt:'2026-09-12T08:00:00.000Z'}}));
     });
-    await page.goto(`${BASE}/experiments/bs-collection/`, {waitUntil:'domcontentloaded'});
+    await page.goto(`${BASE}/experiments/bs-collection/?tradeFileId=layout-fixture`, {waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor();
+    // Layout/legacy document tests use only the scoped fixture's two rows.
+    // Scope authorization and the new submission flow have separate tests.
+    await page.evaluate(()=>{state.tradeFile=null;state.selected.clear();document.body.classList.remove('trade-file-context');renderAll();});
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings')||'{}').collectionDocumentLayouts?.documents?.letter?.textOffset?.x===5);
     const theme = await page.evaluate(()=>( {
       primary:getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim(),
@@ -155,6 +161,7 @@ async function main() {
     });
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    await page.evaluate(()=>{state.tradeFile=null;state.selected.clear();document.body.classList.remove('trade-file-context');renderAll();});
     assert.strictEqual(await page.evaluate(()=>textOffsetForPreview().x),7,'employee receives the centrally saved layout instead of stale local formatting');
     assert.strictEqual(await page.locator('#saveDocumentLayoutBtn').isVisible(),false,'employee cannot edit or publish document layouts');
 
@@ -214,6 +221,7 @@ async function main() {
     await page.evaluate(()=>localStorage.setItem('__testPortalRole','admin'));
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    await page.evaluate(()=>{state.tradeFile=null;state.selected.clear();document.body.classList.remove('trade-file-context');renderAll();});
     await page.locator('[data-step-section="picker-section"]').click();
     await page.screenshot({path:path.join(OUTPUT, 'collection-portal.png'), fullPage:false});
     await page.locator('.shipment-card').nth(0).click();
@@ -289,7 +297,7 @@ async function main() {
     assert.ok(operation.operations.every(item=>JSON.stringify(item.documentKinds)===JSON.stringify(['letter','undertaking','exchange'])));
     assert.ok(operation.activeRef.includes(operation.numbers[0]));
     const restored = await page.evaluate(operationNo=>{
-      history.replaceState(null,'',`?shipment=11111111-1111-4111-8111-111111111111&operation=${encodeURIComponent(operationNo)}`);
+      history.replaceState(null,'',`?tradeFileId=layout-fixture&shipment=11111111-1111-4111-8111-111111111111&operation=${encodeURIComponent(operationNo)}`);
       state.selected.clear();
       state.activeOperationNo='';
       const found=restoreRequestedCollectionOperation();
@@ -304,8 +312,9 @@ async function main() {
     await require('./collection-html-templates.test')({page,BASE,OUTPUT});
 
     await page.setViewportSize({width:390,height:844});
-    await page.goto(`${BASE}/experiments/bs-collection/`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${BASE}/experiments/bs-collection/?tradeFileId=layout-fixture`,{waitUntil:'domcontentloaded'});
     await page.locator('.shipment-card').first().waitFor({state:'attached'});
+    await page.evaluate(()=>{state.tradeFile=null;document.body.classList.remove('trade-file-context');renderAll();});
     await page.locator('[data-step-section="picker-section"]').click();
     const mobile=await page.evaluate(()=>({
       overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,

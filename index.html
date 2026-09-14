@@ -6069,6 +6069,7 @@ function rowToRecord(row){
   r.bsgtStageUpdatedAt = row.bsgt_stage_updated_at || null;
   r.operationsCompletedAt = row.operations_completed_at || null;
   r.operationsCompletedBy = row.operations_completed_by || null;
+  r.operationsRevisionId = row.operations_revision_id || null;
   r.createdAt = row.created_at ? new Date(row.created_at).getTime() : Date.now();
   r.updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
   return r;
@@ -6078,7 +6079,7 @@ function recordToRow(r){
   ['id','status','ownerId','createdAt','updatedAt','reviewNote','__saved',
    'dueDate','creditDays','dueFrom','taskRef','companyId','bolTemplateId',
    'workflowStage','workflowUpdatedAt','bankSentAt','signedAt','acceptedAt','acceptedBy',
-   'bsgtStage','bsgtStageUpdatedAt','operationsCompletedAt','operationsCompletedBy'].forEach(k=>delete data[k]);
+   'bsgtStage','bsgtStageUpdatedAt','operationsCompletedAt','operationsCompletedBy','operationsRevisionId'].forEach(k=>delete data[k]);
   const row = { status: r.status === 'draft' ? 'draft' : 'sent', data };
   Object.assign(row, JahezShipmentWorkflow.toRow(r));
   if(r.bsgtStage !== undefined) row.bsgt_stage = r.bsgtStage || null;
@@ -9572,7 +9573,7 @@ function renderBsgtOperationsQuickDocuments(record){
     ['بوليصة الشحن',Boolean(bsgtOperationsUploadedFile(documents,'billOfLading'))]
   ];
   return `<div class="bsgt-operations-quick-documents">
-    <div class="bsgt-operations-quick-documents-head"><div><h4>ملخص المستندات</h4><span>المعاينة والتنفيذ الكامل متاحان من شاشة الشحنة.</span></div><b>${evaluation.completedCount} / 7</b></div>
+    <div class="bsgt-operations-quick-documents-head"><div><h4>ملخص المستندات</h4><span>المعاينة والتنفيذ الكامل متاحان من شاشة الشحنة.</span></div><b>${evaluation.completedCount} / ${evaluation.requiredCount}</b></div>
     <div class="bsgt-operations-quick-document-list">${items.map(([label,ready])=>`<div class="${ready?'is-ready':''}"><span>${icon(ready?'check':'warning',13)} ${label}</span><small>${ready?'مكتمل':'ناقص'}</small></div>`).join('')}</div>
     <button type="button" class="btn btn-primary bsgt-operations-quick-open" data-bsgt-open-full="${escapeHtml(record.id)}">${icon('eye',14)} فتح الشحنة بالكامل</button>
   </div>`;
@@ -9602,8 +9603,8 @@ function renderBsgtOperationsDetail(record){
       ${[['overview','نظرة عامة'],['documents','المستندات'],['attachments','المرفقات'],['timeline','الجدول الزمني'],['notes','الملاحظات']].map(([key,label])=>`<button type="button" data-bsgt-ops-tab="${key}" class="${bsgtOperationsListState.activeTab===key?'active':''}">${label}</button>`).join('')}
     </nav>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='overview'?'active':''}" data-bsgt-ops-panel="overview">
-      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من 7 متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/7*100)}%</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/7*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
-      <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/7</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
+      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من ${evaluation.requiredCount} متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/evaluation.requiredCount*100)}%</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/evaluation.requiredCount*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
+      <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/${evaluation.requiredCount}</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
     </section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsQuickDocumentsPanel">${renderBsgtOperationsQuickDocuments(record)}</div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='attachments'?'active':''}" data-bsgt-ops-panel="attachments" id="bsgtOperationsAttachments">${renderBsgtOperationsAttachments(record)}</section>
@@ -9623,6 +9624,7 @@ async function loadBsgtOperationsNotes(record){
 }
 
 function wireBsgtOperationsDetail(record){
+  window.JahezRevisionWorkflow?.decorateOperations(record);
   document.getElementById('bsgtOperationsOpenFull')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   document.querySelector('[data-bsgt-open-full]')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   const send=document.getElementById('bsgtOperationsQuickSend');
@@ -9686,7 +9688,7 @@ function renderBsgtOperationsRows(){
     const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, state.filesByShipment[record.id] || []);
     const tradeContext=state.tradeContextByShipment[record.id];
     return `<article class="bsgt-operations-row${state.selectedId===record.id?' is-selected':''}" data-bsgt-operation-open="${escapeHtml(record.id)}" tabindex="0">
-      <div class="bsgt-operations-row-copy"><div><b>${escapeHtml(record.operationNo||'—')}</b>${bsgtOperationsStageBadge(record.bsgtStage)}</div><strong>${escapeHtml(record.itemDesc||'—')}</strong><small>${escapeHtml(record.consignee||'—')}</small><span class="bsgt-operations-progress"><i style="width:${evaluation.completedCount/7*100}%"></i></span><em>${evaluation.completedCount}/7 متطلبات</em>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span>`:''}</div>
+      <div class="bsgt-operations-row-copy"><div><b>${escapeHtml(record.operationNo||'—')}</b>${bsgtOperationsStageBadge(record.bsgtStage)}</div><strong>${escapeHtml(record.itemDesc||'—')}</strong><small>${escapeHtml(record.consignee||'—')}</small><span class="bsgt-operations-progress"><i style="width:${evaluation.completedCount/evaluation.requiredCount*100}%"></i></span><em>${evaluation.completedCount}/${evaluation.requiredCount} متطلبات</em>${tradeContext?`<span class="bsgt-operations-returned">معادة من الإدارة · ${escapeHtml(tradeContext.operationNo)}</span>`:''}</div>
       <span class="bsgt-operations-row-arrow">${icon('arrow',13)}</span>
     </article>`;
   }).join('');
@@ -9841,12 +9843,14 @@ function renderBsgtFinanceReady(){
     if(input.checked) bsgtFinanceState.selected.add(input.dataset.bsgtFinanceSelect); else bsgtFinanceState.selected.delete(input.dataset.bsgtFinanceSelect);
     updateBsgtFinanceSelection();
   }));
+  window.JahezRevisionWorkflow?.decorateFinance();
 }
 
 function updateBsgtFinanceSelection(){
   const count=document.getElementById('bsgtFinanceSelectedCount'), button=document.getElementById('bsgtFinanceCreateBtn');
   if(count) count.textContent=bsgtFinanceState.selected.size;
   if(button) button.disabled=!bsgtFinanceState.selected.size;
+  window.JahezRevisionWorkflow?.updateFinanceSelection();
 }
 
 function renderBsgtFinanceFiles(){
@@ -9912,6 +9916,7 @@ function renderBsgtTradeFileDetail(){
   document.getElementById('bsgtTradeAddSelected')?.addEventListener('click',()=>addSelectedToBsgtTradeFile(file.id));
   host.querySelectorAll('[data-bsgt-trade-remove]').forEach(button=>button.addEventListener('click',()=>removeFromBsgtTradeFile(file.id,button.dataset.bsgtTradeRemove)));
   document.getElementById('bsgtTradeSend')?.addEventListener('click',()=>sendBsgtTradeFile(file,shipments,summary));
+  window.JahezRevisionWorkflow?.decorateTradeFile(host,file,shipments);
 }
 
 async function addSelectedToBsgtTradeFile(tradeFileId){
@@ -9960,6 +9965,7 @@ async function loadBsgtFinance(){
 }
 
 function wireBsgtFinanceShell(){
+  window.JahezRevisionWorkflow?.decorateFinance();
   document.getElementById('bsgtFinanceCreateBtn')?.addEventListener('click',openBsgtFinanceConfirmation);
   document.getElementById('bsgtFinanceConfirmCancel')?.addEventListener('click',()=>document.getElementById('bsgtFinanceConfirm').hidden=true);
   document.getElementById('bsgtFinanceConfirmSubmit')?.addEventListener('click',createBsgtTradeFile);
@@ -10046,6 +10052,7 @@ function renderBsgtManagementDetail(){
   host.querySelectorAll('[data-bsgt-management-signed-open]').forEach(button=>button.addEventListener('click',()=>openBsgtSignedDocument(button.dataset.bsgtManagementSignedOpen)));
   host.querySelectorAll('[data-bsgt-management-operation-file]').forEach(button=>button.addEventListener('click',()=>openShipmentFile(button.dataset.bsgtManagementOperationFile,button.dataset.fileName)));
   host.querySelectorAll('[data-bsgt-management-generated]').forEach(button=>button.addEventListener('click',()=>{const shipment=shipments.find(row=>row.id===button.dataset.shipmentId);if(shipment)openBsgtGeneratedDocument(shipment,button.dataset.bsgtManagementGenerated);}));
+  if(file.metadata?.operationsRevisionWorkflow) window.JahezRevisionWorkflow?.renderInternalPackage(host,file);
 }
 
 async function runBsgtManagementRpc(name,args,successMessage){
@@ -10686,6 +10693,7 @@ function refreshBsgtMergeControls(r){
   });
   if(packageButton && packageButton.dataset.workflowBusy !== 'true') packageButton.innerHTML = `${icon(allowed ? 'printer' : 'lock')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}`;
   if(mergeButton && mergeButton.dataset.workflowBusy !== 'true') mergeButton.innerHTML = `${icon(allowed ? 'doc' : 'lock')} دمج الحزمة في ملف واحد`;
+  window.JahezRevisionWorkflow?.decorateOperations(r);
 }
 
 function renderSignedDocumentsPanel(r){
@@ -14808,6 +14816,14 @@ async function sendQuickComment(shipmentId){
 let lastSeenAt = 0;
 function myNotifications(){
   const out = [];
+  records.filter(r=>r.operationsRevisionId).forEach(r=>{
+    if(r.bsgtStage==='operations_draft'&&r.bsgtFinanceReturn&&(isAdmin()||r.ownerId===currentUser?.id))
+      out.push({t:'إرجاع من المالية',s:r.bsgtFinanceReturn.note,ts:new Date(r.bsgtFinanceReturn.at).getTime(),go:()=>openDetail(r.id)});
+    if(r.bsgtStage==='ready_for_finance'&&bsgtFinancePermission(false))
+      out.push({t:'حزمة عمليات جاهزة للمالية',s:r.operationNo,ts:r.updatedAt,go:()=>{location.hash='v=bsgtWorkspace&section=finance';}});
+    if(r.bsgtStage==='sent_to_remitting'&&bsgtManagementPermission(false))
+      out.push({t:'ملف جاهز لمراجعة الإدارة',s:r.operationNo,ts:r.updatedAt,go:()=>{location.hash='v=bsgtWorkspace&section=management';}});
+  });
   if(isAdmin()){
     records.filter(r=>r.status==='review').forEach(r=>{
       const who = users.find(u=>u.id===r.ownerId);
@@ -17083,7 +17099,7 @@ function renderBsgtOperationsDocuments(r){
     <div class="bsgt-operations-summary">
       <div class="bsgt-operations-stat"><span>المستندات المولدة</span><b>${evaluation.generatedCount} / 4</b></div>
       <div class="bsgt-operations-stat"><span>المستندات المطلوبة</span><b>${evaluation.uploadedCount} / 3</b></div>
-      <div class="bsgt-operations-stat"><span>إجمالي المتطلبات الإلزامية</span><b>${evaluation.completedCount} / 7</b></div>
+      <div class="bsgt-operations-stat"><span>إجمالي المتطلبات الإلزامية</span><b>${evaluation.completedCount} / ${evaluation.requiredCount}</b></div>
     </div>
     <div class="bsgt-operations-groups">
       <div class="bsgt-operations-group"><h4>المستندات المولدة تلقائياً</h4>${generatedCards}</div>
@@ -17199,7 +17215,8 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
   if(!bsgtOperationsPermission(true)) return;
   const currentRecord = records.find(record=>record.id===id);
   if(!window.JahezBsgtOperations.canEditUploadedDocuments(currentRecord,true)) return toast('لا يمكن الإرسال إلا من مرحلة العمليات.', 'err');
-  if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
+  if(!window.JahezPermissions?.can('package.merge')) return toast('ليس لديك صلاحية دمج الحزمة.','err');
+  if(!confirm('سيتم دمج مستندات العمليات في إصدار ثابت للحزمة وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
   button.disabled = true;
   netStart();
   try{
@@ -17227,13 +17244,12 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
       toast('تعذر الإرسال. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
       return;
     }
-    const {data, error} = await sb.rpc('complete_bsgt_operations', {p_shipment_id:id});
-    if(error) throw error;
+    const data = await window.JahezRevisionWorkflow.mergeOperations(latestRecord);
     const saved = rowToRecord(data);
     const index = records.findIndex(record=>record.id===id);
     if(index >= 0) records[index] = saved; else records.push(saved);
     shipmentFilesCache[id] = filesResult.data || [];
-    toast('تم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.');
+    toast('تم اعتماد إصدار حزمة العمليات وإرسال الشحنة للمالية.');
     if(stayInline) await loadBsgtOperationsPage();
     else { rerenderBsgtOperationsDocumentState(saved); loadBsgtOperationsPage(); }
   }catch(error){
@@ -17246,6 +17262,7 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
 }
 
 function wireBsgtOperationsPanel(r){
+  window.JahezRevisionWorkflow?.decorateOperations(r);
   const panel = document.getElementById('bsgtOperationsDocumentsPanel');
   if(!panel) return;
   panel.querySelectorAll('[data-bsgt-generated]').forEach(button=>button.addEventListener('click', ()=>openBsgtGeneratedDocument(r, button.dataset.bsgtGenerated)));
@@ -18384,6 +18401,7 @@ async function ensureQrToken(r){
 }
 async function publishQrPackage(r, blob, silent=false){
   if(!r?.id || !isUuid(r.id)) return;
+  if(r.operationsRevisionId) throw new Error('حزمة QR معتمدة من العمليات ولا يمكن استبدالها من المراحل الأخرى.');
   await ensureQrToken(r);
   const path = `qr-package/${r.id}/${Date.now()}.pdf`;
   const {error: upErr} = await sb.storage.from('shipment-files').upload(path, blob, {contentType:'application/pdf', cacheControl:'0', upsert:false});
@@ -20632,6 +20650,8 @@ function bsgtWorkflowGateError(reason){
 
 async function requestBsgtPackageMerge(record, triggerButton){
   const button = triggerButton || document.getElementById('mergeAllBtn');
+  if(record.bsgtStage==='operations_draft') return submitBsgtOperationsToFinance(record.id,button);
+  if(record.operationsRevisionId) return window.JahezRevisionWorkflow.previewOperations(record.id);
   if(button?.dataset.workflowChecking === 'true' || button?.dataset.workflowBusy === 'true') return;
   const originalHtml = button?.innerHTML || '';
   if(button){ button.dataset.workflowChecking = 'true'; button.disabled = true; button.setAttribute('aria-busy','true'); button.textContent = 'جارٍ التحقق…'; }
@@ -21876,5 +21896,6 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260914-1"></script>
 </body>
 </html>

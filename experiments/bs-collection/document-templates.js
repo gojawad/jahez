@@ -424,5 +424,6 @@ window.CollectionHtmlTemplates = (()=>{
     });
   }
   init();
-  return {open,hasTemplate,renderSaved,printSaved,printAll,documentHtml,sanitize,importWord,validate,settingsKey,pdf};
+  return {open,hasTemplate,renderSaved,printSaved,printAll,documentHtml,sanitize,importWord,validate,settingsKey,pdf,
+    exportPdf:kind=>pdf(documentHtml(kind,active(kind)))};
 })();

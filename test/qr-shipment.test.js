@@ -85,6 +85,7 @@ function startFakeSupabase() {
       if (String(url.searchParams.get('select') || '').includes('data->>operationNo')) {
         return json(res, [{
           id: shipment.id,
+          operations_revision_id: shipment.operations_revision_id || null,
           operationNo: shipment.data.operationNo,
           qrPackagePath: shipment.data.qrPackagePath || null,
           qrPublishedAt: shipment.data.qrPublishedAt || null
@@ -93,6 +94,16 @@ function startFakeSupabase() {
       return json(res, [shipment]);
     }
     if (url.pathname === '/rest/v1/shipment_files') return json(res, files);
+    if (url.pathname === '/rest/v1/bsgt_operations_revisions') {
+      assert.equal(url.searchParams.get('shipment_id'), `eq.${shipment.id}`);
+      assert.equal(url.searchParams.get('id'), `eq.${shipment.operations_revision_id}`);
+      assert.equal(url.searchParams.get('approved_at'), 'not.is.null');
+      return json(res, [{id:shipment.operations_revision_id,package_path:`${shipment.id}/${shipment.operations_revision_id}/package.pdf`}]);
+    }
+    if (url.pathname.startsWith('/storage/v1/object/bsgt-operations-packages/')) {
+      const body=Buffer.from(`%PDF-operations-${shipment.operations_revision_id}`);
+      res.writeHead(200, {'Content-Type':'application/pdf'}); return res.end(body);
+    }
     if (url.pathname.startsWith('/storage/v1/object/shipment-files/')) {
       const storagePath = decodeURIComponent(url.pathname.replace('/storage/v1/object/shipment-files/', ''));
       const isPackage = storagePath === shipment.data.qrPackagePath;
@@ -161,6 +172,13 @@ async function main() {
     assert.strictEqual(packageResponse.status, 200);
     assert.match(packageResponse.headers.get('content-type'), /application\/pdf/);
     assert.strictEqual(await packageResponse.text(), '%PDF-package');
+
+    shipment.operations_revision_id='revision-1';
+    assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-1');
+    shipment.data.qrPackagePath='private/admin-signed.pdf';
+    assert.strictEqual(await (await fetch(packageUrl+'&document=letter&bucket=trade-collection-documents')).text(),'%PDF-operations-revision-1');
+    shipment.operations_revision_id='revision-2';
+    assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-2');
 
     const appHtml = await fs.promises.readFile(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(appHtml.includes('if(!rec.qrToken) rec.qrToken = newQrToken();'));

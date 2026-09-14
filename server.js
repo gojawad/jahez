@@ -18,6 +18,8 @@ const API = {
   'public-shipment': require('./api/public-shipment'),
   'render-bsgt-pdf': require('./api/render-bsgt-pdf'),
   'qr-package': require('./api/qr-package'),
+  'bsgt-operations-package': require('./api/bsgt-operations-package'),
+  'bsgt-internal-document': require('./api/bsgt-internal-document'),
   'import-permit-invoices': require('./api/import-permit-invoices'),
   'commodity-image': require('./api/commodity-image'),
 };

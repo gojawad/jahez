@@ -29,6 +29,9 @@
     const revision = Number(tradeFile?.revision_no) || 1;
     const signedTypes = [...new Set((Array.isArray(signedDocuments) ? signedDocuments : [])
       .filter(document=>document?.is_active !== false && Number(document?.revision_no) === revision)
+      .filter(document=>tradeFile?.metadata?.operationsRevisionWorkflow
+        ? document.document_variant === 'finance_original'
+        : !document.document_variant || document.document_variant === 'legacy_signed')
       .map(document=>document.document_type)
       .filter(type=>requiredTypes.includes(type)))];
     const missingTypes = requiredTypes.filter(type=>!signedTypes.includes(type));
@@ -37,7 +40,7 @@
       signedTypes:Object.freeze(signedTypes),
       missingTypes:Object.freeze(missingTypes),
       completed:requiredTypes.length > 0 && missingTypes.length === 0,
-      progress:`${signedTypes.length} من ${requiredTypes.length}`
+      progress:tradeFile?.metadata?.operationsRevisionWorkflow ? 'التوقيع اختياري' : `${signedTypes.length} من ${requiredTypes.length}`
     });
   }
 

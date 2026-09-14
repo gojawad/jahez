@@ -1,0 +1,151 @@
+// Isolated PostgreSQL runtime; no production connection or credentials used.
+// PGLITE_MODULE may point to an existing developer installation.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-runtime/node_modules/@electric-sql/pglite');
+
+(async()=>{
+  const db = await PGlite.create();
+  const id = '10000000-0000-4000-8000-000000000001';
+  const revision1 = '20000000-0000-4000-8000-000000000001';
+  const revision2 = '20000000-0000-4000-8000-000000000002';
+  try {
+    await db.exec(`
+      create role anon; create role authenticated; create role service_role;
+      create schema auth; create schema storage;
+      create function auth.uid() returns uuid language sql as $$select coalesce(nullif(current_setting('app.uid',true),''),'00000000-0000-4000-8000-000000000001')::uuid$$;
+      create function bsgt_company_id() returns uuid language sql as $$select '00000000-0000-4000-8000-000000000002'::uuid$$;
+      create function has_bsgt_workspace_permission(text,boolean) returns boolean language sql as $$select coalesce(current_setting('app.edit',true),'on') = 'on'$$;
+      create function has_feature_permission(text) returns boolean language sql as $$select coalesce(current_setting('app.merge',true),'on') = 'on'$$;
+      create function my_role() returns text language sql as $$select 'staff'$$;
+      create function is_active() returns boolean language sql as $$select true$$;
+      create function is_admin() returns boolean language sql as $$select false$$;
+      create function is_bsgt_user() returns boolean language sql as $$select true$$;
+      create table profiles(id uuid primary key);
+      insert into profiles values(auth.uid());
+      create table shipments(id uuid primary key,company_id uuid,status text,data jsonb,updated_at timestamptz,owner_id uuid default auth.uid());
+      create table shipment_files(id uuid primary key,shipment_id uuid,document_type text,label text,path text,name text,mime text,created_at timestamptz default now());
+      create table activity_log(user_id uuid,type text,text text);
+      create table shipment_comments(shipment_id uuid,author_id uuid,kind text,body text);
+      create table trade_collection_files(id uuid primary key default gen_random_uuid(),company_id uuid,status text,
+        operation_no text default 'TC-TEST',created_by uuid,revision_no integer default 1,metadata jsonb default '{}',
+        remitting_bank text,collecting_bank text,sent_to_remitting_at timestamptz,updated_at timestamptz,
+        final_accepted_at timestamptz,sent_to_collecting_at timestamptz,management_reviewed_at timestamptz);
+      create table trade_collection_file_shipments(id uuid default gen_random_uuid(),trade_file_id uuid,shipment_id uuid,created_at timestamptz default now());
+      create table trade_collection_file_events(trade_file_id uuid,event_type text,note text,actor_id uuid,revision_no integer,
+        from_status text,to_status text,created_at timestamptz default now());
+      create table storage.buckets(id text primary key,name text,public boolean);
+      create table storage.objects(bucket_id text,name text);
+      alter table storage.objects enable row level security;
+    `);
+    const operations = fs.readFileSync(path.join(__dirname,'../supabase/31_bsgt_operations_phase2.sql'),'utf8');
+    await db.exec(operations.slice(0,operations.indexOf('drop policy if exists shipments_select')));
+    await db.exec(`insert into shipments(id,company_id,status,data,updated_at) values('${id}',bsgt_company_id(),'draft',
+      '{"operationNo":"BSGTX-TEST","currency":"USD","consignee":"TEST","itemDesc":"TEST","invoiceNo":"INV","proformaNo":"PRO","qrToken":"test_permanent_token_123456"}',now());
+      insert into shipment_files(id,shipment_id,document_type,path,name,mime)
+      select ('30000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'${id}',kind,kind||'.pdf',kind,'application/pdf'
+      from unnest(array['import_permit','certificate_of_origin','bill_of_lading']) with ordinality t(kind,n);`);
+    const migration=fs.readFileSync(path.join(__dirname,'../supabase/43_bsgt_operations_package_revisions.sql'),'utf8');
+    const before=(await db.query('select * from shipments')).rows;
+    await db.exec(migration); await db.exec(migration);
+    const after=(await db.query('select * from shipments')).rows.map(({operations_revision_id,...row})=>row);
+    assert.deepEqual(after,before,'additive migration does not rewrite existing shipments');
+    const finance=fs.readFileSync(path.join(__dirname,'../supabase/32_bsgt_finance_phase3.sql'),'utf8');
+    await db.exec(finance.slice(0,finance.indexOf('drop policy if exists')));
+    for(const name of ['33_bsgt_management_phase4.sql','34_bsgt_relations_phase5.sql','42_bsgt_relations_case_scope.sql'])
+      await db.exec(fs.readFileSync(path.join(__dirname,'../supabase',name),'utf8'));
+    const financeRevision=fs.readFileSync(path.join(__dirname,'../supabase/44_bsgt_finance_revision_context.sql'),'utf8');
+    await db.exec(financeRevision); await db.exec(financeRevision);
+    const internalMigration=fs.readFileSync(path.join(__dirname,'../supabase/45_bsgt_internal_document_versions.sql'),'utf8');
+    await db.exec(internalMigration);await db.exec(internalMigration);
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/46_bsgt_revision_workflow_guards.sql'),'utf8'));
+    const input=async()=>(await db.query('select bsgt_operations_package_input($1) as result',[id])).rows[0].result;
+    await db.exec("set app.merge='off'"); await assert.rejects(input(),/permissions/);
+    await db.exec("set app.merge='on'");
+    const missing=(await db.query("delete from shipment_files where document_type='import_permit' returning *")).rows[0];
+    await assert.rejects(input(),/incomplete/);
+    await db.query('insert into shipment_files select * from jsonb_populate_record(null::shipment_files,$1)',[JSON.stringify(missing)]);
+    async function stage(revision,source){
+      const prefix=`${id}/${revision}`;
+      const docs=[...Object.keys(source.generated),...source.files.map(f=>f.kind)].map(kind=>({kind,path:`${prefix}/${kind}.pdf`,source:'operations',sourceId:source.files.find(f=>f.kind===kind)?.id||null}));
+      await db.query(`insert into bsgt_operations_revisions(id,shipment_id,revision_no,source_fingerprint,shipment_snapshot,documents,package_path,created_by)
+        values($1,$2,$3,$4,$5,$6,$7,auth.uid())`,[revision,id,source.revisionNo,source.fingerprint,source.shipment,JSON.stringify(docs),`${prefix}/package.pdf`]);
+      for(const name of [...docs.map(d=>d.path),`${prefix}/package.pdf`]) await db.query('insert into storage.objects values($1,$2)',['bsgt-operations-packages',name]);
+    }
+    const initial=await input(); await stage(revision1,initial);
+    await assert.rejects(db.query('select complete_bsgt_operations($1)',[id]),/Merge and approve/);
+    await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"CHANGED"') where id='${id}'`);
+    await assert.rejects(db.query('select approve_bsgt_operations_revision($1)',[revision1]),/changed/);
+    assert.equal((await db.query('select bsgt_stage from shipments')).rows[0].bsgt_stage,'operations_draft');
+    await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"INV"') where id='${id}'`);
+    await db.query('select approve_bsgt_operations_revision($1)',[revision1]);
+    const approved=(await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0];
+    const context=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
+    assert.equal((await db.query('select get_bsgt_finance_context($1) as c',[context])).rows[0].c.shipments.length,1);
+    await db.exec("set app.uid='00000000-0000-4000-8000-000000000099'");
+    await assert.rejects(db.query('select get_bsgt_finance_context($1)',[context]),/first/);
+    await db.exec("set app.uid='00000000-0000-4000-8000-000000000001'");
+    const tradeFile=(await db.query('select open_bsgt_finance_context_trade_file($1) as f',[context])).rows[0].f;
+    const oldFinanceDocs=['letter','undertaking','exchange'].map(kind=>({kind,path:`workflow/${tradeFile.id}/1/finance/${kind}.pdf`}));
+    for(const doc of oldFinanceDocs)await db.query('insert into storage.objects values($1,$2)',['trade-collection-documents',doc.path]);
+    await db.query('select register_bsgt_finance_originals($1,$2,$3,$4)',[context,1,JSON.stringify(oldFinanceDocs),{}]);
+    assert.equal((await db.query('select operations_revision_id from trade_collection_file_shipments')).rows[0].operations_revision_id,revision1);
+    assert.equal((await db.query('select status,bsgt_stage from shipments')).rows[0].status,'draft');
+    assert.equal((await db.query('select bsgt_stage from shipments')).rows[0].bsgt_stage,'ready_for_finance');
+    await assert.rejects(db.query('delete from bsgt_operations_revisions where id=$1',[revision1]),/immutable/);
+    await assert.rejects(db.exec(`update shipments set operations_revision_id=null where id='${id}'`),/approval/);
+    await assert.rejects(db.exec(`update shipments set data=jsonb_set(data,'{qrPackagePath}','"internal.pdf"') where id='${id}'`),/QR belongs/);
+    await assert.rejects(db.query('select return_bsgt_shipment_from_finance($1,$2,$3)',[id,revision1,'']),/note/);
+    await db.query('select return_bsgt_shipment_from_finance($1,$2,$3)',[id,revision1,'Correct invoice number']);
+    assert.match((await db.query('select body from shipment_comments')).rows[0].body,/Revision 1: Correct invoice number/);
+    await assert.rejects(db.query('select get_bsgt_finance_context($1)',[context]),/stale/);
+    await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"INV2"') where id='${id}'`);
+    await stage(revision2,await input());
+    await db.query('select approve_bsgt_operations_revision($1)',[revision2]);
+    assert.deepEqual((await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0],approved);
+    assert.equal((await db.query('select operations_revision_id from shipments')).rows[0].operations_revision_id,revision2);
+    await assert.rejects(db.query("update trade_collection_files set status='sent_to_remitting' where id=$1",[tradeFile.id]),/stale operations revision/);
+    await assert.rejects(db.query('select get_bsgt_finance_context($1)',[context]),/stale/);
+    assert.equal(Number((await db.query('select count(*) as n from activity_log')).rows[0].n),4);
+    const freshContext=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
+    await db.query('select open_bsgt_finance_context_trade_file($1)',[freshContext]);
+    const refreshed=(await db.query('select refresh_bsgt_finance_revision($1) as f',[freshContext])).rows[0].f;
+    assert.equal(refreshed.revision_no,2);
+    await assert.rejects(db.query('select send_bsgt_trade_file_to_remitting($1,$2,$3)',[tradeFile.id,'TEST BANK',{}]),/three finance originals/);
+    const docs=['letter','undertaking','exchange'].map(kind=>({kind,path:`workflow/${tradeFile.id}/2/finance/${kind}.pdf`}));
+    for(const doc of docs)await db.query('insert into storage.objects values($1,$2)',['trade-collection-documents',doc.path]);
+    await db.query('select register_bsgt_finance_originals($1,$2,$3,$4)',[freshContext,2,JSON.stringify(docs),{}]);
+    await assert.rejects(db.query("update trade_collection_file_documents set is_active=false where document_variant='finance_original'"),/immutable/);
+    await db.query('select send_bsgt_trade_file_to_remitting($1,$2,$3)',[tradeFile.id,'TEST BANK',{}]);
+    assert.equal((await db.query('select get_bsgt_finance_context($1) as c',[freshContext])).rows[0].c.readOnly,true,'submitted scope can reopen read only');
+    await assert.rejects(db.query('select open_bsgt_finance_context_trade_file($1)',[freshContext]),/read only/);
+    await db.query('select start_bsgt_management_review($1)',[tradeFile.id]);
+    const bundle=(await db.query('select bsgt_internal_package($1) as b',[tradeFile.id])).rows[0].b;
+    assert.equal(bundle.documents.length,3);
+    assert.equal(bundle.shipments[0].revision.id,revision2);
+    await db.exec('begin');
+    const signaturePath=`workflow/${tradeFile.id}/2/signed/test.pdf`;
+    await db.query('insert into storage.objects values($1,$2)',['trade-collection-documents',signaturePath]);
+    await db.query('select register_bsgt_internal_signature($1,$2,$3,$4,$5,$6,$7)',[tradeFile.id,2,id,'invoice',signaturePath,`${id}/${revision2}/invoice.pdf`,JSON.stringify([{page:0,x:.1,y:.1,width:.2,height:.1,cloned:true}])]);
+    assert.equal(Number((await db.query("select count(*) as n from trade_collection_file_documents where document_variant='administration_signed'")).rows[0].n),1);
+    assert.deepEqual((await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0],approved);
+    await db.exec('rollback');
+    await db.exec('begin');
+    await db.query('select return_bsgt_trade_file($1,$2,$3)',[tradeFile.id,'finance','Correct finance settings']);
+    assert.equal((await db.query('select bsgt_stage from shipments where id=$1',[id])).rows[0].bsgt_stage,'ready_for_finance');
+    assert.equal((await db.query('select operations_revision_id from shipments where id=$1',[id])).rows[0].operations_revision_id,revision2);
+    await db.exec('rollback');
+    await db.query('select final_accept_bsgt_trade_file($1)',[tradeFile.id]);
+    await db.query('select send_bsgt_trade_file_to_collecting($1,$2,$3)',[tradeFile.id,'TEST COLLECTING BANK','TEST ADDRESS']);
+    assert.equal((await db.query('select operations_revision_id from shipments')).rows[0].operations_revision_id,revision2);
+    await db.exec(`insert into shipments(id,company_id,status,bsgt_stage,data) values('10000000-0000-4000-8000-000000000099',bsgt_company_id(),'sent','management_review','{}');
+      insert into trade_collection_files(id,company_id,status,revision_no,metadata) values('40000000-0000-4000-8000-000000000099',bsgt_company_id(),'under_management_review',1,'{"documentKinds":["letter","undertaking","exchange"]}');
+      insert into trade_collection_file_shipments(trade_file_id,shipment_id) values('40000000-0000-4000-8000-000000000099','10000000-0000-4000-8000-000000000099');`);
+    await assert.rejects(db.query("select final_accept_bsgt_trade_file('40000000-0000-4000-8000-000000000099')"),/signed|documents/i);
+    await db.exec(`insert into trade_collection_file_documents(trade_file_id,revision_no,document_type,storage_path,file_name,mime_type,uploaded_by)
+      select '40000000-0000-4000-8000-000000000099',1,kind,'legacy/'||kind,kind,'application/pdf',auth.uid() from unnest(array['letter','undertaking','exchange']) kind;`);
+    await db.query("select final_accept_bsgt_trade_file('40000000-0000-4000-8000-000000000099')");
+    console.log('Operations SQL: additive/idempotent migration, permission denial, incomplete requirements, stale merge rejection, atomic approval, immutable revisions, permanent QR: passed');
+  } finally { await db.close(); }
+})().catch(error=>{console.error(error.message,error.where||'',error.stack?.split('\n').slice(0,2).join('\n'));process.exitCode=1;});

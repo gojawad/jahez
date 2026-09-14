@@ -115,11 +115,12 @@ assert.ok(html.includes('aria-label="اكتمال مستندات العمليا�
 assert.ok(html.includes('<h5>مسار BSGT</h5>'));
 assert.ok(html.includes("${file?'مرفوع':'غير مرفوع'}"));
 assert.ok(html.includes('function submitBsgtOperationsToFinance(id, button'));
-assert.ok(html.includes("sb.rpc('complete_bsgt_operations'"));
+assert.ok(html.includes('window.JahezRevisionWorkflow.mergeOperations(latestRecord)'));
+assert.ok(fs.readFileSync(path.join(__dirname,'../api/bsgt-operations-package.js'),'utf8').includes("'/rest/v1/rpc/approve_bsgt_operations_revision'"));
 assert.ok(html.includes("documentType:api.DOCUMENT_TYPES[key]"));
 assert.ok(html.includes("key === 'optionalAttachment'"));
 assert.ok(html.includes("sb.rpc('delete_bsgt_operations_document'"));
 assert.ok(html.includes('showShipmentWorkflowDialog({'));
-assert.ok(html.includes("if(!confirm('سيتم إنهاء مرحلة العمليات وإرسال الشحنة للمالية.\\nهل تريد المتابعة؟'))"));
+assert.ok(html.includes("if(!confirm('سيتم دمج مستندات العمليات في إصدار ثابت للحزمة وإرسال الشحنة للمالية.\\nهل تريد المتابعة؟'))"));
 assert.ok(html.includes('function renderBsgtFinanceShell'));
 console.log('BSGT operations readiness and migration: passed');

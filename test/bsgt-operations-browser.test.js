@@ -100,6 +100,15 @@ async function main(){
     let currentStage = 'operations_draft';
     let files = initialFiles.map(file=>({...file}));
     let imageApiCalls = 0;
+    const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
+    const fixturePdf=await PDFDocument.create();fixturePdf.addPage();const fixturePdfBytes=Buffer.from(await fixturePdf.save());
+    await context.route(`${APP_ORIGIN}/api/render-bsgt-pdf`,route=>route.fulfill({status:200,contentType:'application/pdf',body:fixturePdfBytes}));
+    await context.route(`${APP_ORIGIN}/api/bsgt-operations-package`,route=>{
+      const payload=route.request().postDataJSON();
+      assert.deepStrictEqual(Object.keys(payload.generated).sort(),['contract','invoice','packing','proforma']);
+      assert.equal(payload.shipmentId,shipmentId);completeCalls++;currentStage='ready_for_finance';
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({shipment:{...shipmentRow(currentStage),operations_revision_id:'55555555-5555-4555-8555-555555555555'}})});
+    });
     const shipmentPageRequests = [];
     await context.route('https://upload.wikimedia.org/jahez-test.png', route=>route.fulfill({
       status:200,
@@ -132,6 +141,7 @@ async function main(){
         currentStage = 'ready_for_finance';
         return route.fulfill({status:200,headers,body:JSON.stringify(shipmentRow(currentStage))});
       }
+      if(url.pathname==='/rest/v1/rpc/bsgt_operations_package_input') return route.fulfill({status:200,headers,body:JSON.stringify({shipment:shipmentRow(currentStage),fingerprint:'a'.repeat(32),generated:{contract:true,invoice:true,packing:true,proforma:true}})});
       if(url.pathname==='/rest/v1/rpc/delete_bsgt_operations_document'){
         const payload=request.postDataJSON();
         const index=files.findIndex(file=>file.id===payload.p_file_id&&file.shipment_id===payload.p_shipment_id);
@@ -495,9 +505,11 @@ async function main(){
     await page.waitForFunction(name=>!document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes(name),initialFiles[3].name);
     assert.strictEqual(deleteCalls, 2, 'optional file is deleted once');
     assert.strictEqual(storageDeleteCalls, 2, 'optional storage object is removed once');
+    assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(),0,'merge additionally requires package.merge');
+    await page.evaluate(id=>{currentFeaturePermissionRows.push({permission_key:'package.merge',allowed:true});syncCurrentPermissionContext();refreshBsgtOperationsPanel(records.find(r=>r.id===id));},shipmentId);
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
-    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم إرسالها من العمليات'));
+    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('معاينة حزمة العمليات المعتمدة'));
     assert.strictEqual(completeCalls, 1);
     assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');

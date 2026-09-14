@@ -110,6 +110,7 @@
       generatedCount,
       uploadedCount,
       completedCount: generatedCount + uploadedCount,
+      requiredCount: Object.keys(generated).length + Object.keys(uploaded).length,
       completed: missing.length === 0
     });
   }
