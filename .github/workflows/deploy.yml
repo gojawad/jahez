@@ -71,6 +71,31 @@ jobs:
             echo "already live at $TARGET_SHA"
           fi
 
+      - name: Provision private PDF fonts
+        run: |
+          set -Eeuo pipefail
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          cd "$JAHEZ_DIR"
+          mkdir -p .private/pdf-fonts
+          while read -r digest filename; do
+            test -n "$filename" || continue
+            case "$filename" in
+              CALIBRI.TTF|CALIBRIB.TTF|CALIBRII.TTF|CALIBRIZ.TTF|CALIBRIL.TTF|CALIBRILI.TTF|MINGLIUB.TTC) ;;
+              *) echo "Unexpected PDF font filename" >&2; exit 2 ;;
+            esac
+            target=".private/pdf-fonts/$filename"
+            if ! printf '%s  %s\n' "$digest" "$target" | sha256sum --check --status; then
+              curl --fail --silent --show-error --retry 2 --max-time 180 \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+                "https://vthcmqqiexaedukduquv.supabase.co/storage/v1/object/authenticated/jahez-pdf-fonts/$filename" \
+                -o "$target.download"
+              printf '%s  %s\n' "$digest" "$target.download" | sha256sum --check --status
+              mv "$target.download" "$target"
+            fi
+            chmod 644 "$target"
+          done < .github/pdf-fonts.sha256
+          echo "Private PDF fonts verified."
+
       - name: Build the image
         run: |
           set -Eeuo pipefail

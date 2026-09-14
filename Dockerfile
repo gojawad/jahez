@@ -2,8 +2,14 @@ FROM node:24-bookworm-slim
 
 # Chromium لتوليد PDF محلياً + خطوط عربية للطباعة.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      chromium fonts-noto-core fonts-noto-ui-core fonts-dejavu-core fonts-liberation ca-certificates \
+      chromium fontconfig fonts-noto-core fonts-noto-ui-core fonts-dejavu-core fonts-liberation ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Supplied at deployment from private storage, never committed or served by the app.
+COPY .private/pdf-fonts/ /usr/local/share/fonts/jahez-private/
+RUN fc-cache -f /usr/local/share/fonts/jahez-private \
+    && fc-match -f '%{family}' Calibri | grep -Fx Calibri \
+    && fc-match -f '%{family}' PMingLiU-ExtB | grep -Fx PMingLiU-ExtB
 
 ENV NODE_ENV=production \
     CHROMIUM_PATH=/usr/bin/chromium \

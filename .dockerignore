@@ -7,3 +7,5 @@ test
 .env.*
 !.env.example
 *.md
+.private/*
+!.private/pdf-fonts/

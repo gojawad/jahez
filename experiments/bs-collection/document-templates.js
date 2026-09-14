@@ -6,7 +6,9 @@ window.CollectionHtmlTemplates = (()=>{
   const fields=['top','bottom','left','right','headerSize','footerSize'];
   const defaults=()=>({version:1,header:'collection',unit:'mm',top:20,bottom:20,left:17,right:17,headerSize:29,footerSize:8,html:''});
   const saved=kind=>sharedCollectionCompany?.settings?.[settingsKey]?.[kind]||null;
-  const hasTemplate=kind=>Boolean(saved(kind)?.html?.trim());
+  // Keep administrator-authored HTML intact; only replace the built-in exchange body.
+  const active=kind=>saved(kind)?.html?.trim()?saved(kind):(kind==='exchange'?window.CollectionExchangeWordTemplate?.config():null)||saved(kind)||defaults();
+  const hasTemplate=kind=>Boolean(active(kind)?.html?.trim());
   const byId=id=>document.getElementById(id);
   const title=kind=>collectionDocumentLabels[kind]?.title||kind;
   const error=message=>{ byId('templateError').textContent=message; };
@@ -33,7 +35,18 @@ window.CollectionHtmlTemplates = (()=>{
       document_title:title(kind),currency:total.currency,total:total.number,
       amount:formatMoney(total.currency,total.number),words:`${total.currency} ${amountWords(total.number)} ONLY`,
       drawee:consignees.join(' / '),draweeAddress:state.settings.draweeAddress||rows[0].consigneeAddress||'',
-      collectionDateText:collectionDateText(state.settings.collectionDate)};
+      collectionDateText:collectionDateText(state.settings.collectionDate),
+      exchangeAmount:`${total.currency} ${total.number}`,
+      exchangeCollectionDate:collectionDateText(state.settings.collectionDate).replace(/-(\d{4})$/,'- $1'),
+      exchangeBank:String(state.settings.remittingBank||'').toUpperCase(),
+      exchangeWords:`${amountWords(total.number)} ${total.currency} ONLY`.toUpperCase(),
+      exchangeRows:rows.map(row=>({...row,invoiceNo:row.invoiceNo||row.shipmentNo||'-',exchangeInvoiceDate:exchangeDate(row.invoiceDate)}))};
+  }
+  function exchangeDate(value){
+    const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));
+    if(!match) return value||'-';
+    const month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(match[2])-1];
+    return month?`${Number(match[3])} ${month} ${match[1]}`:value;
   }
   function lookup(context,key){
     return key.split('.').reduce((value,part)=>value&&Object.hasOwn(value,part)?value[part]:undefined,context);
@@ -113,8 +126,11 @@ window.CollectionHtmlTemplates = (()=>{
     return `${stamp.source?`<div class="template-stamp collection-stamp-overlay" style="left:${stamp.x-left}mm;top:${stamp.y-top}mm;width:${stamp.width}mm;transform:rotate(${stamp.rotate}deg)"><img src="${esc(stamp.source)}" alt=""></div>`:''}${signature?`<div class="template-signature"><img src="${esc(signature)}" alt=""></div>`:''}`;
   }
   function documentHtml(kind,value){
-    const config=validate(value), context=variables(kind);
-    if(!config.html.trim()) return legacyHtml(kind);
+    const config=validate(value||active(kind)), context=variables(kind);
+    if(!config.html.trim()){
+      if(kind==='exchange'&&window.CollectionExchangeWordTemplate) return documentHtml(kind,CollectionExchangeWordTemplate.config());
+      return legacyHtml(kind);
+    }
     const content=sanitize(interpolate(config.html,context));
     const mm=key=>config[key]*units[config.unit];
     const top=mm('top')+mm('headerSize'),bottom=mm('bottom')+mm('footerSize'),left=mm('left'),right=mm('right');
@@ -125,8 +141,9 @@ window.CollectionHtmlTemplates = (()=>{
     const footer=config.header==='company'?trustedAsset(company.footerImg):'';
     const artwork={background,header,footer,stamp:stampData(kind),left,right,top:mm('top'),bottom:mm('bottom'),headerSize:mm('headerSize'),footerSize:mm('footerSize')};
     const assets=`${background?`<img class="template-background" src="${esc(background)}" alt="">`:''}${header?`<header class="template-header"><img src="${esc(header)}" alt=""></header>`:''}${footer?`<footer class="template-footer"><img src="${esc(footer)}" alt=""></footer>`:''}`;
-    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: ${location.origin} ${SB_URL}; font-src 'none'; base-uri 'none'; form-action 'none'"><title>${esc(title(kind))}</title>
-      <meta name="collection-page-art" content="${esc(JSON.stringify(artwork))}"><style>${content.css}</style><style>
+    const exchangeFonts=kind==='exchange'?window.CollectionExchangeWordTemplate?.fonts(location.origin)||'':'';
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: ${location.origin} ${SB_URL}; font-src ${kind==='exchange'?`data: ${location.origin}`:"'none'"}; base-uri 'none'; form-action 'none'"><title>${esc(title(kind))}</title>
+      <meta name="collection-page-art" content="${esc(JSON.stringify(artwork))}"><style>${exchangeFonts}${content.css}</style><style>
       @page{size:A4;margin:${top}mm ${right}mm ${bottom}mm ${left}mm}
       html{background:#fff}body{margin:0!important;color:#111;font-family:Arial,Tahoma,sans-serif;font-size:11pt;line-height:1.45}
       .template-sheet{position:relative;box-sizing:border-box;width:210mm;min-height:297mm;padding:${top}mm ${right}mm ${bottom}mm ${left}mm;background:transparent;isolation:isolate}
@@ -160,6 +177,12 @@ window.CollectionHtmlTemplates = (()=>{
     const artMeta=doc.querySelector('meta[name="collection-page-art"]');
     const artwork=artMeta?JSON.parse(artMeta.content):null;
     if(artMeta){artMeta.remove();doc.querySelectorAll('.template-background,.template-header,.template-footer,.template-stamp').forEach(node=>node.remove());html='<!doctype html>'+doc.documentElement.outerHTML;}
+    // Chromium's PDF document has an opaque origin. Embed only our two bundled fonts
+    // so cross-origin font restrictions cannot silently substitute a different typeface.
+    if(doc.querySelector('.bank-exchange')){
+      const fonts=await exchangePdfFonts();
+      fonts.forEach(({url,data})=>{html=html.split(url).join(data);});
+    }
     const response=await fetch('/api/render-bsgt-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})});
     if(!response.ok) throw new Error('تعذّر إنشاء معاينة PDF. حاول مرة أخرى.');
     const bytes=await response.arrayBuffer();
@@ -199,6 +222,22 @@ window.CollectionHtmlTemplates = (()=>{
     }
     return result.save();
   }
+  let exchangeFontPromise;
+  function exchangePdfFonts(){
+    if(!exchangeFontPromise)exchangeFontPromise=(async()=>{
+      const fonts=[];
+      for(const weight of ['Regular','Bold']){
+        const url=`${location.origin}/experiments/bs-collection/assets/Carlito-${weight}.ttf`;
+        const response=await fetch(url);
+        if(!response.ok)throw new Error('تعذر تحميل خط الكمبيالة. حاول مرة أخرى.');
+        const blob=await response.blob();
+        const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+        fonts.push({url,data});
+      }
+      return fonts;
+    })().catch(error=>{exchangeFontPromise=null;throw error;});
+    return exchangeFontPromise;
+  }
   function showPdf(bytes,label,returnToEditor){
     if(previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
@@ -226,7 +265,7 @@ window.CollectionHtmlTemplates = (()=>{
   function open(kind){
     if(portalRole!=='admin') return false;
     editingKind=kind;error('');
-    const value={...defaults(),...saved(kind)};
+    const value={...defaults(),...active(kind)};
     byId('templateSettingsTitle').textContent=`إعداد ${title(kind)}`;
     const company=sharedCollectionCompany?.settings||{};
     byId('templateHeader').innerHTML=`<option value="collection">${esc(sharedCollectionCompany?.name_ar||sharedCollectionCompany?.name_en||'الترويسة الحالية')}</option>${company.letterheadImg||company.footerImg?'<option value="company">ترويسة وتذييل الشركة</option>':''}<option value="none">بدون ترويسة</option>`;
@@ -307,7 +346,7 @@ window.CollectionHtmlTemplates = (()=>{
     try{
       const wrapper=document.createElement('div');wrapper.className='collection-html-page';
       const frame=document.createElement('iframe');frame.className='collection-html-frame';frame.title=title(kind);frame.setAttribute('sandbox','allow-same-origin');
-      const doc=new DOMParser().parseFromString(documentHtml(kind,saved(kind)),'text/html');
+      const doc=new DOMParser().parseFromString(documentHtml(kind,active(kind)),'text/html');
       doc.querySelectorAll('.template-stamp').forEach(node=>node.remove());
       frame.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;
       frame.onload=()=>{
@@ -327,11 +366,11 @@ window.CollectionHtmlTemplates = (()=>{
     }catch(reason){byId('documentPreview').textContent=reason.message;return true;}
   }
   async function printSaved(kind=state.preview){
-    await run(async()=>showPdf(await pdf(documentHtml(kind,saved(kind)||defaults())),`معاينة ${title(kind)}`,false));
+    await run(async()=>showPdf(await pdf(documentHtml(kind,active(kind))),`معاينة ${title(kind)}`,false));
   }
   async function printAll(){
     await run(async()=>{
-      const documents=collectionDocumentKinds().map(kind=>documentHtml(kind,saved(kind)||defaults()));
+      const documents=collectionDocumentKinds().map(kind=>documentHtml(kind,active(kind)));
       await loadPdfLibrary();
       const merged=await PDFLib.PDFDocument.create();
       for(const html of documents){

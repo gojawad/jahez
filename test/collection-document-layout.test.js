@@ -162,7 +162,9 @@ async function main() {
     await page.locator('.shipment-card').first().click();
     await page.locator('[data-step-section="preview-section"]').click();
     await page.evaluate(()=>{
-      sharedCollectionBranding.stamp='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="45" fill="blue"/></svg>');
+      const canvas=document.createElement('canvas');canvas.width=100;canvas.height=100;
+      const context=canvas.getContext('2d');context.fillStyle='blue';context.beginPath();context.arc(50,50,45,0,Math.PI*2);context.fill();
+      sharedCollectionBranding.stamp=canvas.toDataURL('image/png');
       renderPreview();
     });
     const employeeBefore=await page.evaluate(()=>({
@@ -191,12 +193,11 @@ async function main() {
     assert.deepStrictEqual(employeeAfter,employeeBefore,'employee placement does not change shared or local template settings');
     assert.strictEqual(await page.locator('.document-editor-panel').isVisible(),false);
     const printed=await page.evaluate(()=>{
-      let html='';
-      const originalOpen=window.open;
-      window.open=()=>({document:{write(value){html=value},close(){}},print(){}});
-      try { printAllCollectionDocuments(); } finally { window.open=originalOpen; }
-      const doc=new DOMParser().parseFromString(html,'text/html');
-      return [...doc.querySelectorAll('.collection-stamp-overlay')].map(node=>({left:node.style.left,top:node.style.top}));
+      return collectionDocumentKinds().map(kind=>{
+        const doc=new DOMParser().parseFromString(CollectionHtmlTemplates.documentHtml(kind),'text/html');
+        const node=doc.querySelector('.collection-stamp-overlay');
+        return {left:node.style.left,top:node.style.top};
+      });
     });
     assert.strictEqual(printed.length,3);
     assert.deepStrictEqual(printed[0],moved,'printed collection letter uses the employee placement');
@@ -233,31 +234,26 @@ async function main() {
 
     await page.locator('[data-preview="exchange"]').click();
     await page.locator('#templateCancel').click();
-    await page.locator('.boe-meta').waitFor();
-    const exchange = await page.evaluate(()=>({
-      metaCells:[...document.querySelectorAll('.boe-meta td')].map(cell=>cell.textContent.trim()),
-      metaBorders:[...document.querySelectorAll('.boe-meta td')].map(cell=>getComputedStyle(cell).borderTopStyle),
-      amountBox:(()=>{
-        const cell=document.querySelector('.boe-meta td').getBoundingClientRect();
-        const label=document.querySelector('[data-text-style-id="boe-amount-label"]').getBoundingClientRect();
-        const value=document.querySelector('[data-text-style-id="boe-amount-value"]').getBoundingClientRect();
-        return {leftGap:label.left-cell.left,rightGap:cell.right-value.right,separation:value.left-label.right};
-      })(),
-      invoiceRows:document.querySelectorAll('.boe-invoices tr').length,
-      invoiceCells:[...document.querySelector('.boe-invoices tr').cells].map(cell=>cell.textContent.trim()),
-      invoiceBorders:[...document.querySelector('.boe-invoices tr').cells].map(cell=>getComputedStyle(cell).borderTopStyle),
-      overflow:document.querySelector('.collection-a4').scrollWidth-document.querySelector('.collection-a4').clientWidth
+    const exchangeFrame=page.frameLocator('.collection-html-frame');
+    await exchangeFrame.locator('.exchange-meta').waitFor();
+    const exchange = await exchangeFrame.locator('.bank-exchange').evaluate(node=>({
+      metaCells:[...node.querySelectorAll('.exchange-meta td')].map(cell=>cell.textContent.trim()),
+      metaBorders:[...node.querySelectorAll('.exchange-meta td')].map(cell=>getComputedStyle(cell).borderTopStyle),
+      metaAlign:[...node.querySelectorAll('.exchange-meta td')].map(cell=>getComputedStyle(cell).textAlign),
+      invoiceRows:node.querySelectorAll('.exchange-invoices tr').length,
+      invoiceCells:[...node.querySelector('.exchange-invoices tr').cells].map(cell=>cell.textContent.trim()),
+      invoiceBorders:[...node.querySelector('.exchange-invoices tr').cells].map(cell=>getComputedStyle(cell).borderTopStyle),
+      overflow:node.scrollWidth-node.clientWidth
     }));
     assert.strictEqual(exchange.metaCells.length, 2);
     assert.ok(exchange.metaBorders.every(style=>style === 'solid'));
-    assert.ok(exchange.amountBox.leftGap < 25);
-    assert.ok(exchange.amountBox.rightGap < 25);
-    assert.ok(exchange.amountBox.separation > 30);
+    assert.deepStrictEqual(exchange.metaAlign,['center','center'],'each box follows the Word reference');
     assert.strictEqual(exchange.invoiceRows, 2);
-    assert.deepStrictEqual(exchange.invoiceCells, ['HJ2026173','Dated:','2026-07-20']);
+    assert.deepStrictEqual(exchange.invoiceCells, ['HJ2026173','Dated:','20 Jul 2026']);
     assert.ok(exchange.invoiceBorders.every(style=>style === 'none'));
     assert.ok(exchange.overflow <= 0);
-    await page.locator('.collection-a4').screenshot({path:path.join(OUTPUT, 'collection-exchange.png')});
+    await page.locator('.collection-html-page').screenshot({path:path.join(OUTPUT, 'collection-exchange.png')});
+    await require('./collection-exchange-word.test')({page,BASE,OUTPUT});
 
     page.once('dialog', dialog=>dialog.accept());
     await page.locator('#recordCollectionBtn').click();
