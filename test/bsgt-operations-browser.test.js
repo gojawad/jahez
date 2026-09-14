@@ -201,6 +201,7 @@ async function main(){
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-mobile-scroll-1')), 'operations CSS uses the mobile scroll cache version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260914-operations-revisions-1')), 'operations JS invalidates the pre-revision cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260914-internal-revisions-1')), 'management JS invalidates the mandatory-signature cached version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260915-merge-routing-1')), 'company wizard invalidates the legacy merge click interceptor');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
     const operationsFonts=await page.locator('.bsgt-operations h3, .bsgt-operations input, .bsgt-operations select, .bsgt-operations button').evaluateAll(elements=>elements.map(element=>getComputedStyle(element).fontFamily));
     assert.ok(operationsFonts.length>0&&operationsFonts.every(font=>font.includes('IBM Plex Sans Arabic')), 'all Operations text controls use IBM Plex Sans Arabic');
@@ -508,10 +509,30 @@ async function main(){
     assert.strictEqual(storageDeleteCalls, 2, 'optional storage object is removed once');
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(),0,'merge additionally requires package.merge');
     await page.evaluate(id=>{currentFeaturePermissionRows.push({permission_key:'package.merge',allowed:true});syncCurrentPermissionContext();refreshBsgtOperationsPanel(records.find(r=>r.id===id));},shipmentId);
+    for(const buttonId of ['packageBtn','mergeAllBtn']){
+      currentStage='operations_draft';
+      await page.evaluate(id=>{
+        const record=records.find(r=>r.id===id);
+        record.bsgtStage='operations_draft';record.operationsRevisionId=null;
+        openDetail(id,{returnTo:'operations'});
+      },shipmentId);
+      await page.waitForFunction(id=>document.getElementById(id)?.getAttribute('aria-disabled')==='false',buttonId);
+      assert.doesNotMatch(await page.locator(`#${buttonId}`).getAttribute('title')||'',/إرسال الشحنة للبنك/);
+      // Simulate a detail callback retaining the pre-return record until server refresh.
+      await page.evaluate(id=>{records.find(r=>r.id===id).bsgtStage='ready_for_finance';},shipmentId);
+      const before=completeCalls;
+      await page.locator(`#${buttonId}`).click();
+      await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('معاينة حزمة العمليات المعتمدة'));
+      assert.strictEqual(completeCalls,before+1,`${buttonId} merges operations before finance, even with stale detail state`);
+      assert.strictEqual(await page.locator('#shipmentWorkflowDialog').count(),0,'no legacy bank-send gate');
+    }
+    currentStage='operations_draft';
+    await page.evaluate(id=>{const r=records.find(r=>r.id===id);r.bsgtStage='operations_draft';r.operationsRevisionId=null;openDetail(id,{returnTo:'operations'});},shipmentId);
+    await page.waitForFunction(()=>document.querySelector('#bsgtSendToFinanceBtn:not([disabled])'));
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('معاينة حزمة العمليات المعتمدة'));
-    assert.strictEqual(completeCalls, 1);
+    assert.strictEqual(completeCalls, 3);
     assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');
     assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'ready-for-finance documents are read-only');

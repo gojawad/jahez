@@ -20650,12 +20650,15 @@ function bsgtWorkflowGateError(reason){
 
 async function requestBsgtPackageMerge(record, triggerButton){
   const button = triggerButton || document.getElementById('mergeAllBtn');
-  if(record.bsgtStage==='operations_draft') return submitBsgtOperationsToFinance(record.id,button);
-  if(record.operationsRevisionId) return window.JahezRevisionWorkflow.previewOperations(record.id);
   if(button?.dataset.workflowChecking === 'true' || button?.dataset.workflowBusy === 'true') return;
   const originalHtml = button?.innerHTML || '';
   if(button){ button.dataset.workflowChecking = 'true'; button.disabled = true; button.setAttribute('aria-busy','true'); button.textContent = 'جارٍ التحقق…'; }
   try{
+    // Detail callbacks can outlive a finance return or a refreshed records list.
+    const latest = await fetchLatestShipmentWorkflowState(record.id);
+    record = latest.record;
+    if(record.bsgtStage==='operations_draft') return await submitBsgtOperationsToFinance(record.id,button);
+    if(record.operationsRevisionId) return await window.JahezRevisionWorkflow.previewOperations(record.id);
     const gate = await ensureBsgtPackageMergeAllowed(record, {showDialog:true});
     if(!gate.allowed) return;
     chooseDocLang(gate.record, lang=>mergeFullPackage(gate.record, lang, button));
@@ -20663,7 +20666,10 @@ async function requestBsgtPackageMerge(record, triggerButton){
     console.error('BSGT workflow merge check', error);
     await showShipmentWorkflowDialog({title:'تعذر التحقق من الشحنة', message:'تعذر قراءة أحدث حالة للشحنة. لم يبدأ الدمج؛ حاول مرة أخرى.'});
   }finally{
-    if(button?.isConnected){ delete button.dataset.workflowChecking; button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = originalHtml; }
+    if(button?.isConnected){
+      delete button.dataset.workflowChecking; button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = originalHtml;
+      refreshBsgtMergeControls(records.find(item=>item.id===record.id) || record);
+    }
   }
 }
 
@@ -21891,11 +21897,11 @@ initializeAuthentication();
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
 <script src="import-permit.js?v=20260908-7"></script>
 <script src="wizard.js"></script>
-<script src="company-wizard.js?v=20260913-final-line-amounts"></script>
+<script src="company-wizard.js?v=20260915-merge-routing-1"></script>
 <script src="shipment-detail.js"></script>
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260914-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260915-merge-routing-1"></script>
 </body>
 </html>

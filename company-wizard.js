@@ -1114,7 +1114,7 @@
     if (isBsgt(records.find(item => item.id === id))) {
       setTimeout(() => {
         const packageButton = document.getElementById('packageBtn');
-        if (packageButton) packageButton.textContent = 'طباعة';
+        if (packageButton) refreshBsgtMergeControls(records.find(item => item.id === id));
       }, 0);
     }
     return result;
@@ -1126,7 +1126,7 @@
     if (!button || !record || !isBsgt(record)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    chooseDocLang(record, lang => window.mergeFullPackage(record, lang, button));
+    requestBsgtPackageMerge(record, button);
   }, true);
 })();
 

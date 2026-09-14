@@ -4,6 +4,26 @@ const { test } = require('node:test');
 const { PDFDocument } = require('../experiments/bs-collection/collection-pdf-lib');
 const { buildPackage } = require('../api/bsgt-operations-package');
 
+test('merge routing refreshes stale detail state before applying legacy gates', async () => {
+  const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  const source=html.slice(html.indexOf('async function requestBsgtPackageMerge('),html.indexOf('async function mergeBsgtPackageLocally('));
+  for(const stage of ['operations_draft','ready_for_finance','final_accepted']){
+    const latest={id:'shipment',bsgtStage:stage,operationsRevisionId:stage==='ready_for_finance'?'r2':null};
+    const calls=[];
+    const context={records:[latest],document:{getElementById:()=>null},console,
+      fetchLatestShipmentWorkflowState:async()=>{calls.push('read');return {record:latest,files:[]};},
+      submitBsgtOperationsToFinance:async()=>calls.push('operations'),
+      window:{JahezRevisionWorkflow:{previewOperations:async()=>calls.push('preview')}},
+      ensureBsgtPackageMergeAllowed:async()=>{calls.push('legacy');return {allowed:false};},
+      showShipmentWorkflowDialog:async()=>{throw new Error('Unexpected workflow error');}
+    };
+    vm.createContext(context);vm.runInContext(source,context);
+    await context.requestBsgtPackageMerge({id:'shipment',bsgtStage:'ready_for_finance'});
+    assert.deepEqual(calls,['read',stage==='operations_draft'?'operations':stage==='ready_for_finance'?'preview':'legacy']);
+  }
+});
+
 async function fixture() {
   const doc = await PDFDocument.create();
   doc.addPage([595, 842]);

@@ -43,9 +43,11 @@
     for(const id of ['bsgtOperationsQuickSend','bsgtSendToFinanceBtn','packageBtn','mergeAllBtn']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
       if(record.operationsRevisionId&&record.bsgtStage!=='operations_draft'){
+        button.classList.remove('workflow-merge-locked');button.removeAttribute('aria-disabled');button.removeAttribute('title');
         button.disabled=false;button.textContent='معاينة حزمة العمليات المعتمدة';
         button.onclick=event=>{event.stopImmediatePropagation();previewOperations(record.id);};
       }else if(record.bsgtStage==='operations_draft'){
+        button.classList.toggle('workflow-merge-locked',!allowed);button.setAttribute('aria-disabled',String(!allowed));
         button.disabled=!allowed;button.textContent=evaluation.completed?'دمج الحزمة وإرسالها للمالية':`دمج الحزمة (${evaluation.completedCount}/${evaluation.requiredCount})`;
         button.title=allowed?'جاهزة للدمج':'أكمل متطلبات العمليات وتأكد من صلاحية الدمج.';
         button.onclick=null;
