@@ -98,6 +98,9 @@ async function main(){
     let deleteCalls = 0;
     let storageDeleteCalls = 0;
     let currentStage = 'operations_draft';
+    let currentRevisionId = null;
+    let mergeCalls = 0;
+    const currentShipment=()=>({...shipmentRow(currentStage),operations_revision_id:currentRevisionId});
     let files = initialFiles.map(file=>({...file}));
     let imageApiCalls = 0;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
@@ -106,8 +109,10 @@ async function main(){
     await context.route(`${APP_ORIGIN}/api/bsgt-operations-package`,route=>{
       const payload=route.request().postDataJSON();
       assert.deepStrictEqual(Object.keys(payload.generated).sort(),['contract','invoice','packing','proforma']);
-      assert.equal(payload.shipmentId,shipmentId);completeCalls++;currentStage='ready_for_finance';
-      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({shipment:{...shipmentRow(currentStage),operations_revision_id:'55555555-5555-4555-8555-555555555555'}})});
+      assert.equal(payload.shipmentId,shipmentId);
+      assert.ok(['ar','en'].includes(payload.language));
+      mergeCalls++;currentRevisionId='55555555-5555-4555-8555-555555555555';
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({shipment:currentShipment()})});
     });
     const shipmentPageRequests = [];
     await context.route('https://upload.wikimedia.org/jahez-test.png', route=>route.fulfill({
@@ -124,6 +129,10 @@ async function main(){
       const url = new URL(request.url());
       const headers = {'Access-Control-Allow-Origin':APP_ORIGIN,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};
       if(request.method()==='OPTIONS') return route.fulfill({status:204,headers,body:''});
+      if(url.pathname.startsWith('/storage/v1/object/sign/bsgt-operations-packages/')){
+        return route.fulfill({status:200,headers,body:JSON.stringify({signedURL:'/object/sign/bsgt-operations-packages/fixture.pdf?token=test'})});
+      }
+      if(url.pathname==='/rest/v1/bsgt_operations_revisions') return route.fulfill({status:200,headers,body:JSON.stringify({id:currentRevisionId,revision_no:mergeCalls,package_path:`${shipmentId}/${currentRevisionId}/package.pdf`})});
       if(url.pathname==='/storage/v1/object/shipment-files' && request.method()==='DELETE'){
         storageDeleteCalls++;
         return route.fulfill({status:200,headers,body:'{}'});
@@ -137,11 +146,12 @@ async function main(){
       ])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions') return route.fulfill({status:200,headers,body:JSON.stringify([{section:'operations',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/complete_bsgt_operations'){
+        assert.ok(currentRevisionId,'send requires an already merged revision');
         completeCalls++;
         currentStage = 'ready_for_finance';
-        return route.fulfill({status:200,headers,body:JSON.stringify(shipmentRow(currentStage))});
+        return route.fulfill({status:200,headers,body:JSON.stringify(currentShipment())});
       }
-      if(url.pathname==='/rest/v1/rpc/bsgt_operations_package_input') return route.fulfill({status:200,headers,body:JSON.stringify({shipment:shipmentRow(currentStage),fingerprint:'a'.repeat(32),generated:{contract:true,invoice:true,packing:true,proforma:true}})});
+      if(url.pathname==='/rest/v1/rpc/bsgt_operations_package_input') return route.fulfill({status:200,headers,body:JSON.stringify({workflowVersion:2,shipment:currentShipment(),fingerprint:'a'.repeat(32),generated:{contract:true,invoice:true,packing:true,proforma:true}})});
       if(url.pathname==='/rest/v1/rpc/delete_bsgt_operations_document'){
         const payload=request.postDataJSON();
         const index=files.findIndex(file=>file.id===payload.p_file_id&&file.shipment_id===payload.p_shipment_id);
@@ -161,7 +171,7 @@ async function main(){
         }
         const single = String(request.headers().accept||'').includes('vnd.pgrst.object');
         const total=String(request.headers().prefer||'').includes('count=exact')?11:1;
-        return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?shipmentRow(currentStage):[shipmentRow(currentStage)])});
+        return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?currentShipment():[currentShipment()])});
       }
       if(url.pathname==='/rest/v1/shipment_files'){
         shipmentFileReads++;
@@ -509,8 +519,14 @@ async function main(){
     assert.strictEqual(storageDeleteCalls, 2, 'optional storage object is removed once');
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(),0,'merge additionally requires package.merge');
     await page.evaluate(id=>{currentFeaturePermissionRows.push({permission_key:'package.merge',allowed:true});syncCurrentPermissionContext();refreshBsgtOperationsPanel(records.find(r=>r.id===id));},shipmentId);
+    await page.evaluate(()=>{
+      window.renderedPackageLanguages=[];
+      const append=appendBsgtBrowserlessPagePdf;
+      appendBsgtBrowserlessPagePdf=async(...args)=>{renderedPackageLanguages.push(args[3]);return append(...args);};
+    });
     for(const buttonId of ['packageBtn','mergeAllBtn']){
       currentStage='operations_draft';
+      currentRevisionId=null;
       await page.evaluate(id=>{
         const record=records.find(r=>r.id===id);
         record.bsgtStage='operations_draft';record.operationsRevisionId=null;
@@ -518,21 +534,31 @@ async function main(){
       },shipmentId);
       await page.waitForFunction(id=>document.getElementById(id)?.getAttribute('aria-disabled')==='false',buttonId);
       assert.doesNotMatch(await page.locator(`#${buttonId}`).getAttribute('title')||'',/إرسال الشحنة للبنك/);
-      // Simulate a detail callback retaining the pre-return record until server refresh.
-      await page.evaluate(id=>{records.find(r=>r.id===id).bsgtStage='ready_for_finance';},shipmentId);
-      const before=completeCalls;
+      const before=mergeCalls;
       await page.locator(`#${buttonId}`).click();
-      await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('معاينة حزمة العمليات المعتمدة'));
-      assert.strictEqual(completeCalls,before+1,`${buttonId} merges operations before finance, even with stale detail state`);
+      await page.locator('#docLangOverlay.open').waitFor();
+      assert.strictEqual(mergeCalls,before,'opening language choice does not merge');
+      assert.strictEqual(completeCalls,0,'opening language choice does not send');
+      await page.locator('#docLangCloseX').click();
+      assert.strictEqual(mergeCalls,before,'canceling language selection does not merge');
+      await page.locator(`#${buttonId}`).click();
+      await page.locator('#docLangOverlay.open').waitFor();
+      const language=buttonId==='packageBtn'?'ar':'en';
+      await page.locator(language==='ar'?'#docLangArBtn':'#docLangEnBtn').click();
+      await page.locator('#pdfPreviewOverlay.open').waitFor();
+      assert.strictEqual(mergeCalls,before+1,`${buttonId} merges operations without sending to finance`);
+      assert.strictEqual(completeCalls,0,'merge never calls send');
+      assert.strictEqual(currentStage,'operations_draft','merge leaves shipment in operations');
+      assert.deepStrictEqual((await page.evaluate(()=>renderedPackageLanguages)).slice(-4),Array(4).fill(language));
+      await page.locator('#pdfPreviewCloseX').click();
       assert.strictEqual(await page.locator('#shipmentWorkflowDialog').count(),0,'no legacy bank-send gate');
     }
-    currentStage='operations_draft';
-    await page.evaluate(id=>{const r=records.find(r=>r.id===id);r.bsgtStage='operations_draft';r.operationsRevisionId=null;openDetail(id,{returnTo:'operations'});},shipmentId);
     await page.waitForFunction(()=>document.querySelector('#bsgtSendToFinanceBtn:not([disabled])'));
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();
-    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('معاينة حزمة العمليات المعتمدة'));
-    assert.strictEqual(completeCalls, 3);
+    await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم الإرسال للمالية'));
+    assert.strictEqual(completeCalls, 1);
+    assert.strictEqual(mergeCalls, 2,'send does not regenerate or merge documents');
     assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');
     assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'ready-for-finance documents are read-only');

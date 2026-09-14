@@ -13,14 +13,43 @@ test('merge routing refreshes stale detail state before applying legacy gates', 
     const calls=[];
     const context={records:[latest],document:{getElementById:()=>null},console,
       fetchLatestShipmentWorkflowState:async()=>{calls.push('read');return {record:latest,files:[]};},
-      submitBsgtOperationsToFinance:async()=>calls.push('operations'),
+      chooseDocLang:(record,callback,options)=>{assert.equal(options.persist,false);calls.push('language');callback('ar');},
+      mergeBsgtOperationsPackage:async(id,lang)=>{assert.equal(lang,'ar');calls.push('operations');},
       window:{JahezRevisionWorkflow:{previewOperations:async()=>calls.push('preview')}},
       ensureBsgtPackageMergeAllowed:async()=>{calls.push('legacy');return {allowed:false};},
       showShipmentWorkflowDialog:async()=>{throw new Error('Unexpected workflow error');}
     };
     vm.createContext(context);vm.runInContext(source,context);
     await context.requestBsgtPackageMerge({id:'shipment',bsgtStage:'ready_for_finance'});
-    assert.deepEqual(calls,['read',stage==='operations_draft'?'operations':stage==='ready_for_finance'?'preview':'legacy']);
+    assert.deepEqual(calls,stage==='operations_draft'?['read','language','operations']:['read',stage==='ready_for_finance'?'preview':'legacy']);
+  }
+});
+
+test('operations merge respects selected language and refuses the old auto-send backend', async () => {
+  const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'../bsgt-revision-workflow.js'),'utf8');
+  for(const language of ['ar','en']){
+    const rendered=[],requests=[];
+    let workflowVersion=1;
+    const context={window:{},document:{},console,escapeHtml:String,
+      JahezBsgtOperations:{GENERATED_LABELS:{}},JahezBsgtManagement:{DOCUMENTS:{}},
+      ensureQrToken:async()=>{},rowToRecord:row=>row,PDFLib:{PDFDocument},
+      appendBsgtBrowserlessPagePdf:async(pdf,record,kind,lang)=>{rendered.push([kind,lang]);pdf.addPage();},
+      btoa:value=>Buffer.from(value,'binary').toString('base64'),
+      sb:{rpc:async()=>({data:{workflowVersion,shipment:{id:'test'},fingerprint:'a'.repeat(32),generated:{contract:true,proforma:true,invoice:true,packing:true}}}),
+        auth:{getSession:async()=>({data:{session:{access_token:'test-token'}}})}},
+      fetch:async(url,options)=>{requests.push([url,JSON.parse(options.body)]);return {ok:true,json:async()=>({shipment:{id:'test',bsgt_stage:'operations_draft'}})};}
+    };
+    vm.createContext(context);vm.runInContext(source,context);
+    await assert.rejects(context.window.JahezRevisionWorkflow.mergeOperations({id:'test'},language),/SQL 47/);
+    assert.equal(requests.length,0,'old backend cannot be called to auto-send');
+    assert.equal(rendered.length,0,'old backend is rejected before rendering');
+    workflowVersion=2;
+    const saved=await context.window.JahezRevisionWorkflow.mergeOperations({id:'test'},language);
+    assert.equal(saved.bsgt_stage,'operations_draft');
+    assert.deepEqual(rendered.map(item=>item[1]),Array(4).fill(language));
+    assert.equal(requests[0][1].language,language);
+    assert.equal(requests[0][0],'/api/bsgt-operations-package');
   }
 });
 

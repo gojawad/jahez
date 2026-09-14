@@ -60,6 +60,10 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     const internalMigration=fs.readFileSync(path.join(__dirname,'../supabase/45_bsgt_internal_document_versions.sql'),'utf8');
     await db.exec(internalMigration);await db.exec(internalMigration);
     await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/46_bsgt_revision_workflow_guards.sql'),'utf8'));
+    const splitMigration=fs.readFileSync(path.join(__dirname,'../supabase/47_bsgt_separate_merge_and_finance_send.sql'),'utf8');
+    const beforeSplit=(await db.query('select * from shipments')).rows;
+    await db.exec(splitMigration);await db.exec(splitMigration);
+    assert.deepEqual((await db.query('select * from shipments')).rows,beforeSplit,'split migration never rewrites shipments');
     const input=async()=>(await db.query('select bsgt_operations_package_input($1) as result',[id])).rows[0].result;
     await db.exec("set app.merge='off'"); await assert.rejects(input(),/permissions/);
     await db.exec("set app.merge='on'");
@@ -81,6 +85,23 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"INV"') where id='${id}'`);
     await db.query('select approve_bsgt_operations_revision($1)',[revision1]);
     const approved=(await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0];
+    assert.equal((await db.query('select bsgt_stage from shipments')).rows[0].bsgt_stage,'operations_draft','merge alone never sends to finance');
+    assert.equal((await input()).workflowVersion,2);
+    assert.equal((await input()).fingerprint,approved.source_fingerprint,'approval pointer does not invalidate its own snapshot');
+    await assert.rejects(db.query("update shipments set bsgt_stage='ready_for_finance', data=jsonb_set(data,'{invoiceNo}','\"BYPASS\"') where id=$1",[id]),/changed after merge/);
+    await assert.rejects(db.query('select create_bsgt_finance_context($1)',[[id]]),/ready|finance/i);
+    await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"STALE"') where id='${id}'`);
+    await assert.rejects(db.query('select complete_bsgt_operations($1)',[id]),/changed after merge/);
+    await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"INV"') where id='${id}'`);
+    await db.exec("set app.merge='off'");
+    await assert.rejects(db.query('select complete_bsgt_operations($1)',[id]),/permissions/);
+    await db.exec("set app.merge='on'");
+    await db.exec('begin');
+    await db.exec("update shipment_files set path='changed.pdf' where document_type='bill_of_lading'");
+    await assert.rejects(db.query('select complete_bsgt_operations($1)',[id]),/changed after merge/);
+    await db.exec('rollback');
+    await db.query('select complete_bsgt_operations($1)',[id]);
+    assert.equal((await db.query('select operations_revision_id from shipments')).rows[0].operations_revision_id,revision1,'send preserves the exact merged revision');
     const context=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
     assert.equal((await db.query('select get_bsgt_finance_context($1) as c',[context])).rows[0].c.shipments.length,1);
     await db.exec("set app.uid='00000000-0000-4000-8000-000000000099'");
@@ -103,11 +124,13 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     await db.exec(`update shipments set data=jsonb_set(data,'{invoiceNo}','"INV2"') where id='${id}'`);
     await stage(revision2,await input());
     await db.query('select approve_bsgt_operations_revision($1)',[revision2]);
+    assert.equal((await db.query('select bsgt_stage from shipments')).rows[0].bsgt_stage,'operations_draft');
+    await db.query('select complete_bsgt_operations($1)',[id]);
     assert.deepEqual((await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0],approved);
     assert.equal((await db.query('select operations_revision_id from shipments')).rows[0].operations_revision_id,revision2);
     await assert.rejects(db.query("update trade_collection_files set status='sent_to_remitting' where id=$1",[tradeFile.id]),/stale operations revision/);
     await assert.rejects(db.query('select get_bsgt_finance_context($1)',[context]),/stale/);
-    assert.equal(Number((await db.query('select count(*) as n from activity_log')).rows[0].n),4);
+    assert.equal(Number((await db.query('select count(*) as n from activity_log')).rows[0].n),6);
     const freshContext=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
     await db.query('select open_bsgt_finance_context_trade_file($1)',[freshContext]);
     const refreshed=(await db.query('select refresh_bsgt_finance_revision($1) as f',[freshContext])).rows[0].f;
@@ -146,6 +169,6 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     await db.exec(`insert into trade_collection_file_documents(trade_file_id,revision_no,document_type,storage_path,file_name,mime_type,uploaded_by)
       select '40000000-0000-4000-8000-000000000099',1,kind,'legacy/'||kind,kind,'application/pdf',auth.uid() from unnest(array['letter','undertaking','exchange']) kind;`);
     await db.query("select final_accept_bsgt_trade_file('40000000-0000-4000-8000-000000000099')");
-    console.log('Operations SQL: additive/idempotent migration, permission denial, incomplete requirements, stale merge rejection, atomic approval, immutable revisions, permanent QR: passed');
+    console.log('Operations SQL: additive/idempotent migration, permissions, merge-only approval, separate finance send, stale source rejection, immutable revisions, permanent QR and legacy flows: passed');
   } finally { await db.close(); }
 })().catch(error=>{console.error(error.message,error.where||'',error.stack?.split('\n').slice(0,2).join('\n'));process.exitCode=1;});

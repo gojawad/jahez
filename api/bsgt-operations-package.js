@@ -100,11 +100,13 @@ async function handler(req, res) {
   }
   try {
     const user = await jsonRequest('/auth/v1/user', { headers });
-    const { shipmentId, fingerprint, generated } = await readBody(req);
+    const { shipmentId, fingerprint, generated, language = 'en' } = await readBody(req);
+    if (!['ar','en'].includes(language)) throw new Error('Invalid package language');
     if (!UUID.test(shipmentId || '') || !/^[a-f0-9]{32}$/.test(fingerprint || '')) throw new Error('Invalid shipment snapshot');
     const input = await jsonRequest('/rest/v1/rpc/bsgt_operations_package_input', {
       method: 'POST', headers, body: JSON.stringify({ p_shipment_id: shipmentId })
     });
+    if (input.workflowVersion !== 2) throw new Error('Separate merge/send migration 47 is required');
     if (input.fingerprint !== fingerprint) throw new Error('Shipment changed. Reload and merge again.');
     const revisionId = randomUUID();
     const encodePath = path => path.split('/').map(encodeURIComponent).join('/');

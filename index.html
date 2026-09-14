@@ -9628,7 +9628,7 @@ function wireBsgtOperationsDetail(record){
   document.getElementById('bsgtOperationsOpenFull')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   document.querySelector('[data-bsgt-open-full]')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   const send=document.getElementById('bsgtOperationsQuickSend');
-  if(send&&!send.disabled) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
+  if(send) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
   document.getElementById('bsgtOperationsMobileBack')?.addEventListener('click',()=>{
     bsgtOperationsListState.mobileDetail=false;
     document.getElementById('bsgtOperationsWorkspace')?.classList.remove('show-detail');
@@ -17211,13 +17211,46 @@ function openBsgtGeneratedDocument(r, key){
   chooseDocLang(r, lang=>printSingle(r, key, lang));
 }
 
+const bsgtOperationsActionInFlight = new Set();
 async function submitBsgtOperationsToFinance(id, button, stayInline = false){
+  if(!bsgtOperationsPermission(true) || !window.JahezPermissions?.can('package.merge')) return;
+  if(bsgtOperationsActionInFlight.has(id)) return;
+  if(!confirm('إرسال الحزمة المدموجة الحالية للمالية؟ لن يتم إنشاء أو دمج مستندات في هذه الخطوة.')) return;
+  if(button){button.disabled=true;button.dataset.workflowBusy='true';}
+  bsgtOperationsActionInFlight.add(id);
+  window.JahezRevisionWorkflow.decorateOperations(records.find(record=>record.id===id));
+  netStart();
+  try{
+    const latest=await fetchLatestShipmentWorkflowState(id);
+    if(latest.record.bsgtStage!=='operations_draft') throw new Error('لا يمكن الإرسال إلا من مرحلة العمليات.');
+    if(!latest.record.operationsRevisionId) throw new Error('ادمج الحزمة ومعاينتها أولاً، ثم اضغط إرسال للمالية.');
+    const {data,error}=await sb.rpc('complete_bsgt_operations',{p_shipment_id:id});
+    if(error) throw error;
+    const saved=rowToRecord(data),index=records.findIndex(record=>record.id===id);
+    if(index>=0) records[index]=saved;else records.push(saved);
+    toast('تم إرسال الحزمة للمالية.');
+    if(stayInline) await loadBsgtOperationsPage();
+    else {rerenderBsgtOperationsDocumentState(saved);loadBsgtOperationsPage();}
+  }catch(error){
+    console.error('send BSGT operations',error);
+    toast(/changed after merge/i.test(error.message||'')?'تغيّرت بيانات أو مستندات الشحنة بعد الدمج. أعد دمج الحزمة ثم أرسلها للمالية.':error.message||'تعذر الإرسال للمالية.','err');
+  }finally{
+    netEnd();
+    bsgtOperationsActionInFlight.delete(id);
+    if(button?.isConnected) delete button.dataset.workflowBusy;
+    window.JahezRevisionWorkflow.decorateOperations(records.find(record=>record.id===id));
+  }
+}
+
+async function mergeBsgtOperationsPackage(id, lang, button){
   if(!bsgtOperationsPermission(true)) return;
   const currentRecord = records.find(record=>record.id===id);
-  if(!window.JahezBsgtOperations.canEditUploadedDocuments(currentRecord,true)) return toast('لا يمكن الإرسال إلا من مرحلة العمليات.', 'err');
+  if(!window.JahezBsgtOperations.canEditUploadedDocuments(currentRecord,true)) return toast('الدمج متاح في مرحلة العمليات فقط.', 'err');
   if(!window.JahezPermissions?.can('package.merge')) return toast('ليس لديك صلاحية دمج الحزمة.','err');
-  if(!confirm('سيتم دمج مستندات العمليات في إصدار ثابت للحزمة وإرسال الشحنة للمالية.\nهل تريد المتابعة؟')) return;
-  button.disabled = true;
+  if(bsgtOperationsActionInFlight.has(id)) return;
+  if(button){button.disabled=true;button.dataset.workflowBusy='true';}
+  bsgtOperationsActionInFlight.add(id);
+  window.JahezRevisionWorkflow.decorateOperations(currentRecord);
   netStart();
   try{
     const [shipmentResult, filesResult] = await Promise.all([
@@ -17233,7 +17266,7 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
       const index = records.findIndex(record=>record.id===id);
       if(index >= 0) records[index] = latestRecord;
       rerenderBsgtOperationsDocumentState(latestRecord);
-      toast('لا يمكن الإرسال إلا من مرحلة العمليات.', 'err');
+      toast('الدمج متاح في مرحلة العمليات فقط.', 'err');
       return;
     }
     if(!evaluation.completed){
@@ -17241,23 +17274,25 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
       const index = records.findIndex(record=>record.id===id);
       if(index >= 0) records[index] = latestRecord;
       rerenderBsgtOperationsDocumentState(latestRecord);
-      toast('تعذر الإرسال. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
+      toast('تعذر الدمج. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
       return;
     }
-    const data = await window.JahezRevisionWorkflow.mergeOperations(latestRecord);
+    const data = await window.JahezRevisionWorkflow.mergeOperations(latestRecord, lang);
     const saved = rowToRecord(data);
     const index = records.findIndex(record=>record.id===id);
     if(index >= 0) records[index] = saved; else records.push(saved);
     shipmentFilesCache[id] = filesResult.data || [];
-    toast('تم اعتماد إصدار حزمة العمليات وإرسال الشحنة للمالية.');
-    if(stayInline) await loadBsgtOperationsPage();
-    else { rerenderBsgtOperationsDocumentState(saved); loadBsgtOperationsPage(); }
+    toast('تم دمج الحزمة. لم تُرسل للمالية؛ استخدم زر إرسال للمالية بعد المراجعة.');
+    rerenderBsgtOperationsDocumentState(saved);
+    await window.JahezRevisionWorkflow.previewOperations(id);
   }catch(error){
-    console.error('complete BSGT operations', error);
-    toast(error.message || 'تعذر إرسال الشحنة للمالية.', 'err');
+    console.error('merge BSGT operations', error);
+    toast(error.message || 'تعذر دمج حزمة العمليات.', 'err');
   }finally{
     netEnd();
-    if(button?.isConnected) button.disabled = false;
+    bsgtOperationsActionInFlight.delete(id);
+    if(button?.isConnected) delete button.dataset.workflowBusy;
+    refreshBsgtMergeControls(records.find(record=>record.id===id));
   }
 }
 
@@ -17277,7 +17312,7 @@ function wireBsgtOperationsPanel(r){
     if(file) deleteBsgtOperationsDocument(r,file,button);
   }));
   const submit = document.getElementById('bsgtSendToFinanceBtn');
-  if(submit && !submit.disabled) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit, Boolean(submit.closest('#bsgtOperationsDetail'))));
+  if(submit) submit.addEventListener('click', ()=>submitBsgtOperationsToFinance(r.id, submit, Boolean(submit.closest('#bsgtOperationsDetail'))));
 }
 
 function renderBsgtDetail(r){
@@ -20657,7 +20692,7 @@ async function requestBsgtPackageMerge(record, triggerButton){
     // Detail callbacks can outlive a finance return or a refreshed records list.
     const latest = await fetchLatestShipmentWorkflowState(record.id);
     record = latest.record;
-    if(record.bsgtStage==='operations_draft') return await submitBsgtOperationsToFinance(record.id,button);
+    if(record.bsgtStage==='operations_draft') return chooseDocLang(record,lang=>mergeBsgtOperationsPackage(record.id,lang,button),{persist:false});
     if(record.operationsRevisionId) return await window.JahezRevisionWorkflow.previewOperations(record.id);
     const gate = await ensureBsgtPackageMergeAllowed(record, {showDialog:true});
     if(!gate.allowed) return;
@@ -20838,17 +20873,19 @@ async function mergeFullPackage(r, lang, triggerBtn){
 const docLangOverlay = document.getElementById('docLangOverlay');
 let docLangChoiceCb = null;
 let docLangTargetRecord = null;
+let docLangPersistChoice = true;
 function closeDocLangOverlay(){ docLangOverlay.classList.remove('open'); docLangChoiceCb = null; docLangTargetRecord = null; }
 document.getElementById('docLangCloseX').addEventListener('click', closeDocLangOverlay);
 docLangOverlay.addEventListener('click', e=>{ if(e.target===docLangOverlay) closeDocLangOverlay(); });
 
 // نافذة اختيار اللغة قبل الطباعة — مُعلَّمة مسبقاً بآخر لغة استُخدمت لنفس الشحنة، وتُعرض دائماً
-function chooseDocLang(r, onChoose){
+function chooseDocLang(r, onChoose, options = {}){
   const preselect = r.docLang === 'en' ? 'en' : 'ar';
   document.getElementById('docLangArBtn').className = 'btn ' + (preselect==='ar' ? 'btn-primary' : 'btn-ghost');
   document.getElementById('docLangEnBtn').className = 'btn ' + (preselect==='en' ? 'btn-primary' : 'btn-ghost');
   docLangChoiceCb = onChoose;
   docLangTargetRecord = r;
+  docLangPersistChoice = options.persist !== false;
   raisePrintLayer(docLangOverlay);
   docLangOverlay.classList.add('open');
 }
@@ -20863,20 +20900,20 @@ async function persistDocLangSilently(r, lang){
   }catch(e){ console.warn('تعذّر حفظ تفضيل لغة الطباعة', e); }
 }
 document.getElementById('docLangArBtn').addEventListener('click', async ()=>{
-  const cb = docLangChoiceCb, r = docLangTargetRecord;
+  const cb = docLangChoiceCb, r = docLangTargetRecord, persist = docLangPersistChoice;
   closeDocLangOverlay();
   if(!r) return;
   // افتح المستند أثناء تفاعل المستخدم نفسه؛ انتظار الشبكة هنا يجعل المتصفح يمنع نافذة الطباعة.
   if(cb) cb('ar');
-  persistDocLangSilently(r, 'ar');
+  if(persist) persistDocLangSilently(r, 'ar');
 });
 document.getElementById('docLangEnBtn').addEventListener('click', async ()=>{
-  const cb = docLangChoiceCb, r = docLangTargetRecord;
+  const cb = docLangChoiceCb, r = docLangTargetRecord, persist = docLangPersistChoice;
   closeDocLangOverlay();
   if(!r) return;
   // نفس السبب: حفظ اللغة لا يجب أن يؤخر فتح ملف PDF أو الطباعة.
   if(cb) cb('en');
-  persistDocLangSilently(r, 'en');
+  if(persist) persistDocLangSilently(r, 'en');
 });
 
 // تصغير الصور قبل التخزين عشان الملف ما يكبرش
@@ -21902,6 +21939,6 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260915-merge-routing-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260915-separate-merge-send-1"></script>
 </body>
 </html>

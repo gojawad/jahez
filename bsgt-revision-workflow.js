@@ -14,16 +14,18 @@
     const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
     const result=await response.json();if(!response.ok)throw new Error(result.error||'تعذر حفظ الحزمة.');return result;
   }
-  async function mergeOperations(record){
+  async function mergeOperations(record,language){
+    if(!['ar','en'].includes(language))throw new Error('اختر لغة الحزمة أولاً.');
     await ensureQrToken(record);
     const input=await rpc('bsgt_operations_package_input',{p_shipment_id:record.id});
+    if(input.workflowVersion!==2)throw new Error('يلزم تطبيق تحديث فصل الدمج عن الإرسال للمالية أولاً (SQL 47).');
     const snapshot=rowToRecord(input.shipment),generated={};
     for(const kind of Object.keys(input.generated)){
       const pdf=await PDFLib.PDFDocument.create();
-      await appendBsgtBrowserlessPagePdf(pdf,snapshot,kind,'en');
+      await appendBsgtBrowserlessPagePdf(pdf,snapshot,kind,language);
       generated[kind]=base64(await pdf.save());
     }
-    const result=await post('/api/bsgt-operations-package',{shipmentId:record.id,fingerprint:input.fingerprint,generated});
+    const result=await post('/api/bsgt-operations-package',{shipmentId:record.id,fingerprint:input.fingerprint,generated,language});
     return result.shipment;
   }
   async function revisionFor(shipmentId){
@@ -38,9 +40,17 @@
   }
   function previewOperations(id){return run(async()=>{const {revision}=await revisionFor(id);await openStored('bsgt-operations-packages',revision.package_path,`حزمة العمليات · Revision ${revision.revision_no}`);});}
   function decorateOperations(record){
+    if(!record)return;
     const evaluation=JahezBsgtOperations.evaluateBsgtOperationsReadiness(record,shipmentFilesCache[record.id]||[]);
-    const allowed=record.bsgtStage==='operations_draft'&&evaluation.completed&&bsgtOperationsPermission(true)&&JahezPermissions.can('package.merge');
-    for(const id of ['bsgtOperationsQuickSend','bsgtSendToFinanceBtn','packageBtn','mergeAllBtn']){
+    const allowed=!bsgtOperationsActionInFlight.has(record.id)&&record.bsgtStage==='operations_draft'&&evaluation.completed&&bsgtOperationsPermission(true)&&JahezPermissions.can('package.merge');
+    for(const id of ['bsgtOperationsQuickSend','bsgtSendToFinanceBtn']){
+      const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
+      const canSend=allowed&&Boolean(record.operationsRevisionId);
+      button.disabled=!canSend;button.textContent=record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم الإرسال للمالية';
+      button.title=canSend?'إرسال الحزمة المدموجة للمالية':record.bsgtStage==='operations_draft'?'ادمج الحزمة أولاً من تفاصيل الشحنة.':'';
+      button.onclick=null;
+    }
+    for(const id of ['packageBtn','mergeAllBtn']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
       if(record.operationsRevisionId&&record.bsgtStage!=='operations_draft'){
         button.classList.remove('workflow-merge-locked');button.removeAttribute('aria-disabled');button.removeAttribute('title');
@@ -48,7 +58,7 @@
         button.onclick=event=>{event.stopImmediatePropagation();previewOperations(record.id);};
       }else if(record.bsgtStage==='operations_draft'){
         button.classList.toggle('workflow-merge-locked',!allowed);button.setAttribute('aria-disabled',String(!allowed));
-        button.disabled=!allowed;button.textContent=evaluation.completed?'دمج الحزمة وإرسالها للمالية':`دمج الحزمة (${evaluation.completedCount}/${evaluation.requiredCount})`;
+        button.disabled=!allowed;button.textContent=evaluation.completed?(record.operationsRevisionId?'إعادة دمج الحزمة ومعاينتها':'دمج الحزمة ومعاينتها'):`دمج الحزمة (${evaluation.completedCount}/${evaluation.requiredCount})`;
         button.title=allowed?'جاهزة للدمج':'أكمل متطلبات العمليات وتأكد من صلاحية الدمج.';
         button.onclick=null;
       }
