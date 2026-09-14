@@ -25,11 +25,21 @@ module.exports=async({page,BASE,OUTPUT})=>{
   assert.ok(result.html.includes('190840.00')&&result.html.includes('44040.00'));
   assert.ok(result.html.includes('QGD2604043')&&result.html.includes('SZBD60004600'));
   assert.ok(!result.html.includes('{{'));
+  assert.ok(result.html.includes('@media print{.bank-undertaking .undertaking-footnote-rule{margin-top:8mm}}'),'print-only whitespace reserve keeps the signature on A4 with Linux Cambria metrics');
+  fs.writeFileSync(path.join(OUTPUT,'undertaking-word-reference.html'),result.plain);
   const response=await page.request.post(`${BASE}/api/render-bsgt-pdf`,{data:{html:result.plain}});
   assert.strictEqual(response.status(),200);
   const bytes=await response.body();
   assert.strictEqual((await PDFDocument.load(bytes)).getPageCount(),1,'reference undertaking fits one A4 page');
   fs.writeFileSync(path.join(OUTPUT,'undertaking-word-reference.pdf'),bytes);
+  // Opt-in: validate the entire fixture on the deployed Linux renderer, not only a font sample.
+  if(process.env.COLLECTION_PDF_TEST_URL){
+    const production=await page.request.post(process.env.COLLECTION_PDF_TEST_URL,{data:{html:result.plain}});
+    assert.strictEqual(production.status(),200);
+    const productionBytes=await production.body();
+    fs.writeFileSync(path.join(OUTPUT,'undertaking-linux-reference.pdf'),productionBytes);
+    assert.strictEqual((await PDFDocument.load(productionBytes)).getPageCount(),1,'complete undertaking stays on one A4 page on the deployment renderer');
+  }
   const branded=await page.evaluate(async html=>Array.from(new Uint8Array(await CollectionHtmlTemplates.pdf(html))),result.html);
   assert.strictEqual((await PDFDocument.load(Uint8Array.from(branded))).getPageCount(),1);
   fs.writeFileSync(path.join(OUTPUT,'undertaking-word-branded.pdf'),Buffer.from(branded));
@@ -65,8 +75,9 @@ module.exports=async({page,BASE,OUTPUT})=>{
       sharedCollectionCompany.settings.collectionHtmlTemplates={...original,undertaking:{...CollectionUndertakingWordTemplate.config(),html:'<p>EXISTING UNDERTAKING {{invoiceNo}}</p>'}};
       CollectionHtmlTemplates.open('undertaking');
       const intact=document.getElementById('templateHtml').value.includes('EXISTING UNDERTAKING');
+      const correction=CollectionHtmlTemplates.documentHtml('undertaking').includes('@media print{.bank-undertaking .undertaking-footnote-rule{margin-top:8mm}}');
       document.getElementById('templateSettingsDialog').close();
-      return intact;
+      return intact&&correction;
     }finally{sharedCollectionCompany.settings.collectionHtmlTemplates=original;}
   });
   assert.ok(preserved,'administrator-authored undertaking is not silently overwritten');

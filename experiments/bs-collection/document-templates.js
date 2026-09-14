@@ -165,6 +165,7 @@ window.CollectionHtmlTemplates = (()=>{
       .template-signature img{max-width:48mm;max-height:25mm}
       @media screen{.template-stamp{margin-left:${left}mm;margin-top:${top}mm}}
       @media print{html,body{background:transparent!important}.template-sheet{width:auto;min-height:0;padding:0;background:transparent}.template-background,.template-header,.template-footer{display:none!important}.template-stamp{outline:none!important}}
+      ${kind==='undertaking'?'@media print{.bank-undertaking .undertaking-footnote-rule{margin-top:8mm}}':''}
       </style></head><body dir="${content.dir==='rtl'?'rtl':'ltr'}">${assets}<article class="template-sheet"><div class="template-content">${content.html}</div>${stampMarkup(kind,top,left)}</article></body></html>`;
   }
 
