@@ -19,16 +19,20 @@
   function evaluateBsgtRelationsAttachments(shipments, attachments, revisionNo) {
     const rows = Array.isArray(shipments) ? shipments : [];
     const revision = Number(revisionNo) || 1;
+    const shipmentIds = new Set(rows.map(row=>row.id));
     const active = new Set((Array.isArray(attachments) ? attachments : [])
       .filter(item => item?.is_active !== false && Number(item?.revision_no) === revision)
-      .map(item => `${item.shipment_id}:${item.attachment_type}`));
+      .filter(item => item.shipment_id == null || shipmentIds.has(item.shipment_id))
+      .map(item => item.attachment_type));
+    // Legacy shipment attachments remain in place and count once for the case.
     const warnings = [];
+    const companyLetter = active.has('company_letter');
+    const signedStampedLetterhead = active.has('signed_stamped_letterhead');
+    for(const type of Object.keys(ATTACHMENTS)){
+      if(!active.has(type))warnings.push(Object.freeze({type,label:ATTACHMENTS[type]}));
+    }
     const shipmentStates = rows.map(shipment => {
       const shipmentId = shipment?.id;
-      const companyLetter = active.has(`${shipmentId}:company_letter`);
-      const signedStampedLetterhead = active.has(`${shipmentId}:signed_stamped_letterhead`);
-      if (!companyLetter) warnings.push(Object.freeze({shipmentId, operationNo:shipment?.operationNo || '—', type:'company_letter', label:ATTACHMENTS.company_letter}));
-      if (!signedStampedLetterhead) warnings.push(Object.freeze({shipmentId, operationNo:shipment?.operationNo || '—', type:'signed_stamped_letterhead', label:ATTACHMENTS.signed_stamped_letterhead}));
       return Object.freeze({shipmentId, companyLetter, signedStampedLetterhead});
     });
     return Object.freeze({

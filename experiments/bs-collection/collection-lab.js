@@ -217,17 +217,13 @@ const collectionListFields = {
   authorizedPerson:{label:'الشخص المفوض',defaults:['JAWAD ELMASRI']}, title:{label:'المنصب',defaults:['MANAGER']}, draweeAddress:{label:'عنوان المستورد',defaults:[]}
 };
 let collectionLists = {};
-const collectingBankProfileKey = profile => `${profile.bank}|||${profile.address}`;
-const normalizedCollectingBankProfile = value => ({bank:String(value?.bank||'').trim(),address:String(value?.address||'').trim()});
+const collectingBankProfileKey = window.JahezCollectionBanks.key;
+const normalizedCollectingBankProfile = window.JahezCollectionBanks.normalize;
 function loadCollectionLists(){
   let saved={}; try { saved=JSON.parse(localStorage.getItem(collectionListStorageKey)||'{}')||{}; } catch (_) {}
   collectionLists=Object.fromEntries(Object.entries(collectionListFields).map(([key,field])=>{
     if(field.paired){
-      const legacyBanks=Array.isArray(saved.collectingBank)?saved.collectingBank:[];
-      const legacyAddresses=Array.isArray(saved.collectingBankAddress)?saved.collectingBankAddress:[];
-      const savedProfiles=Array.isArray(saved[key])?saved[key]:legacyBanks.map((bank,index)=>({bank,address:legacyAddresses[index]||''}));
-      const profiles=[...(field.defaults||[]),...savedProfiles].map(normalizedCollectingBankProfile).filter(profile=>profile.bank);
-      return [key,profiles.filter((profile,index,list)=>list.findIndex(item=>collectingBankProfileKey(item)===collectingBankProfileKey(profile))===index)];
+      return [key,window.JahezCollectionBanks.profiles(saved)];
     }
     return [key,[...new Set([...(field.defaults||[]),...((saved[key]||[]).filter(Boolean))])]];
   }));
