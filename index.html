@@ -20647,15 +20647,20 @@ async function appendBsgtBrowserlessPagePdf(output, record, kind, lang){
   const html = buildStandaloneDocHtml(renderSheet(record, kind, lang), 'فاتورة بحر سواكن');
   const response = await fetch('/api/render-bsgt-pdf', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({html})
+    headers: {'Content-Type':'application/json', 'Accept':'application/json'},
+    body: JSON.stringify({html, responseFormat:'json'})
   });
   if(!response.ok){
     let message = '';
     try { message = (await response.json()).error || ''; } catch {}
     throw new Error(message || 'تعذّر تحويل فاتورة بحر سواكن إلى PDF.');
   }
-  const rendered = await PDFLib.PDFDocument.load(await response.arrayBuffer());
+  const payload = await response.json();
+  if(typeof payload.pdfBase64 !== 'string' || !payload.pdfBase64){
+    throw new Error('تعذّر استلام ملف PDF. حاول مرة أخرى.');
+  }
+  const pdfBytes = Uint8Array.from(atob(payload.pdfBase64), char => char.charCodeAt(0));
+  const rendered = await PDFLib.PDFDocument.load(pdfBytes);
   const pages = await output.copyPages(rendered, rendered.getPageIndices());
   pages.forEach(page => output.addPage(page));
 }

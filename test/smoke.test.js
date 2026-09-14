@@ -683,6 +683,10 @@ async function main() {
       const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       assert.strictEqual(r.status, 400);
     });
+    await check('render-bsgt-pdf rejects unsupported response formats', async () => {
+      const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ html: '<p>Test</p>', responseFormat: 'invalid' }) });
+      assert.strictEqual(r.status, 400);
+    });
     await check('render-bsgt-pdf renders a real A4 PDF with local Chromium', async () => {
       const html = '<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>@page{size:A4;margin:0}body{font-family:sans-serif;margin:20mm}</style></head><body><h1>فاتورة اختبار — بحر سواكن</h1><p>Invoice 001</p></body></html>';
       const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ html }) });
@@ -693,6 +697,19 @@ async function main() {
       assert.ok(buf.length > 1000, 'pdf should not be empty');
       fs.mkdirSync(path.join(__dirname, 'output'), { recursive: true });
       fs.writeFileSync(path.join(__dirname, 'output', 'smoke.pdf'), buf);
+    });
+    await check('render-bsgt-pdf supports JSON transport without changing the PDF format', async () => {
+      const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ html: '<!doctype html><html><body><p>Internal PDF transport</p></body></html>', responseFormat: 'json' }) });
+      assert.strictEqual(r.status, 200);
+      assert.match(r.headers.get('content-type'), /^application\/json/);
+      assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+      const buf = Buffer.from((await r.json()).pdfBase64, 'base64');
+      assert.strictEqual(buf.subarray(0, 5).toString(), '%PDF-');
+      const { PDFDocument } = require('../experiments/bs-collection/collection-pdf-lib');
+      const pdf = await PDFDocument.load(buf);
+      assert.strictEqual(pdf.getPageCount(), 1);
+      assert.ok(Math.abs(pdf.getPage(0).getWidth() - 595.28) < 1);
+      assert.ok(Math.abs(pdf.getPage(0).getHeight() - 841.89) < 1);
     });
     console.log(`\n${results.length} checks passed`);
   } finally {

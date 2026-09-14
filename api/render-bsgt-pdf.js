@@ -78,7 +78,10 @@ module.exports = async function renderBsgtPdf(req, res) {
   }
 
   try {
-    const { html } = await readRequestBody(req);
+    const { html, responseFormat = 'pdf' } = await readRequestBody(req);
+    if (!['pdf', 'json'].includes(responseFormat)) {
+      return res.status(400).json({ error: 'Unsupported PDF response format.' });
+    }
     if (typeof html !== 'string' || !html.trim()) {
       return res.status(400).json({ error: 'Invoice HTML is required.' });
     }
@@ -88,8 +91,12 @@ module.exports = async function renderBsgtPdf(req, res) {
 
     const token = process.env.BROWSERLESS_TOKEN;
     const pdf = token ? await renderWithBrowserless(html, token) : await renderLocally(html);
-    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Cache-Control', 'no-store');
+    // Internal consumers use JSON so download handlers do not intercept intermediate PDFs.
+    if (responseFormat === 'json') {
+      return res.status(200).json({ pdfBase64: Buffer.from(pdf).toString('base64') });
+    }
+    res.setHeader('Content-Type', 'application/pdf');
     return res.status(200).send(pdf);
   } catch (error) {
     console.error('BSGT PDF render failed:', error.message);

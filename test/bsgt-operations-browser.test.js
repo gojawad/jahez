@@ -105,7 +105,10 @@ async function main(){
     let imageApiCalls = 0;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const fixturePdf=await PDFDocument.create();fixturePdf.addPage();const fixturePdfBytes=Buffer.from(await fixturePdf.save());
-    await context.route(`${APP_ORIGIN}/api/render-bsgt-pdf`,route=>route.fulfill({status:200,contentType:'application/pdf',body:fixturePdfBytes}));
+    await context.route(`${APP_ORIGIN}/api/render-bsgt-pdf`,route=>{
+      assert.strictEqual(route.request().postDataJSON().responseFormat,'json');
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({pdfBase64:Buffer.from(fixturePdfBytes).toString('base64')})});
+    });
     await context.route(`${APP_ORIGIN}/api/bsgt-operations-package`,route=>{
       const payload=route.request().postDataJSON();
       assert.deepStrictEqual(Object.keys(payload.generated).sort(),['contract','invoice','packing','proforma']);
