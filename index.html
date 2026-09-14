@@ -17223,7 +17223,7 @@ async function submitBsgtOperationsToFinance(id, button, stayInline = false){
   try{
     const latest=await fetchLatestShipmentWorkflowState(id);
     if(latest.record.bsgtStage!=='operations_draft') throw new Error('لا يمكن الإرسال إلا من مرحلة العمليات.');
-    if(!latest.record.operationsRevisionId) throw new Error('ادمج الحزمة ومعاينتها أولاً، ثم اضغط إرسال للمالية.');
+    if(!window.JahezRevisionWorkflow.hasOperationsQrPackage(latest.record)) throw new Error('انتظر تأكيد جاهزية حزمة QR بعد الدمج، ثم اضغط إرسال للمالية.');
     const {data,error}=await sb.rpc('complete_bsgt_operations',{p_shipment_id:id});
     if(error) throw error;
     const saved=rowToRecord(data),index=records.findIndex(record=>record.id===id);
@@ -17282,7 +17282,7 @@ async function mergeBsgtOperationsPackage(id, lang, button){
     const index = records.findIndex(record=>record.id===id);
     if(index >= 0) records[index] = saved; else records.push(saved);
     shipmentFilesCache[id] = filesResult.data || [];
-    toast('تم دمج الحزمة. لم تُرسل للمالية؛ استخدم زر إرسال للمالية بعد المراجعة.');
+    toast('تم تجهيز الحزمة ودمجها بنجاح. حزمة QR جاهزة، ويمكنك الآن إرسالها للمالية من الزر المستقل.','ok');
     rerenderBsgtOperationsDocumentState(saved);
     await window.JahezRevisionWorkflow.previewOperations(id);
   }catch(error){
@@ -17405,7 +17405,7 @@ function renderBsgtDetail(r){
         </div>
 
         <footer class="detail-actions">
-          ${r.qrPackagePath ? '<p class="qr-package-status"><b>حزمة QR جاهزة.</b> المسح يفتح ملف PDF المدموج مباشرة.</p>' : '<p class="qr-package-status"><b>رمز QR فعال.</b> سيعرض أن الملف في المرحلة المبدئية حتى يتم تجميع الحزمة.</p>'}
+          ${r.qrPackagePath || window.JahezRevisionWorkflow?.hasOperationsQrPackage(r) ? '<p class="qr-package-status" data-bsgt-qr-package-status><b>حزمة QR جاهزة.</b> المسح يفتح ملف PDF المدموج مباشرة.</p>' : '<p class="qr-package-status" data-bsgt-qr-package-status><b>رمز QR فعال.</b> سيعرض أن الملف في المرحلة المبدئية حتى يتم تجميع الحزمة.</p>'}
           ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
           <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>`:''}
           ${reviewButtonsHtml(r)}
@@ -21939,6 +21939,6 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260915-separate-merge-send-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260915-qr-ready-send-1"></script>
 </body>
 </html>

@@ -41,7 +41,7 @@ function shipmentRow(stage = 'operations_draft'){
     bsgt_stage_updated_at:'2026-09-12T06:00:00Z', operations_completed_at:stage==='ready_for_finance'?'2026-09-12T07:00:00Z':null,
     operations_completed_by:stage==='ready_for_finance'?userId:null,
     created_at:'2026-09-12T06:00:00Z', updated_at:'2026-09-12T06:00:00Z',
-    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',qtyUnit:'PACKAGES',totalAmount:'USD 100.00'}
+    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',qtyUnit:'PACKAGES',totalAmount:'USD 100.00',qrToken:'permanent_test_qr_token_12345'}
   };
 }
 
@@ -533,6 +533,9 @@ async function main(){
         openDetail(id,{returnTo:'operations'});
       },shipmentId);
       await page.waitForFunction(id=>document.getElementById(id)?.getAttribute('aria-disabled')==='false',buttonId);
+      assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn').isVisible(),false,'QR token alone does not reveal send');
+      assert.match(await page.locator('#packageBtn').innerText(),/تجميع الحزمة الكاملة PDF/);
+      assert.match(await page.locator('#mergeAllBtn').innerText(),/دمج الحزمة في ملف واحد/);
       assert.doesNotMatch(await page.locator(`#${buttonId}`).getAttribute('title')||'',/إرسال الشحنة للبنك/);
       const before=mergeCalls;
       await page.locator(`#${buttonId}`).click();
@@ -551,6 +554,9 @@ async function main(){
       assert.strictEqual(currentStage,'operations_draft','merge leaves shipment in operations');
       assert.deepStrictEqual((await page.evaluate(()=>renderedPackageLanguages)).slice(-4),Array(4).fill(language));
       await page.locator('#pdfPreviewCloseX').click();
+      assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn').isVisible(),true,'send appears after successful package publication');
+      assert.match(await page.locator('[data-bsgt-qr-package-status]').innerText(),/حزمة QR جاهزة/);
+      assert.doesNotMatch(await page.locator('[data-bsgt-qr-package-status]').innerText(),/المرحلة المبدئية/);
       assert.strictEqual(await page.locator('#shipmentWorkflowDialog').count(),0,'no legacy bank-send gate');
     }
     await page.waitForFunction(()=>document.querySelector('#bsgtSendToFinanceBtn:not([disabled])'));

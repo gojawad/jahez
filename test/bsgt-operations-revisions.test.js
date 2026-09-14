@@ -41,6 +41,10 @@ test('operations merge respects selected language and refuses the old auto-send 
       fetch:async(url,options)=>{requests.push([url,JSON.parse(options.body)]);return {ok:true,json:async()=>({shipment:{id:'test',bsgt_stage:'operations_draft'}})};}
     };
     vm.createContext(context);vm.runInContext(source,context);
+    const qrReady=context.window.JahezRevisionWorkflow.hasOperationsQrPackage;
+    assert.equal(qrReady({qrToken:'permanent_test_token_12345'}),false,'a generated QR token alone is not a published package');
+    assert.equal(qrReady({operationsRevisionId:'revision'}),false,'a QR link is also required');
+    assert.equal(qrReady({operationsRevisionId:'revision',qrToken:'permanent_test_token_12345'}),true);
     await assert.rejects(context.window.JahezRevisionWorkflow.mergeOperations({id:'test'},language),/SQL 47/);
     assert.equal(requests.length,0,'old backend cannot be called to auto-send');
     assert.equal(rendered.length,0,'old backend is rejected before rendering');

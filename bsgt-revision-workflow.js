@@ -38,14 +38,21 @@
     const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,300);if(error)throw error;
     openPdfPreview(data.signedUrl,title);
   }
-  function previewOperations(id){return run(async()=>{const {revision}=await revisionFor(id);await openStored('bsgt-operations-packages',revision.package_path,`حزمة العمليات · Revision ${revision.revision_no}`);});}
+  function previewOperations(id){return run(async()=>{const {revision}=await revisionFor(id);await openStored('bsgt-operations-packages',revision.package_path,'الحزمة الكاملة المدموجة');});}
+  function hasOperationsQrPackage(record){
+    return Boolean(record?.operationsRevisionId&&/^[A-Za-z0-9_-]{20,64}$/.test(record.qrToken||''));
+  }
   function decorateOperations(record){
     if(!record)return;
     const evaluation=JahezBsgtOperations.evaluateBsgtOperationsReadiness(record,shipmentFilesCache[record.id]||[]);
     const allowed=!bsgtOperationsActionInFlight.has(record.id)&&record.bsgtStage==='operations_draft'&&evaluation.completed&&bsgtOperationsPermission(true)&&JahezPermissions.can('package.merge');
+    const qrReady=hasOperationsQrPackage(record);
+    const qrStatus=document.querySelector('#detailCard [data-bsgt-qr-package-status]');
+    if(qrStatus&&(qrReady||record.qrPackagePath)) qrStatus.innerHTML='<b>حزمة QR جاهزة.</b> تم حفظ الحزمة؛ المسح يفتح ملف PDF المدموج مباشرة.';
     for(const id of ['bsgtOperationsQuickSend','bsgtSendToFinanceBtn']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
-      const canSend=allowed&&Boolean(record.operationsRevisionId);
+      button.hidden=!qrReady;button.style.display=qrReady?'':'none';
+      const canSend=allowed&&qrReady;
       button.disabled=!canSend;button.textContent=record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم الإرسال للمالية';
       button.title=canSend?'إرسال الحزمة المدموجة للمالية':record.bsgtStage==='operations_draft'?'ادمج الحزمة أولاً من تفاصيل الشحنة.':'';
       button.onclick=null;
@@ -58,7 +65,8 @@
         button.onclick=event=>{event.stopImmediatePropagation();previewOperations(record.id);};
       }else if(record.bsgtStage==='operations_draft'){
         button.classList.toggle('workflow-merge-locked',!allowed);button.setAttribute('aria-disabled',String(!allowed));
-        button.disabled=!allowed;button.textContent=evaluation.completed?(record.operationsRevisionId?'إعادة دمج الحزمة ومعاينتها':'دمج الحزمة ومعاينتها'):`دمج الحزمة (${evaluation.completedCount}/${evaluation.requiredCount})`;
+        button.disabled=!allowed;
+        button.innerHTML=id==='packageBtn'?`${icon('printer')} ${qrReady||record.qrPackagePath?'تحديث الحزمة الكاملة PDF':'تجميع الحزمة الكاملة PDF'}`:`${icon('doc')} دمج الحزمة في ملف واحد`;
         button.title=allowed?'جاهزة للدمج':'أكمل متطلبات العمليات وتأكد من صلاحية الدمج.';
         button.onclick=null;
       }
@@ -201,5 +209,5 @@
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();
   }
-  window.JahezRevisionWorkflow={mergeOperations,previewOperations,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage};
+  window.JahezRevisionWorkflow={mergeOperations,previewOperations,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage};
 })();
