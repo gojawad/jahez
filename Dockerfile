@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Supplied at deployment from private storage, never committed or served by the app.
 COPY .private/pdf-fonts/ /usr/local/share/fonts/jahez-private/
 RUN fc-cache -f /usr/local/share/fonts/jahez-private \
-    && fc-match -f '%{family}' Calibri | grep -Fx Calibri \
-    && fc-match -f '%{family}' PMingLiU-ExtB | grep -Fx PMingLiU-ExtB
+    && fc-match -f '%{postscriptname}\n' ':family=Calibri' | grep -Fx Calibri \
+    && fc-match -f '%{postscriptname}\n' ':family=PMingLiU-ExtB' | grep -Fx PMingLiU-ExtB
 
 ENV NODE_ENV=production \
     CHROMIUM_PATH=/usr/bin/chromium \
