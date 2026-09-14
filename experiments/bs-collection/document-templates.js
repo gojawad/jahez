@@ -7,7 +7,7 @@ window.CollectionHtmlTemplates = (()=>{
   const defaults=()=>({version:1,header:'collection',unit:'mm',top:20,bottom:20,left:17,right:17,headerSize:29,footerSize:8,html:''});
   const saved=kind=>sharedCollectionCompany?.settings?.[settingsKey]?.[kind]||null;
   // Keep administrator-authored HTML intact when updating built-in Word bodies.
-  const builtIn=kind=>({exchange:window.CollectionExchangeWordTemplate,undertaking:window.CollectionUndertakingWordTemplate}[kind])?.config();
+  const builtIn=kind=>({exchange:window.CollectionExchangeWordTemplate,undertaking:window.CollectionUndertakingWordTemplate,letter:window.CollectionLetterWordTemplate}[kind])?.config();
   const active=kind=>saved(kind)?.html?.trim()?saved(kind):builtIn(kind)||saved(kind)||defaults();
   const hasTemplate=kind=>Boolean(active(kind)?.html?.trim());
   const byId=id=>document.getElementById(id);
@@ -41,6 +41,7 @@ window.CollectionHtmlTemplates = (()=>{
       exchangeCollectionDate:collectionDateText(state.settings.collectionDate).replace(/-(\d{4})$/,'- $1'),
       exchangeBank:String(state.settings.remittingBank||'').toUpperCase(),
       exchangeWords:`${amountWords(total.number)} ${total.currency} ONLY`.toUpperCase(),
+      letterTenor:String(state.settings.term||'').trim().replace(/\.?$/,'.'),
       undertakingBankAddress:String(state.settings.remittingBankAddress||'').replace(/(BANIYAS BRANCH BUILDING,)\s*/i,'$1\n'),
       undertakingRows:rows.map((row,index)=>{
         const money=collectionMoney(row.totalAmount);

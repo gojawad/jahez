@@ -80,7 +80,7 @@ jobs:
           while read -r digest filename; do
             test -n "$filename" || continue
             case "$filename" in
-              CALIBRI.TTF|CALIBRIB.TTF|CALIBRII.TTF|CALIBRIZ.TTF|CALIBRIL.TTF|CALIBRILI.TTF|MINGLIUB.TTC|CAMBRIA.TTC|CAMBRIAB.TTF) ;;
+              CALIBRI.TTF|CALIBRIB.TTF|CALIBRII.TTF|CALIBRIZ.TTF|CALIBRIL.TTF|CALIBRILI.TTF|MINGLIUB.TTC|CAMBRIA.TTC|CAMBRIAB.TTF|TIMES.TTF|TIMESBD.TTF|GARABD.TTF|TAHOMA.TTF|IBMPlexSansArabic-Medium.ttf|IBMPlexSansArabic-SemiBold.ttf) ;;
               *) echo "Unexpected PDF font filename" >&2; exit 2 ;;
             esac
             target=".private/pdf-fonts/$filename"

@@ -200,7 +200,10 @@ async function main() {
       });
     });
     assert.strictEqual(printed.length,3);
-    assert.deepStrictEqual(printed[0],moved,'printed collection letter uses the employee placement');
+    const letterMargins=await page.evaluate(()=>CollectionLetterWordTemplate.config());
+    const movedPosition=await page.evaluate(()=>employeeStampPositions.get(JSON.stringify([requestedTradeFileId||'',[...state.selected].sort(),'letter'])));
+    assert.ok(Math.abs(parseFloat(printed[0].left)+letterMargins.left-movedPosition.xMm)<.01,'printed collection letter preserves employee X placement relative to page margins');
+    assert.ok(Math.abs(parseFloat(printed[0].top)+letterMargins.top-movedPosition.yMm)<.01,'printed collection letter preserves employee Y placement relative to page margins');
     assert.notDeepStrictEqual(printed[1],moved,'other document positions remain independent');
     await page.locator('[data-step-section="picker-section"]').click();
     await page.locator('.shipment-card').first().click();
@@ -256,6 +259,7 @@ async function main() {
     assert.ok(exchange.overflow <= 0);
     await page.locator('.collection-html-page').screenshot({path:path.join(OUTPUT, 'collection-exchange.png')});
     await require('./collection-exchange-word.test')({page,BASE,OUTPUT});
+    await require('./collection-letter-word.test')({page,BASE,OUTPUT});
 
     page.once('dialog', dialog=>dialog.accept());
     await page.locator('#recordCollectionBtn').click();

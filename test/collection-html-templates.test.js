@@ -33,7 +33,7 @@ module.exports=async({page,BASE,OUTPUT})=>{
   const previewBytes=await response.body();
   const sent=(await requestPromise).postDataJSON().html;
   assert.ok(sent.includes('HJ2026173')&&sent.includes('CY260719')&&sent.includes('278073887'));
-  assert.ok(sent.includes('margin:50mm 17mm 28mm 17mm'));
+  assert.ok(sent.includes('margin:21mm 12.7mm 25mm 12.7mm'));
   assert.ok(!sent.includes('{{invoiceNo}}'));
   await page.locator('#templatePreviewDialog').waitFor({state:'visible'});
   assert.deepStrictEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('__testSharedCollectionSettings'))),oldSettings,'preview never persists settings');

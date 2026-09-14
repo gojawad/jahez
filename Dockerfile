@@ -11,7 +11,13 @@ RUN fc-cache -f /usr/local/share/fonts/jahez-private \
     && fc-match -f '%{postscriptname}\n' ':family=Calibri' | grep -Fx Calibri \
     && fc-match -f '%{postscriptname}\n' ':family=PMingLiU-ExtB' | grep -Fx PMingLiU-ExtB \
     && fc-match -f '%{postscriptname}\n' ':family=Cambria:style=Regular' | grep -Fx Cambria \
-    && fc-match -f '%{postscriptname}\n' ':family=Cambria:style=Bold' | grep -Fx Cambria-Bold
+    && fc-match -f '%{postscriptname}\n' ':family=Cambria:style=Bold' | grep -Fx Cambria-Bold \
+    && fc-match -f '%{postscriptname}\n' ':family=Times New Roman:style=Regular' | grep -Fx TimesNewRomanPSMT \
+    && fc-match -f '%{postscriptname}\n' ':family=Times New Roman:style=Bold' | grep -Fx TimesNewRomanPS-BoldMT \
+    && fc-match -f '%{postscriptname}\n' ':family=Garamond:style=Bold' | grep -Fx Garamond-Bold \
+    && fc-match -f '%{postscriptname}\n' ':family=Tahoma' | grep -Fx Tahoma \
+    && fc-match -f '%{postscriptname}\n' ':family=IBM Plex Sans Arabic Medium' | grep -Fx IBMPlexSansArabic-Medium \
+    && fc-match -f '%{postscriptname}\n' ':family=IBM Plex Sans Arabic SemiBold' | grep -Fx IBMPlexSansArabic-SemiBold
 
 ENV NODE_ENV=production \
     CHROMIUM_PATH=/usr/bin/chromium \
