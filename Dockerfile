@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY .private/pdf-fonts/ /usr/local/share/fonts/jahez-private/
 RUN fc-cache -f /usr/local/share/fonts/jahez-private \
     && fc-match -f '%{postscriptname}\n' ':family=Calibri' | grep -Fx Calibri \
-    && fc-match -f '%{postscriptname}\n' ':family=PMingLiU-ExtB' | grep -Fx PMingLiU-ExtB
+    && fc-match -f '%{postscriptname}\n' ':family=PMingLiU-ExtB' | grep -Fx PMingLiU-ExtB \
+    && fc-match -f '%{postscriptname}\n' ':family=Cambria:style=Regular' | grep -Fx Cambria \
+    && fc-match -f '%{postscriptname}\n' ':family=Cambria:style=Bold' | grep -Fx Cambria-Bold
 
 ENV NODE_ENV=production \
     CHROMIUM_PATH=/usr/bin/chromium \

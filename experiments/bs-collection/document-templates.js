@@ -6,8 +6,9 @@ window.CollectionHtmlTemplates = (()=>{
   const fields=['top','bottom','left','right','headerSize','footerSize'];
   const defaults=()=>({version:1,header:'collection',unit:'mm',top:20,bottom:20,left:17,right:17,headerSize:29,footerSize:8,html:''});
   const saved=kind=>sharedCollectionCompany?.settings?.[settingsKey]?.[kind]||null;
-  // Keep administrator-authored HTML intact; only replace the built-in exchange body.
-  const active=kind=>saved(kind)?.html?.trim()?saved(kind):(kind==='exchange'?window.CollectionExchangeWordTemplate?.config():null)||saved(kind)||defaults();
+  // Keep administrator-authored HTML intact when updating built-in Word bodies.
+  const builtIn=kind=>({exchange:window.CollectionExchangeWordTemplate,undertaking:window.CollectionUndertakingWordTemplate}[kind])?.config();
+  const active=kind=>saved(kind)?.html?.trim()?saved(kind):builtIn(kind)||saved(kind)||defaults();
   const hasTemplate=kind=>Boolean(active(kind)?.html?.trim());
   const byId=id=>document.getElementById(id);
   const title=kind=>collectionDocumentLabels[kind]?.title||kind;
@@ -40,6 +41,11 @@ window.CollectionHtmlTemplates = (()=>{
       exchangeCollectionDate:collectionDateText(state.settings.collectionDate).replace(/-(\d{4})$/,'- $1'),
       exchangeBank:String(state.settings.remittingBank||'').toUpperCase(),
       exchangeWords:`${amountWords(total.number)} ${total.currency} ONLY`.toUpperCase(),
+      undertakingBankAddress:String(state.settings.remittingBankAddress||'').replace(/(BANIYAS BRANCH BUILDING,)\s*/i,'$1\n'),
+      undertakingRows:rows.map((row,index)=>{
+        const money=collectionMoney(row.totalAmount);
+        return {...row,referenceLabel:index===0?'REF #:':'',invoiceNo:row.invoiceNo||row.shipmentNo||'-',billNo:row.billNo||'-',referenceCurrency:money.currency,referenceAmount:money.number.toFixed(2)};
+      }),
       exchangeRows:rows.map(row=>({...row,invoiceNo:row.invoiceNo||row.shipmentNo||'-',exchangeInvoiceDate:exchangeDate(row.invoiceDate)}))};
   }
   function exchangeDate(value){
@@ -128,7 +134,7 @@ window.CollectionHtmlTemplates = (()=>{
   function documentHtml(kind,value){
     const config=validate(value||active(kind)), context=variables(kind);
     if(!config.html.trim()){
-      if(kind==='exchange'&&window.CollectionExchangeWordTemplate) return documentHtml(kind,CollectionExchangeWordTemplate.config());
+      if(builtIn(kind)) return documentHtml(kind,builtIn(kind));
       return legacyHtml(kind);
     }
     const content=sanitize(interpolate(config.html,context));

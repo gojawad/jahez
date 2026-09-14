@@ -219,18 +219,20 @@ async function main() {
 
     await page.locator('[data-preview="undertaking"]').click();
     await page.locator('#templateCancel').click();
-    await page.locator('.undertaking-refs tr').first().waitFor();
-    const undertaking = await page.evaluate(()=>({
-      rows:document.querySelectorAll('.undertaking-refs tr').length,
-      cells:[...document.querySelector('.undertaking-refs tr').cells].map(cell=>cell.textContent.trim()),
-      borderStyles:[...document.querySelector('.undertaking-refs tr').cells].map(cell=>getComputedStyle(cell).borderTopStyle),
-      overflow:document.querySelector('.collection-a4').scrollWidth-document.querySelector('.collection-a4').clientWidth
+    const undertakingFrame=page.frameLocator('.collection-html-frame');
+    await undertakingFrame.locator('.undertaking-refs tr').first().waitFor();
+    const undertaking = await undertakingFrame.locator('.bank-undertaking').evaluate(node=>({
+      rows:node.querySelectorAll('.undertaking-refs tr').length,
+      cells:[...node.querySelector('.undertaking-refs tr').cells].map(cell=>cell.textContent.trim()),
+      borderStyles:[...node.querySelector('.undertaking-refs tr').cells].map(cell=>getComputedStyle(cell).borderTopStyle),
+      overflow:node.scrollWidth-node.clientWidth
     }));
     assert.strictEqual(undertaking.rows, 2);
     assert.deepStrictEqual(undertaking.cells, ['REF #:','HJ2026173','278073887','USD','14896.00']);
     assert.ok(undertaking.borderStyles.every(style=>style === 'none'));
     assert.ok(undertaking.overflow <= 0);
-    await page.locator('.collection-a4').screenshot({path:path.join(OUTPUT, 'collection-undertaking.png')});
+    await page.locator('.collection-html-page').screenshot({path:path.join(OUTPUT, 'collection-undertaking.png')});
+    await require('./collection-undertaking-word.test')({page,BASE,OUTPUT});
 
     await page.locator('[data-preview="exchange"]').click();
     await page.locator('#templateCancel').click();
