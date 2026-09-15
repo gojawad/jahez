@@ -2,6 +2,7 @@
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BYTES=64*1024*1024;
+const {buildShipmentBundle}=require('./bsgt-trade-file-bundle');
 module.exports=async function(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({error:'POST required'});
@@ -17,14 +18,40 @@ module.exports=async function(req,res){
     if(!response.ok)throw new Error('Record is not accessible');
     return response.json();
   }
+  async function allRows(path){
+    const result=[];
+    for(let offset=0;;offset+=500){const batch=await rows(`${path}&order=id&limit=500&offset=${offset}`);result.push(...batch);if(batch.length<500)return result;}
+  }
+  async function download(bucket,path){
+    if(!path||path.split('/').some(part=>!part||part==='..'||part==='.')||path.includes('\\'))throw new Error('Invalid stored path');
+    const response=await fetch(`${base}/storage/v1/object/authenticated/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,{headers,signal:AbortSignal.timeout(60000)});
+    if(!response.ok)throw new Error('Storage access denied');
+    if(Number(response.headers.get('content-length'))>MAX_BYTES)throw new Error('File too large');
+    const chunks=[];let size=0;
+    for await(const chunk of response.body){size+=chunk.length;if(size>MAX_BYTES)throw new Error('File too large');chunks.push(Buffer.from(chunk));}
+    return Buffer.concat(chunks);
+  }
   try{
     let body=req.body;
     if(!body){let text='';for await(const chunk of req){text+=chunk;if(text.length>4096)throw new Error('Request too large');}body=JSON.parse(text);}
     if(typeof body==='string')body=JSON.parse(body);
     const {fileId,source,documentId,kind}=body;
     if(!UUID.test(fileId||'')||!UUID.test(documentId||''))throw new Error('Invalid reference');
-    const files=await rows(`trade_collection_files?id=eq.${fileId}&select=id`);
+    const files=await rows(`trade_collection_files?id=eq.${fileId}&select=id,revision_no`);
     if(!files.length)throw new Error('File is not accessible');
+    if(source==='shipment'){
+      const links=await rows(`trade_collection_file_shipments?trade_file_id=eq.${fileId}&shipment_id=eq.${documentId}&select=trade_file_id,shipment_id,operations_revision_id`);
+      if(!links.length)throw new Error('Shipment is outside this trade file');
+      const shipments=await rows(`shipments?id=eq.${documentId}&select=id,data`);
+      if(!shipments.length)throw new Error('Shipment is not accessible');
+      const link=links[0];
+      const revisions=link.operations_revision_id?await rows(`bsgt_operations_revisions?id=eq.${link.operations_revision_id}&shipment_id=eq.${documentId}&approved_at=not.is.null&select=id,shipment_id,approved_at,package_path`):[];
+      const scope=`trade_file_id=eq.${fileId}&revision_no=eq.${Number(files[0].revision_no)||1}&is_active=eq.true&or=(shipment_id.is.null,shipment_id.eq.${documentId})`;
+      const documents=await allRows(`trade_collection_file_documents?${scope}&select=*`);
+      const attachments=await allRows(`trade_collection_relations_attachments?${scope}&select=*`);
+      const bundle=await buildShipmentBundle({file:files[0],link,shipment:shipments[0],revision:revisions[0],documents,attachments,download});
+      return res.status(200).json({mimeType:'application/pdf',base64:bundle.bytes.toString('base64'),pageCount:bundle.pageCount,sourceCount:bundle.sourceCount});
+    }
     let bucket,path;
     if(source==='collection'||source==='relations'){
       const table=source==='collection'?'trade_collection_file_documents':'trade_collection_relations_attachments';
@@ -44,18 +71,13 @@ module.exports=async function(req,res){
       if(!links.length)throw new Error('Attachment is outside this trade file');
       path=document.path;bucket='shipment-files';
     }else throw new Error('Unsupported source');
-    if(!path||path.split('/').some(part=>!part||part==='..'||part==='.')||path.includes('\\'))throw new Error('Invalid stored path');
-    const response=await fetch(`${base}/storage/v1/object/authenticated/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,{headers,signal:AbortSignal.timeout(60000)});
-    if(!response.ok)throw new Error('Storage access denied');
-    if(Number(response.headers.get('content-length'))>MAX_BYTES)throw new Error('File too large');
-    const chunks=[];let size=0;
-    for await(const chunk of response.body){size+=chunk.length;if(size>MAX_BYTES)throw new Error('File too large');chunks.push(Buffer.from(chunk));}
-    const bytes=Buffer.concat(chunks);
+    const bytes=await download(bucket,path);
     const mimeType=bytes.subarray(0,5).toString()==='%PDF-'?'application/pdf':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'image/png':bytes[0]===255&&bytes[1]===216?'image/jpeg':null;
     if(!mimeType)throw new Error('Unsupported file type');
     return res.status(200).json({mimeType,base64:bytes.toString('base64')});
   }catch(error){
     console.warn('Trade file preview:',error.message);
+    if(error.message==='OPERATIONS_PACKAGE_MISSING')return res.status(409).json({error:'لم تُحفظ حزمة العمليات لهذه الشحنة بعد. ادمج مستندات العمليات أولاً حتى يمكن عرض الملف الكامل دون نقص.'});
     return res.status(403).json({error:'تعذرت معاينة الملف. قد لا يكون متاحاً أو ليست لديك صلاحية عرضه.'});
   }
 };

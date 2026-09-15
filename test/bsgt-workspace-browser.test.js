@@ -121,7 +121,16 @@ async function main(){
     await adminPage.locator('#bsgtTradeFiles [data-status]').selectOption('sent_to_collecting');
     await adminPage.locator(`#bsgtTradeFiles [data-file="${fileId}"]`).waitFor();
     await adminPage.locator(`#bsgtTradeFiles [data-file="${fileId}"]`).click();
-    await adminPage.locator('#bsgtTradeFiles [data-preview]').first().waitFor();
+    await adminPage.locator('#bsgtTradeFiles [data-shipment-preview]').first().waitFor();
+    assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-shipment-preview]').count(),2,'one complete preview per linked shipment');
+    assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-preview]').first().isVisible(),false,'individual documents are secondary, collapsed by default');
+    for(const id of [shipmentId,'77777777-7777-4777-8777-777777777777']){
+      await adminPage.locator(`#bsgtTradeFiles [data-shipment-preview="${id}"]`).click();
+      await adminPage.locator('.bsgt-trade-preview canvas[data-rendered=true]').waitFor();
+      await adminPage.locator('.bsgt-trade-preview [data-close]').click();
+      assert.strictEqual(previewRequests.at(-1).documentId,id);
+    }
+    await adminPage.locator('#bsgtTradeFiles details summary').click();
     assert.match(await adminPage.locator('#bsgtTradeFiles [data-detail]').innerText(),/نسخة موقعة.*المراجعة 1/);
     assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-preview]').count(),7,'original, historical signed, relations attachment and saved sources for BOTH shipments');
     assert.match(await adminPage.locator('#bsgtTradeFiles [data-detail]').innerText(),/BSGTX-2026-0002/);
@@ -130,7 +139,7 @@ async function main(){
       await adminPage.locator('.bsgt-trade-preview canvas[data-rendered=true]').waitFor();
       await adminPage.locator('.bsgt-trade-preview [data-close]').click();
     }
-    assert.deepStrictEqual(previewRequests.map(r=>r.source),['collection','relations','operations']);
+    assert.deepStrictEqual(previewRequests.map(r=>r.source),['shipment','shipment','collection','relations','operations']);
     assert.ok(previewRequests.every(r=>r.fileId===fileId&&!r.path));
     await adminPage.setViewportSize({width:390,height:844});
     assert.strictEqual(await adminPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'trade files fit mobile width');
