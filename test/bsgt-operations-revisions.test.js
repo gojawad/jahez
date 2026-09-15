@@ -98,3 +98,42 @@ test('missing or invalid sources fail rather than publishing an incomplete PDF',
   await assert.rejects(buildPackage({...f.input,files:f.input.files.slice(1)},f.generated,async()=>f.bytes,async()=>{},'r'), /Missing/);
   await assert.rejects(buildPackage(f.input,f.generated,async()=>Buffer.from('not a document'),async()=>{},'r'), /Unsupported/);
 });
+
+test('package preview returns only the caller-accessible approved PDF without modifying records', async () => {
+  const handler=require('../api/bsgt-operations-package');
+  const originalFetch=global.fetch, originalKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const shipment='11111111-1111-4111-8111-111111111111',revision='55555555-5555-4555-8555-555555555555';
+  const {bytes}=await fixture();let access=true,approved=true,downloads=0;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='test-service-key';
+  global.fetch=async(url,options={})=>{
+    assert.equal(options.method||'GET','GET','preview must not write production data');
+    if(url.includes('/auth/v1/user'))return Response.json({id:'user'});
+    if(url.includes('/rest/v1/shipments?')){
+      assert.equal(options.headers.Authorization,'Bearer caller-token');
+      return Response.json(access?[{operations_revision_id:revision}]:[]);
+    }
+    if(url.includes('/rest/v1/bsgt_operations_revisions?')){
+      assert.equal(options.headers.Authorization,'Bearer caller-token');
+      assert.ok(url.includes('approved_at=not.is.null'));
+      return Response.json(approved?[{package_path:`${shipment}/${revision}/package.pdf`}]:[]);
+    }
+    assert.ok(url.endsWith(`/bsgt-operations-packages/${shipment}/${revision}/package.pdf`));
+    downloads++;return new Response(bytes);
+  };
+  const invoke=async(token='Bearer caller-token')=>{
+    const res={setHeader(){},status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};
+    await handler({method:'POST',headers:{authorization:token},body:{action:'preview',shipmentId:shipment,path:'private/unrelated.pdf'}},res);
+    return res;
+  };
+  try{
+    const success=await invoke();assert.equal(success.statusCode,200);
+    assert.deepEqual(Buffer.from(success.body.pdfBase64,'base64'),bytes);
+    assert.equal((await invoke('')).statusCode,401);
+    access=false;assert.equal((await invoke()).statusCode,409);
+    access=true;approved=false;assert.equal((await invoke()).statusCode,409);
+    assert.equal(downloads,1,'denied and unapproved packages never reach privileged storage');
+  }finally{
+    global.fetch=originalFetch;
+    if(originalKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=originalKey;
+  }
+});

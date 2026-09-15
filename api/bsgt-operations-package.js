@@ -98,9 +98,27 @@ async function handler(req, res) {
     if (!response.ok) throw new Error(`Package operation failed (${response.status}): ${(await response.text()).slice(0,300)}`);
     return response.json();
   }
+  let previewRequest = false;
   try {
     const user = await jsonRequest('/auth/v1/user', { headers });
-    const { shipmentId, fingerprint, generated, language = 'en' } = await readBody(req);
+    const { shipmentId, fingerprint, generated, language = 'en', action } = await readBody(req);
+    if (!UUID.test(shipmentId || '')) throw new Error('Invalid shipment');
+    if (action === 'preview') {
+      previewRequest = true;
+      // Read with the caller's RLS first; never accept a client-supplied storage path.
+      const rows = await jsonRequest(`/rest/v1/shipments?id=eq.${shipmentId}&select=id,operations_revision_id`, { headers });
+      const revisionId = rows[0]?.operations_revision_id;
+      if (!UUID.test(revisionId || '')) throw new Error('No accessible approved package');
+      const revisions = await jsonRequest(`/rest/v1/bsgt_operations_revisions?id=eq.${revisionId}&shipment_id=eq.${shipmentId}&approved_at=not.is.null&select=package_path`, { headers });
+      const path = revisions[0]?.package_path;
+      if (path !== `${shipmentId}/${revisionId}/package.pdf`) throw new Error('Invalid approved package path');
+      const response = await fetch(`${base}/storage/v1/object/${BUCKET}/${path}`, { headers: service, signal: AbortSignal.timeout(60000) });
+      if (!response.ok) throw new Error('Approved package unavailable');
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length > MAX_BODY || bytes.subarray(0,5).toString() !== '%PDF-') throw new Error('Invalid approved PDF');
+      return res.status(200).json({ pdfBase64: bytes.toString('base64') });
+    }
+    if (action !== undefined) throw new Error('Invalid package action');
     if (!['ar','en'].includes(language)) throw new Error('Invalid package language');
     if (!UUID.test(shipmentId || '') || !/^[a-f0-9]{32}$/.test(fingerprint || '')) throw new Error('Invalid shipment snapshot');
     const input = await jsonRequest('/rest/v1/rpc/bsgt_operations_package_input', {
@@ -140,7 +158,7 @@ async function handler(req, res) {
     // Never remove an object here: a lost approval response may already be committed.
     // Unapproved objects are inaccessible through RLS and QR and may be reconciled later.
     console.error('Operations package failed:', error.message);
-    return res.status(409).json({ error: 'تعذر اعتماد الحزمة. حدّث الشحنة وتحقق من الصلاحيات والمتطلبات ثم أعد المحاولة.' });
+    return res.status(409).json({ error: previewRequest ? 'تعذر فتح الحزمة المعتمدة. حدّث الشحنة وتحقق من صلاحية المعاينة.' : 'تعذر اعتماد الحزمة. حدّث الشحنة وتحقق من الصلاحيات والمتطلبات ثم أعد المحاولة.' });
   }
 }
 

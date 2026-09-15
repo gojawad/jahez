@@ -111,6 +111,11 @@ async function main(){
     });
     await context.route(`${APP_ORIGIN}/api/bsgt-operations-package`,route=>{
       const payload=route.request().postDataJSON();
+      if(payload.action==='preview'){
+        assert.equal(payload.shipmentId,shipmentId);
+        assert.ok(currentRevisionId,'preview requires saved package');
+        return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({pdfBase64:fixturePdfBytes.toString('base64')})});
+      }
       assert.deepStrictEqual(Object.keys(payload.generated).sort(),['contract','invoice','packing','proforma']);
       assert.equal(payload.shipmentId,shipmentId);
       assert.ok(['ar','en'].includes(payload.language));
@@ -552,6 +557,8 @@ async function main(){
       const language=buttonId==='packageBtn'?'ar':'en';
       await page.locator(language==='ar'?'#docLangArBtn':'#docLangEnBtn').click();
       await page.locator('#pdfPreviewOverlay.open').waitFor();
+      await page.locator('#bsgtPackagePreviewContent canvas[data-rendered="true"]').waitFor();
+      assert.strictEqual(await page.locator('#pdfPreviewFrame').getAttribute('src'),'about:blank','preview never navigates to a PDF download URL');
       assert.strictEqual(mergeCalls,before+1,`${buttonId} merges operations without sending to finance`);
       assert.strictEqual(completeCalls,0,'merge never calls send');
       assert.strictEqual(currentStage,'operations_draft','merge leaves shipment in operations');
@@ -573,10 +580,14 @@ async function main(){
     await page.locator('[data-bsgt-open-full]').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtSendToFinanceBtn:not([disabled])'));
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
-    await page.locator('#bsgtSendToFinanceBtn').click();
+    await page.locator('#bsgtApprovedPackagePreview').click();
+    await page.locator('#bsgtPackagePreviewContent canvas[data-rendered="true"]').waitFor();
+    await page.locator('#bsgtPackagePreviewSend').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtOperationsDocumentsPanel')?.textContent.includes('تم الإرسال للمالية'));
     assert.strictEqual(completeCalls, 1);
     assert.strictEqual(mergeCalls, 2,'send does not regenerate or merge documents');
+    await page.locator('#pdfPreviewCloseX').click();
+    assert.strictEqual(await page.locator('#bsgtPackagePreviewContent').count(),0,'closing preview releases its rendered pages');
     assert.ok(shipmentFileReads >= 2, 'list is bulk-loaded and submit must re-fetch files');
     assert.strictEqual(currentStage, 'ready_for_finance');
     assert.strictEqual(await page.locator('[data-bsgt-file-delete]').count(), 0, 'ready-for-finance documents are read-only');

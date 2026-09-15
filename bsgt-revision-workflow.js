@@ -38,7 +38,52 @@
     const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,300);if(error)throw error;
     openPdfPreview(data.signedUrl,title);
   }
-  function previewOperations(id){return run(async()=>{const {revision}=await revisionFor(id);await openStored('bsgt-operations-packages',revision.package_path,'الحزمة الكاملة المدموجة');});}
+  let previewTask=null,previewSequence=0;
+  function closeOperationsPreview(){
+    previewSequence++;
+    if(previewTask){previewTask.destroy().catch(()=>{});previewTask=null;}
+    $('bsgtPackagePreviewContent')?.remove();
+    $('bsgtPackagePreviewActions')?.remove();
+    $('pdfPreviewFrame').style.display='';
+  }
+  function previewOperations(id){return run(async()=>{
+    const result=await post('/api/bsgt-operations-package',{action:'preview',shipmentId:id});
+    closeOperationsPreview();
+    const sequence=previewSequence;
+    const bytes=Uint8Array.from(atob(result.pdfBase64),char=>char.charCodeAt(0));
+    openPdfPreview('about:blank','الحزمة الكاملة المدموجة');
+    const frame=$('pdfPreviewFrame');frame.style.display='none';
+    const content=document.createElement('div');content.id='bsgtPackagePreviewContent';
+    content.style.cssText='flex:1;min-height:0;overflow:auto;background:#f3f4f6;padding:12px';
+    content.textContent='جاري تجهيز المعاينة…';frame.after(content);
+    const actions=document.createElement('div');actions.id='bsgtPackagePreviewActions';
+    actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap;padding:10px';
+    const download=document.createElement('button');download.className='btn btn-ghost';download.textContent='تحميل PDF';
+    download.onclick=()=>{const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));const link=document.createElement('a');link.href=url;link.download='shipment-package.pdf';link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);};
+    actions.append(download);
+    if(bsgtOperationsPermission(true)){
+      const send=document.createElement('button');send.id='bsgtPackagePreviewSend';send.className='btn btn-primary';
+      send.addEventListener('click',()=>submitBsgtOperationsToFinance(id,send));actions.append(send);
+    }
+    content.before(actions);decorateOperations(records.find(record=>record.id===id));
+    // Render pages ourselves: browser PDF/download preferences cannot hijack this preview.
+    previewTask=pdfjsLib.getDocument({data:bytes.slice()});
+    try{
+    const pdf=await previewTask.promise;
+    if(sequence!==previewSequence)return;
+    content.textContent='';
+    for(let number=1;number<=pdf.numPages;number++){
+      const page=await pdf.getPage(number);if(sequence!==previewSequence)return;
+      const viewport=page.getViewport({scale:1.4});
+      const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+      canvas.setAttribute('aria-label',`صفحة ${number} من ${pdf.numPages}`);
+      canvas.style.cssText='display:block;width:100%;height:auto;margin:0 auto 12px;background:white';content.append(canvas);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      if(sequence!==previewSequence)return;
+      canvas.dataset.rendered='true';
+    }
+    }catch(error){if(sequence===previewSequence)throw error;}
+  });}
   function hasOperationsQrPackage(record){
     return Boolean(record?.operationsRevisionId&&/^[A-Za-z0-9_-]{20,64}$/.test(record.qrToken||''));
   }
@@ -49,13 +94,19 @@
     const qrReady=hasOperationsQrPackage(record);
     const qrStatus=document.querySelector('#detailCard [data-bsgt-qr-package-status]');
     if(qrStatus&&(qrReady||record.qrPackagePath)) qrStatus.innerHTML='<b>حزمة QR جاهزة.</b> تم حفظ الحزمة؛ المسح يفتح ملف PDF المدموج مباشرة.';
-    for(const id of ['bsgtOperationsQuickSend','bsgtOperationsDocumentsSend','bsgtSendToFinanceBtn']){
+    for(const id of ['bsgtOperationsQuickSend','bsgtOperationsDocumentsSend','bsgtSendToFinanceBtn','bsgtPackagePreviewSend']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
       button.hidden=!qrReady;button.style.display=qrReady?'':'none';
       const canSend=allowed&&qrReady;
       button.disabled=!canSend;button.innerHTML=`${icon('plane',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم الإرسال للمالية'}`;
       button.title=canSend?'إرسال الحزمة المدموجة للمالية':record.bsgtStage==='operations_draft'?'ادمج الحزمة أولاً من تفاصيل الشحنة.':'';
       button.onclick=null;
+    }
+    const mergeButton=$('packageBtn');
+    if(mergeButton&&qrReady&&!$('bsgtApprovedPackagePreview')){
+      const button=document.createElement('button');button.id='bsgtApprovedPackagePreview';button.className='btn btn-ghost';
+      button.innerHTML=`${icon('eye',14)} معاينة الحزمة المدموجة`;
+      button.onclick=()=>previewOperations(record.id);mergeButton.after(button);
     }
     for(const id of ['packageBtn','mergeAllBtn']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
@@ -209,5 +260,5 @@
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();
   }
-  window.JahezRevisionWorkflow={mergeOperations,previewOperations,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage};
+  window.JahezRevisionWorkflow={mergeOperations,previewOperations,closeOperationsPreview,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage};
 })();
