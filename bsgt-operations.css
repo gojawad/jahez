@@ -471,39 +471,25 @@
 #viewBsgtWorkspace .bsgt-operations-tabs{gap:12px;padding:0 16px}
 #viewBsgtWorkspace .bsgt-operations-tabs button{min-height:48px;font-size:13px}
 #viewBsgtWorkspace .bsgt-operations-tab-panel{padding:18px}
-#viewBsgtWorkspace .bsgt-operations-overview-grid{grid-template-columns:minmax(250px,.8fr) minmax(0,1.6fr);gap:16px;margin-top:0;align-items:start}
+#viewBsgtWorkspace .bsgt-operations-overview-grid{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:0;align-items:start}
 #viewBsgtWorkspace .bsgt-operations-overview-grid>section{min-width:0;padding:16px;border-color:#e5e7eb}
 #viewBsgtWorkspace .bsgt-operations-overview-grid h4{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:16px}
-#viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-information>div{grid-template-columns:1fr}
+#viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-information>div{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
 #viewBsgtWorkspace .bsgt-operations-information p{gap:12px;align-items:start;padding:9px 0;font-size:11px;line-height:1.65}
 #viewBsgtWorkspace .bsgt-operations-information p>span{flex:0 0 36%;color:#6b7280}
 #viewBsgtWorkspace .bsgt-operations-information p>b{min-width:0;flex:1;font-weight:600}
 #viewBsgtWorkspace .bsgt-operations-information .bsgt-operations-flag{margin-inline-end:7px;width:23px;height:16px}
-#viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-shipment-data{border:0;padding:2px 0;background:transparent}
-#viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-data-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-#viewBsgtWorkspace .bsgt-operations-data-card{display:flex;align-items:center;gap:16px;min-width:0;min-height:142px;padding:22px 18px;border:1px solid #e5e7eb;border-radius:14px;background:linear-gradient(135deg,#fff,#fafafa)}
-#viewBsgtWorkspace .bsgt-operations-data-card>div{min-width:0;flex:1}
-#viewBsgtWorkspace .bsgt-operations-data-icon{display:grid;place-items:center;flex:0 0 48px;height:48px;border-radius:14px;background:#fff1f2;color:var(--brand-dark,#d01119)}
-#viewBsgtWorkspace .bsgt-operations-data-card h5{margin:0 0 10px;color:#6b7280;font-size:13px;font-weight:600}
-#viewBsgtWorkspace .bsgt-operations-data-card b{display:block;overflow-wrap:anywhere;font-size:20px;line-height:1.5;text-align:start}
 @media(min-width:1600px){
   #viewBsgtWorkspace .bsgt-operations-top-summary{grid-template-columns:repeat(6,minmax(0,1fr))}
 }
-@media(min-width:900px) and (max-width:1240px){
-  #viewBsgtWorkspace .bsgt-operations-overview-grid{grid-template-columns:minmax(0,1fr)}
-  #viewBsgtWorkspace .bsgt-operations-shipment-data{grid-row:1}
-}
 @media(max-width:899px){
   #viewBsgtWorkspace .bsgt-operations-detail{overflow:visible}
-  #viewBsgtWorkspace .bsgt-operations-overview-grid{grid-template-columns:minmax(0,1fr)}
-  #viewBsgtWorkspace .bsgt-operations-shipment-data{grid-row:1}
+  #viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-information>div{grid-template-columns:minmax(0,1fr)}
   #viewBsgtWorkspace .bsgt-operations-detail-head{padding:16px}
   #viewBsgtWorkspace .bsgt-operations-top-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   #viewBsgtWorkspace .bsgt-operations-navigator{overflow:visible}
 }
 @media(max-width:520px){
-  #viewBsgtWorkspace .bsgt-operations-overview-grid .bsgt-operations-data-cards{grid-template-columns:minmax(0,1fr);gap:12px}
-  #viewBsgtWorkspace .bsgt-operations-data-card{min-height:112px;padding:16px}
   #viewBsgtWorkspace .bsgt-operations-detail-identity h3{font-size:22px}
   #viewBsgtWorkspace .bsgt-operations-tab-panel{padding:12px}
   #viewBsgtWorkspace .bsgt-operations-progress-card{margin:12px;padding:12px}

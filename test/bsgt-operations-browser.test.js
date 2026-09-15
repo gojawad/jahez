@@ -225,7 +225,7 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-overview-1')), 'operations CSS invalidates the prior overview layout');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-overview-full-2')), 'operations CSS invalidates the prior overview layout');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260914-operations-revisions-1')), 'operations JS invalidates the pre-revision cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260914-internal-revisions-1')), 'management JS invalidates the mandatory-signature cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260915-merge-routing-1')), 'company wizard invalidates the legacy merge click interceptor');
@@ -241,8 +241,8 @@ async function main(){
     assert.match(overviewText, /رقم الفاتورة\s*INV-99/, 'shipment overview shows the invoice number');
     assert.match(overviewText, /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
     assert.match(overviewText, /الكمية\s*10 PACKAGES/, 'shipment overview shows the quantity and unit');
-    assert.equal(await page.locator('.bsgt-operations-data-card').count(),4,'overview contains exactly four read-only shipment data cards');
-    assert.equal(await page.locator('.bsgt-operations-shipment-data button, .bsgt-operations-shipment-data input, .bsgt-operations-shipment-data select, .bsgt-operations-shipment-data textarea, .bsgt-operations-shipment-data a').count(),0,'shipment data contains no edit or other actions');
+    assert.equal(await page.locator('.bsgt-operations-data-card, .bsgt-operations-shipment-data').count(),0,'duplicate shipment cards are not rendered');
+    assert.equal(await page.locator('.bsgt-operations-information button, .bsgt-operations-information input, .bsgt-operations-information select, .bsgt-operations-information textarea, .bsgt-operations-information a').count(),0,'shipment information remains read only');
     assert.equal(await page.locator('[data-bsgt-ops-panel="overview"] .bsgt-operations-notes').count(),0,'notes are not part of overview');
     assert.equal(await page.getByRole('button',{name:'متابعة الشحنة',exact:true}).count(),0,'no tracking action is added');
     assert.equal(await page.locator('.bsgt-operations-top-summary>div').count(),6,'summary reuses the six shipment fields');
@@ -404,6 +404,8 @@ async function main(){
         assert.ok(layout.view.width >= availableWidth * .94, `${viewport.width}px uses at least 94% of the available width`);
       }
       assert.strictEqual(layout.overflow, true, `${viewport.width}px has no horizontal overflow`);
+      const informationWidth=await page.locator('.bsgt-operations-information').evaluate(element=>({card:element.getBoundingClientRect().width,grid:element.parentElement.getBoundingClientRect().width}));
+      assert.ok(Math.abs(informationWidth.card-informationWidth.grid)<=1,`${viewport.width}px shipment information fills the complete overview width`);
       await assertStageGeometry(page,viewport.width);
     }
     const stagePresentations = await page.evaluate(stages=>Object.fromEntries(stages.map(stage=>{

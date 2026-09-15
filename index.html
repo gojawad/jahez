@@ -2497,7 +2497,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-overview-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-overview-full-2">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
 </head>
 <body class="landing-active">
@@ -9611,8 +9611,6 @@ function renderBsgtOperationsDetail(record){
     ['calendarIcon','تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate]
   ];
   const fields = bsgtOperationsOverviewFields(record);
-  const values=new Map(fields);
-  const dataCards=[['invoice','رقم الفاتورة',record.invoiceNo],['box','نوع البضاعة',record.itemDesc],['tag','الكمية',values.get('الكمية')],['ship','رقم البوليصة',record.billNo]];
   const returnContext = bsgtOperationsListState.tradeContextByShipment[record.id];
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
@@ -9627,7 +9625,6 @@ function renderBsgtOperationsDetail(record){
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='overview'?'active':''}" data-bsgt-ops-panel="overview">
       <div class="bsgt-operations-overview-grid">
         <section class="bsgt-operations-information"><h4>${icon('doc',18)} معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b dir="auto">${label==='بلد المنشأ'?originFlag:label==='ميناء الوصول'?destinationFlag:''}${escapeHtml(String(value))}</b></p>`).join('')}</div></section>
-        <section class="bsgt-operations-shipment-data"><h4>${icon('invoice',20)} بيانات الشحنة</h4><div class="bsgt-operations-data-cards">${dataCards.map(([ic,label,value])=>`<article class="bsgt-operations-data-card"><span class="bsgt-operations-data-icon">${icon(ic,24)}</span><div><h5>${label}</h5><b dir="auto">${escapeHtml(String(value??'').trim()||'—')}</b></div></article>`).join('')}</div></section>
       </div>
     </section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsQuickDocumentsPanel">${renderBsgtOperationsQuickDocuments(record)}</div></section>
