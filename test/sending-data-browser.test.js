@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const api=require('../sending-data');
 const port=5100+Math.floor(Math.random()*100),origin=`http://jahez.test:${port}`,remote='https://vthcmqqiexaedukduquv.supabase.co';
 async function main(){
+  assert.match(fs.readFileSync(path.join(__dirname,'../Dockerfile'),'utf8'),/^COPY .*\bsending-data\.html .*\.\/$/m,'The management page must be included in the production image');
   const proc=spawn(process.execPath,['server.js'],{cwd:path.join(__dirname,'..'),env:{...process.env,PORT:String(port)},stdio:'ignore'});let browser;
   try{
     for(let i=0;i<60;i++){try{if((await fetch(`http://127.0.0.1:${port}/healthz`)).ok)break;}catch{}await new Promise(r=>setTimeout(r,200));}
