@@ -1,4 +1,4 @@
-/* Experimental, read-only collection lab. It never writes to Supabase. */
+/* Collection document portal; sending lists use the shared lookups store. */
 const SB_URL = 'https://vthcmqqiexaedukduquv.supabase.co';
 const SB_KEY = 'sb_publishable_kYEMmAQ2KTETIabDTMz2ig_fNB8vo02';
 const sb = supabase.createClient(SB_URL, SB_KEY, {auth:{storageKey:'shipdocs-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
@@ -210,26 +210,25 @@ async function saveCurrentDocumentLayout(){
     alert(`تعذّر حفظ إعدادات المستند للموظفين: ${error.message||error}`);
   }
 }
-const collectionListFields = {
-  remittingBank:{label:'البنك المُرسِل',defaults:['Abu Dhabi Islamic Bank']}, remittingBankLetterAddress:{label:'عنوان بنك الإرسال للخطاب',defaults:['Abu Dhabi, UAE']}, remittingBankAddress:{label:'عنوان بنك الإرسال للتعهد',defaults:['BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.']}, remittingBankAccountNo:{label:'رقم حساب بنك الإرسال',defaults:['19567664']}, collectingBankProfile:{label:'بنك التحصيل وعنوانه',paired:true,defaults:[{bank:'SAUDI SUDANESE BANK',address:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN'}]},
-  billOfLadingType:{label:'نوع بوليصة الشحن',defaults:['Copy of  Original Bill of Lading']},
-  billBy:{label:'تعليمات Bill By',defaults:['Kindly send SWIFT message to collecting bank for docs and share SWIFT copy with us.']},
-  term:{label:'شرط الدفع',defaults:['D/A 90 DAYS FROM BILL OF EXCHANGE DATE.']}, drawer:{label:'المُصدّر / Drawer',defaults:['BAHAR SWAKEN GENERAL TRADING LLC']},
-  authorizedPerson:{label:'الشخص المفوض',defaults:['JAWAD ELMASRI']}, title:{label:'المنصب',defaults:['MANAGER']}, draweeAddress:{label:'عنوان المستورد',defaults:[]}
-};
+const collectionListFields = window.JahezSendingData.fields;
+const sendingDataStore = window.JahezSendingData.createStore(sb);
 let collectionLists = {};
 const collectingBankProfileKey = window.JahezCollectionBanks.key;
 const normalizedCollectingBankProfile = window.JahezCollectionBanks.normalize;
-function loadCollectionLists(){
-  let saved={}; try { saved=JSON.parse(localStorage.getItem(collectionListStorageKey)||'{}')||{}; } catch (_) {}
-  collectionLists=Object.fromEntries(Object.entries(collectionListFields).map(([key,field])=>{
-    if(field.paired){
-      return [key,window.JahezCollectionBanks.profiles(saved)];
-    }
-    return [key,[...new Set([...(field.defaults||[]),...((saved[key]||[]).filter(Boolean))])]];
-  }));
+async function loadCollectionLists(){
+  await sendingDataStore.load();
+  if(portalRole==='admin'){
+    try{const result=await sendingDataStore.migrate(localStorage);if(result.skipped)$('collectionListValues').textContent='توجد قيم محلية غير مكتملة؛ راجعها من إدارة القوائم. النسخة المحلية محفوظة.';}
+    catch(error){$('collectionListValues').textContent=`القوائم المشتركة محملة، لكن تعذر نقل بعض القيم المحلية: ${error.message}`;}
+  }
+  collectionLists=Object.fromEntries(Object.keys(collectionListFields).map(key=>[key,sendingDataStore.values(key)]));
 }
-function saveCollectionLists(){ try { localStorage.setItem(collectionListStorageKey,JSON.stringify(collectionLists)); } catch (_) {} }
+function applySendingDefaults(){
+  Object.keys(collectionListFields).forEach(key=>{
+    if(collectionListFields[key].paired){const first=collectionLists[key]?.[0];state.settings.collectingBank=first?.bank||'';state.settings.collectingBankAddress=first?.address||'';}
+    else state.settings[key]=key==='draweeAddress'?'':(collectionLists[key]?.[0]||'');
+  });
+}
 function loadRemittingBatches(){ try { remittingBatches=JSON.parse(localStorage.getItem(remittingSubmissionStorageKey)||'[]')||[]; } catch (_) { remittingBatches=[]; } }
 function saveRemittingBatches(){ try { localStorage.setItem(remittingSubmissionStorageKey,JSON.stringify(remittingBatches)); } catch (_) {} }
 function setPortalUserProfile(user, profile){
@@ -676,10 +675,10 @@ function populateCollectionSelects(){
   Object.keys(collectionListFields).forEach(key=>{
     const select=$('settingsForm').elements[key]; if(!select) return;
     if(collectionListFields[key].paired){
-      const profiles=collectionLists[key]||[];
+      const profiles=[...(collectionLists[key]||[])];
       const current={bank:state.settings.collectingBank||'',address:state.settings.collectingBankAddress||''};
-      const selected=profiles.find(profile=>profile.bank===current.bank&&profile.address===current.address)||profiles.find(profile=>profile.bank===current.bank)||profiles[0];
-      if(selected){ state.settings.collectingBank=selected.bank; state.settings.collectingBankAddress=selected.address; }
+      if(current.bank&&!profiles.some(profile=>profile.bank===current.bank&&profile.address===current.address))profiles.push(current);
+      const selected=profiles.find(profile=>profile.bank===current.bank&&profile.address===current.address);
       select.innerHTML=profiles.map(profile=>`<option value="${esc(collectingBankProfileKey(profile))}">${esc(profile.bank)} - ${esc(profile.address)}</option>`).join('');
       select.value=selected?collectingBankProfileKey(selected):'';
       return;
@@ -692,17 +691,13 @@ function populateCollectionSelects(){
   });
 }
 function renderCollectionListManager(){
-  const field=$('collectionListField'), values=$('collectionListValues'), valueInput=$('collectionListValue'), addressInput=$('collectionListAddress'), addButton=$('addCollectionListValue'); if(!field||!values) return;
+  const field=$('collectionListField');if(!field)return;
   if(!field.options.length) field.innerHTML=Object.entries(collectionListFields).map(([key,meta])=>`<option value="${key}">${esc(meta.label)}</option>`).join('');
-  const key=field.value||'remittingBank';
-  const paired=Boolean(collectionListFields[key]?.paired);
-  valueInput.placeholder=paired?'اسم بنك التحصيل':'اكتب القيمة الجديدة';
-  addressInput.hidden=!paired;
-  addButton.textContent=paired?'إضافة البنك والعنوان':'إضافة للقائمة';
-  values.innerHTML=(collectionLists[key]||[]).length?(collectionLists[key]||[]).map((value,index)=>{
-    const text=paired?`${value.bank} - ${value.address}`:value;
-    return `<span class="collection-list-value"><span title="${esc(text)}">${esc(text)}</span><button type="button" title="حذف" data-remove-list-index="${index}">×</button></span>`;
-  }).join(''):'<small>لا توجد قيم محفوظة بعد.</small>';
+  $('manageCollectionList').href=`/sending-data.html?type=${encodeURIComponent(field.value)}`;
+  if(portalRole==='admin')Object.keys(collectionListFields).forEach(key=>{
+    const select=$('settingsForm').elements[key];if(!select||select.parentElement.querySelector('[data-manage-list]'))return;
+    const link=document.createElement('a');link.dataset.manageList=key;link.href=`/sending-data.html?type=${encodeURIComponent(key)}`;link.target='_blank';link.rel='noopener';link.textContent='إدارة القائمة';link.className='text-btn';select.after(link);
+  });
 }
 const rowToShipment = row => Object.assign({}, row.data||{}, JahezShipmentWorkflow.fromRow(row), {id:row.id,status:row.status,companyId:row.company_id,bsgtStage:row.bsgt_stage||null,operationsCompletedAt:row.operations_completed_at||null,shipmentNo:row.data?.operationNo||row.task_ref||row.id.slice(0,8)});
 function shipmentDataForUpdate(shipment){
@@ -1052,7 +1047,7 @@ async function init(){
   setPortalBrand(portalContext.branding);
   document.body.classList.remove('portal-access-loading');
   ensureTextLayerControls();
-  loadCollectionLists();
+  try{await loadCollectionLists();}catch(error){$('shipmentList').textContent=`تعذر تحميل قوائم الإرسال المشتركة: ${error.message}. أعد التحميل أو تحقق من تحديث قاعدة البيانات 48.`;return;}
   loadRemittingBatches();
   const legacyRemittingBatches=[...remittingBatches];
   const collapsed=sectionCollapseState();
@@ -1071,6 +1066,8 @@ async function init(){
     await loadSharedCollectionBranding(bsgt);await loadSharedCollectionDocumentLayouts(bsgt);
     if(requestedFinanceContext) await window.CollectionRevisionContext.load();
     else await loadTradeFileContext();
+    if(!state.tradeFile)applySendingDefaults();
+    populateCollectionSelects();
     fillFilters();renderAll();
   }catch(error){$('shipmentList').innerHTML=`<div class="empty-state">تعذّر تحميل بوابة التحصيل التجاري: ${esc(error.message||error)}.</div>`;$('shipmentCount').textContent='لم تُحمّل البيانات';}
 }
@@ -1088,35 +1085,14 @@ $('convertToAedBtn').addEventListener('click',()=>{state.convertToAed=!state.con
 $('collectionExchangeRate').addEventListener('input',event=>{state.exchangeRate=Number(event.target.value)||0;renderAll();});
 $('compactRecordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('collectionListField').addEventListener('change',renderCollectionListManager);
-$('addCollectionListValue').addEventListener('click',()=>{
-  const key=$('collectionListField').value, input=$('collectionListValue'), addressInput=$('collectionListAddress'), value=input.value.trim();
-  if(!value){ input.focus(); return; }
-  if(collectionListFields[key]?.paired){
-    const address=addressInput.value.trim();
-    if(!address){ addressInput.focus(); return; }
-    const profile={bank:value,address};
-    if(!(collectionLists[key]||[]).some(item=>collectingBankProfileKey(item)===collectingBankProfileKey(profile))) collectionLists[key].push(profile);
-    state.settings.collectingBank=profile.bank; state.settings.collectingBankAddress=profile.address; input.value=''; addressInput.value='';
-  }else{
-    if(!collectionLists[key].includes(value)) collectionLists[key].push(value);
-    state.settings[key]=value; input.value='';
-  }
-  saveCollectionLists(); populateCollectionSelects(); renderCollectionListManager(); renderPreview(); renderDebug();
-});
-$('collectionListValues').addEventListener('click',event=>{
-  const button=event.target.closest('[data-remove-list-index]'); if(!button) return;
-  const key=$('collectionListField').value, index=Number(button.dataset.removeListIndex), value=(collectionLists[key]||[])[index];
-  collectionLists[key]=(collectionLists[key]||[]).filter((_,itemIndex)=>itemIndex!==index);
-  if(collectionListFields[key]?.paired){
-    if(value&&state.settings.collectingBank===value.bank&&state.settings.collectingBankAddress===value.address){
-      const next=collectionLists[key][0]||{bank:'',address:''}; state.settings.collectingBank=next.bank; state.settings.collectingBankAddress=next.address;
-    }
-  }else if(state.settings[key]===value) state.settings[key]=key==='draweeAddress'?'':(collectionLists[key][0]||'');
-  saveCollectionLists(); populateCollectionSelects(); renderCollectionListManager(); renderPreview(); renderDebug();
+window.addEventListener('focus',async()=>{
+  if(!portalRole)return;
+  try{await loadCollectionLists();populateCollectionSelects();renderCollectionListManager();}
+  catch(error){$('collectionListValues').textContent=`تعذر تحديث قوائم الإرسال: ${error.message}`;}
 });
 $('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;selectedTextBlock=null;selectedTextStyle=null;textBlockEditMode=false;renderPreview();window.CollectionHtmlTemplates?.open(state.preview);});
 $('groupByConsignee').addEventListener('click',()=>{const groups={};selectedShipments().forEach(r=>(groups[r.consignee||'غير محدد']??=[]).push(r));$('consigneeGroups').hidden=false;$('consigneeGroups').innerHTML=Object.entries(groups).map(([name,rows])=>`<b>${esc(name)}</b>: ${rows.map(r=>esc(r.shipmentNo)).join('، ')}`).join('<br>');});
-$('resetBtn').addEventListener('click',()=>{state.selected.clear();state.activeOperationNo='';state.overrides={};$('settingsForm').reset();Object.assign(state.settings,{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING L.L.C',authorizedPerson:'JAWAD ELMASRI',title:'Manager',draweeAddress:''});populateCollectionSelects();Object.entries(state.settings).forEach(([key,value])=>{const input=$('settingsForm').elements[key];if(input)input.value=value;});renderAll();});
+$('resetBtn').addEventListener('click',()=>{state.selected.clear();state.activeOperationNo='';state.overrides={};$('settingsForm').reset();Object.assign(state.settings,{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING L.L.C',authorizedPerson:'JAWAD ELMASRI',title:'Manager',draweeAddress:''});applySendingDefaults();populateCollectionSelects();Object.entries(state.settings).forEach(([key,value])=>{const input=$('settingsForm').elements[key];if(input)input.value=value;});renderAll();});
 $('printBtn').addEventListener('click',()=>window.CollectionHtmlTemplates?.hasTemplate(state.preview)?CollectionHtmlTemplates.printSaved():window.print());
 $('recordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('portalBackBtn').addEventListener('click',()=>{

@@ -153,6 +153,7 @@ async function main(){
       await adminPage.locator('.bsgt-trade-preview canvas[data-rendered=true]').waitFor();
       await verifyPreviewActions(Buffer.from(encoded,'base64'));
       await adminPage.locator('.bsgt-trade-preview [data-close]').click();
+      await adminPage.locator('iframe[data-print-frame]').waitFor({state:'detached'});
       assert.strictEqual(await adminPage.locator('iframe[data-print-frame]').count(),0,'closing preview removes print frame');
       assert.strictEqual(previewRequests.at(-1).documentId,id);
     }

@@ -25,7 +25,7 @@ async function main(){
     await waitServer(server);browser=await chromium.launch({executablePath:browserPath,headless:true,args:['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP jahez.test 127.0.0.1']});
     const context=await browser.newContext({viewport:{width:1440,height:900}});const exp=Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,exp,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'r',expires_at:exp,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,exp,token:jwt()});
-    await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'COLLECTION SOURCE BANK',address:'PORT SUDAN SAVED ADDRESS',swift:'SAVEDSWIFT'}]})));
+    await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'LOCAL ONLY BANK',address:'NOT A DATABASE VALUE'}]})));
     let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0;
     const attachments=[];
     const file=()=>({id:tradeId,operation_no:'TC-2026-000555',company_id:company.id,status,revision_no:2,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',collecting_bank:'COLLECTING BANK',final_accepted_at:'2026-09-12T11:00:00Z',final_accepted_by:profile.id,sent_to_collecting_at:status==='sent_to_collecting'?'2026-09-12T12:00:00Z':null,metadata:{documentKinds:['letter','undertaking','exchange'],currency:'USD',collectingBankAddress:'DUBAI'}});
@@ -38,6 +38,7 @@ async function main(){
       if(url.pathname==='/rest/v1/rpc/register_bsgt_relations_attachment'){const body=req.postDataJSON();assert.strictEqual(body.p_shipment_id,null);assert.strictEqual(body.p_trade_file_id,tradeId);registrations++;attachments.filter(a=>a.shipment_id===null&&a.attachment_type===body.p_attachment_type).forEach(a=>a.is_active=false);const attachment={id:`attachment-${registrations}`,shipment_id:null,trade_file_id:tradeId,attachment_type:body.p_attachment_type,storage_path:body.p_storage_path,original_name:body.p_original_name,revision_no:2,is_active:true};attachments.push(attachment);return route.fulfill({status:200,headers,body:JSON.stringify(attachment)});}
       if(url.pathname==='/rest/v1/companies')return route.fulfill({status:200,headers,body:JSON.stringify([company])});
       if(url.pathname==='/rest/v1/bank_book')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'bank-1',nick:'COLLECTING BANK',body:'DUBAI'}])});
+      if(url.pathname==='/rest/v1/lookups')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'saved-bank',list_key:'collectionSending.collectingBankProfile',value:'COLLECTION SOURCE BANK|||PORT SUDAN SAVED ADDRESS',linked_address:'PORT SUDAN SAVED ADDRESS',active:true,sort_order:0}])});
       if(url.pathname==='/rest/v1/trade_collection_files')return route.fulfill({status:200,headers,body:JSON.stringify(file())});
       if(url.pathname==='/rest/v1/trade_collection_file_shipments')return route.fulfill({status:200,headers,body:JSON.stringify([shipmentId,secondShipmentId].map((id,index)=>({id:`link-${index}`,trade_file_id:tradeId,shipment_id:id})))});
       if(url.pathname==='/rest/v1/trade_collection_relations_attachments')return route.fulfill({status:200,headers,body:JSON.stringify(attachments)});
@@ -56,6 +57,7 @@ async function main(){
     assert.strictEqual(await page.locator('#bsgtRelationsCaseAttachments').count(),1);
     assert.strictEqual(await page.locator('[data-bsgt-relations-generated]').count(),8);
     assert.strictEqual(await page.locator('#bsgtRelationsBank option[value="COLLECTING BANK"]').count(),0,'bank_book entries are not choices');
+    assert.strictEqual(await page.locator('#bsgtRelationsBank option').filter({hasText:'LOCAL ONLY BANK'}).count(),0,'database is authoritative, not this browser');
     const bankKey='COLLECTION SOURCE BANK|||PORT SUDAN SAVED ADDRESS';
     await page.locator('#bsgtRelationsBank').selectOption(bankKey);
     assert.strictEqual(await page.locator('#bsgtRelationsBankAddress').inputValue(),'PORT SUDAN SAVED ADDRESS');

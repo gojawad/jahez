@@ -67,6 +67,7 @@ function supabaseStub() {
         select(){return api},
         eq(column,value){eqColumn=column;eqValue=value;return api},
         order(){return api},
+        range(){return api},
         in(){return api},
         update(payload){updatePayload=payload;return api},
         insert(){return api},

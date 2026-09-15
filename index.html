@@ -4024,6 +4024,7 @@ try{
     <div class="admin-pane" id="apaneLists">
       <div class="dash-card">
         <h3>القوائم الجاهزة <span class="cnt">تظهر كقوائم منسدلة في شاشة إدخال الشحنة</span></h3>
+        <a class="btn btn-ghost" href="/sending-data.html">إدارة قوائم بيانات الإرسال</a>
         <div>
           <div class="grid">
             <div class="field span2">
@@ -5854,13 +5855,14 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="permissions.js?v=20260912-authoritative-1"></script>
 <script src="portal-access.js?v=20260912-2"></script>
-<script src="session-navigation.js?v=20260912-1"></script>
+<script src="session-navigation.js?v=20260915-sending-master-1"></script>
   <script src="bsgt-workspace.js?v=20260915-trade-files-1"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
 <script src="bsgt-management.js?v=20260914-internal-revisions-1"></script>
 <script src="collection-bank-profiles.js?v=20260914-1"></script>
+<script src="sending-data.js?v=20260915-1"></script>
 <script src="bsgt-relations.js?v=20260914-case"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
@@ -10147,19 +10149,28 @@ function bsgtRelationsActor(actorId){
   return row?.display_name||row?.email||String(actorId||'—').slice(0,8);
 }
 
+const bsgtSendingDataStore=window.JahezSendingData.createStore(sb);
 function bsgtRelationsBankOptions(file){
-  const banks=window.JahezCollectionBanks.read(localStorage);
+  const banks=bsgtSendingDataStore.values('collectingBankProfile');
   const current=String(file.collecting_bank||file.metadata?.documentSettings?.collectingBank||'').trim();
   const address=file.metadata?.collectingBankAddress||file.metadata?.documentSettings?.collectingBankAddress||'';
-  const selected=banks.find(bank=>bank.bank===current&&bank.address===address)||banks.find(bank=>bank.bank===current);
+  const selected=banks.find(bank=>bank.bank===current&&bank.address===address);
   const legacy=current&&!selected?`<option value="" selected disabled>${escapeHtml(current)} — محفوظ سابقاً، اختر من قائمة التحصيل</option>`:'';
   return `<option value="">— اختر البنك المحصل —</option>${legacy}${banks.map(bank=>`<option value="${escapeHtml(window.JahezCollectionBanks.key(bank))}" ${bank===selected?'selected':''}>${escapeHtml(bank.bank)}${banks.filter(row=>row.bank===bank.bank).length>1?` — ${escapeHtml(bank.address)}`:''}</option>`).join('')}`;
 }
 
 function bsgtRelationsSelectedBank(){
   const key=document.getElementById('bsgtRelationsBank')?.value;
-  return window.JahezCollectionBanks.read(localStorage).find(bank=>window.JahezCollectionBanks.key(bank)===key)||null;
+  return bsgtSendingDataStore.values('collectingBankProfile').find(bank=>window.JahezCollectionBanks.key(bank)===key)||null;
 }
+window.addEventListener('focus',async()=>{
+  const select=document.getElementById('bsgtRelationsBank'),detail=bsgtRelationsState.detail;
+  if(!select||!detail)return;
+  const selectedValue=select.value,bank=bsgtRelationsSelectedBank();
+  const snapshot=bank?{...detail.file,collecting_bank:bank.bank,metadata:{...detail.file.metadata,collectingBankAddress:bank.address}}:detail.file;
+  try{await bsgtSendingDataStore.load();if(select.isConnected&&bsgtRelationsState.detail===detail&&select.value===selectedValue)select.innerHTML=bsgtRelationsBankOptions(snapshot);}
+  catch(error){toast('تعذر تحديث قوائم بيانات الإرسال. أعد المحاولة.','err');}
+});
 
 function bsgtRelationsCurrentAttachment(detail,type){
   const revision=Number(detail.file.revision_no)||1;
@@ -10218,6 +10229,7 @@ async function openBsgtRelationsFile(id){
 
 async function loadBsgtRelationsDetail(id){
   try{
+    await bsgtSendingDataStore.load();
     const [fileResult,linkResult,attachmentResult,documentResult,eventResult]=await Promise.all([
       sb.from('trade_collection_files').select('*').eq('id',id).single(),
       sb.from('trade_collection_file_shipments').select('*').eq('trade_file_id',id),
@@ -10232,6 +10244,10 @@ async function loadBsgtRelationsDetail(id){
     if(bsgtRelationsState.detailId!==id)return;
     bsgtRelationsState.detail={file:fileResult.data,links:linkResult.data||[],shipments,attachments:attachmentResult.data||[],documents:documentResult.data||[],events:eventResult.data||[],operationDocuments,profiles};
     renderBsgtRelationsDetail();
+    if(isAdmin()){
+      const select=document.getElementById('bsgtRelationsBank');
+      if(select){const link=document.createElement('a');link.href='/sending-data.html?type=collectingBankProfile';link.target='_blank';link.rel='noopener';link.textContent='إدارة القائمة';select.after(link);}
+    }
   }catch(error){console.error('load BSGT relations detail',error);const host=document.getElementById('bsgtRelationsDetail');if(host)host.innerHTML=`<div class="bsgt-relations-error">تعذر تحميل الملف: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;}
 }
 

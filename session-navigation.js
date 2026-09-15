@@ -46,7 +46,7 @@
       if (target.origin !== baseOrigin || target.protocol !== new URL(baseOrigin).protocol) return '';
       if (target.searchParams.get('login') === '1') return '';
       const rootRoute = target.pathname === '/' || /\/index\.html$/i.test(target.pathname);
-      const standalonePortal = target.pathname.startsWith('/experiments/bs-collection/');
+      const standalonePortal = target.pathname.startsWith('/experiments/bs-collection/') || target.pathname === '/sending-data.html';
       if (!rootRoute && !standalonePortal) return '';
       if (rootRoute && (!target.hash || !new URLSearchParams(target.hash.slice(1)).get('v'))) return '';
       return target.pathname + target.search + target.hash;

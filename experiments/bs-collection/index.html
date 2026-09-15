@@ -78,9 +78,9 @@
         <label>الشخص المفوض<select name="authorizedPerson"></select></label>
         <label>المنصب<select name="title"></select></label>
         <label>عنوان المستورد<select name="draweeAddress"></select></label>
-        <section class="collection-lists span-all" aria-labelledby="collectionListsTitle">
+        <section class="collection-lists span-all admin-document-settings" aria-labelledby="collectionListsTitle">
           <div><strong id="collectionListsTitle">قوائم بيانات الإرسال</strong><small>أضف بيانات الجهات مرة واحدة ثم اخترها من القوائم أعلاه.</small></div>
-          <div class="collection-list-controls"><select id="collectionListField"></select><input id="collectionListValue" type="text" placeholder="اكتب القيمة الجديدة"><input id="collectionListAddress" type="text" placeholder="عنوان البنك" hidden><button id="addCollectionListValue" type="button" class="mini-btn">إضافة للقائمة</button></div>
+          <div class="collection-list-controls"><select id="collectionListField" aria-label="نوع القائمة"></select><a id="manageCollectionList" href="/sending-data.html" target="_blank" rel="noopener">إدارة قوائم بيانات الإرسال</a></div>
           <div id="collectionListValues" class="collection-list-values"></div>
         </section>
       </form>
@@ -181,14 +181,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../../permissions.js?v=20260912-1"></script>
   <script src="../../portal-access.js?v=20260912-2"></script>
-  <script src="../../session-navigation.js?v=20260912-1"></script>
+  <script src="../../session-navigation.js?v=20260915-sending-master-1"></script>
   <script src="../../shipment-workflow.js?v=20260911-workflow-4"></script>
   <script src="exchange-word-template.js?v=20260914-1"></script>
   <script src="undertaking-word-template.js?v=20260914-1"></script>
   <script src="letter-word-template.js?v=20260914-1"></script>
   <script src="document-templates.js?v=20260914-finance-original-export-1"></script>
   <script src="../../collection-bank-profiles.js?v=20260914-1"></script>
+  <script src="../../sending-data.js?v=20260915-1"></script>
   <script src="collection-revision-context.js?v=20260914-1"></script>
-  <script src="collection-lab.js?v=20260914-operations-revisions"></script>
+  <script src="collection-lab.js?v=20260915-sending-master-1"></script>
 </body>
 </html>

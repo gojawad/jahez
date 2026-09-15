@@ -6,6 +6,7 @@
   "main": "server.js",
   "engines": { "node": ">=22" },
   "scripts": {
+    "test:sending-data": "node test/sending-data-browser.test.js && node test/bsgt-relations-browser.test.js",
     "start": "node server.js",
     "test:trade-files": "node --test test/bsgt-trade-file-preview.test.js && node test/bsgt-workspace.test.js && node test/bsgt-workspace-browser.test.js",
     "test:revisions": "node --test test/bsgt-operations-revisions.test.js test/bsgt-internal-documents.test.js test/bsgt-finance-context.test.js",

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>إدارة قوائم بيانات الإرسال</title>
+<link rel="stylesheet" href="brand-theme.css"><link rel="stylesheet" href="sending-data.css?v=20260915-1"></head>
+<body><main><header><h1>إدارة قوائم بيانات الإرسال</h1><a href="/#v=admin">الرئيسية</a></header>
+<p id="sendingStatus" role="status">جاري تحميل القوائم…</p>
+<section id="sendingManager" hidden><label>نوع القائمة<select id="sendingType"></select></label><button id="sendingReload" type="button">تحديث القيم</button>
+<h2>القيم المحفوظة</h2><div id="sendingItems"></div>
+<form id="sendingForm"><h2 id="sendingFormTitle">إضافة قيمة جديدة</h2><label>القيمة<input id="sendingValue" required></label><label id="sendingLongLabel" hidden>القيمة<textarea id="sendingLong" rows="4"></textarea></label>
+<label id="sendingAddressLabel" hidden>عنوان البنك<textarea id="sendingAddress" rows="3"></textarea></label><div class="actions"><button id="sendingSave" type="submit">حفظ</button><button id="sendingCancel" type="button" hidden>إلغاء التعديل</button></div></form></section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="session-navigation.js?v=20260915-sending-master-1"></script><script src="sending-data.js?v=20260915-1"></script><script src="sending-data-manager.js?v=20260915-1"></script></body></html>
