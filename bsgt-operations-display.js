@@ -14,11 +14,16 @@
   Object.entries(aliases).forEach(([code,values])=>values.forEach(value=>names.set(normalize(value),code)));
   function countryCode(value){return names.get(normalize(value))||'';}
   function originCode(record){return countryCode(record.countryOriginCode)||countryCode(record.originCountryCode)||countryCode(record.countryOfOriginCode)||countryCode(record.countryOrigin||record.countryOfOrigin);}
+  // Legacy Sudan customs destinations: https://web.customs.gov.sd/news/news/page/52/
+  const sudanPorts=new Set(['port sudan','port sudan, sudan','بورتسودان','بورت سودان','ميناء بورتسودان','ميناء بورت سودان',
+    'gadarif dry port','gedaref dry port','gedarif dry port','القضارف','ميناء القضارف الجاف',
+    'kassala dry port','كسلا','ميناء كسلا الجاف','atbara dry port','عطبرة','ميناء عطبرة الجاف',
+    'madani dry port','wad madani dry port','ود مدني','ميناء ود مدني الجاف']);
   function destinationCode(record){
     const explicit=record.destinationCountryCode||record.countryDestinationCode||record.portDischargeCountryCode||record.destinationCountry||record.countryDestination||record.portDischargeCountry;
     if(String(explicit??'').trim())return countryCode(explicit);
     // Only unambiguous legacy port names are used when no destination country exists.
-    return ['port sudan','port sudan, sudan','بورتسودان','بورت سودان','ميناء بورتسودان','ميناء بورت سودان'].includes(normalize(record.portDischarge))?'SD':'';
+    return sudanPorts.has(normalize(record.portDischarge))?'SD':'';
   }
   return Object.freeze({countryCode,originCode,destinationCode});
 });

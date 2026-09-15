@@ -87,6 +87,7 @@ async function main(){
   assert.equal(display.countryCode('NOT A COUNTRY'),'');
   assert.equal(display.originCode({countryOrigin:'CHINA',countryOriginCode:'IN'}),'IN','existing ISO code takes priority');
   assert.equal(display.destinationCode({portDischarge:'PORT SUDAN'}),'SD');
+  for(const port of ['GADARIF DRY PORT','KASSALA DRY PORT','ATBARA DRY PORT','MADANI DRY PORT'])assert.equal(display.destinationCode({portDischarge:port}),'SD',`${port} uses the legacy Sudan destination mapping`);
   assert.equal(display.destinationCode({portDischarge:'PORT SUDAN',countryDestination:'EGYPT'}),'EG','explicit destination takes priority over port fallback');
   assert.equal(display.destinationCode({portDischarge:'UNKNOWN PORT'}),'','unknown ports must not receive an invented flag');
   assert.match(fs.readFileSync(path.join(__dirname,'../Dockerfile'),'utf8'),/^COPY country-flags \.\/country-flags$/m,'flag assets are included in deployment');
