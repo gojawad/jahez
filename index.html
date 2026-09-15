@@ -9575,7 +9575,10 @@ function renderBsgtOperationsQuickDocuments(record){
   return `<div class="bsgt-operations-quick-documents">
     <div class="bsgt-operations-quick-documents-head"><div><h4>ملخص المستندات</h4><span>المعاينة والتنفيذ الكامل متاحان من شاشة الشحنة.</span></div><b>${evaluation.completedCount} / ${evaluation.requiredCount}</b></div>
     <div class="bsgt-operations-quick-document-list">${items.map(([label,ready])=>`<div class="${ready?'is-ready':''}"><span>${icon(ready?'check':'warning',13)} ${label}</span><small>${ready?'مكتمل':'ناقص'}</small></div>`).join('')}</div>
-    <button type="button" class="btn btn-primary bsgt-operations-quick-open" data-bsgt-open-full="${escapeHtml(record.id)}">${icon('eye',14)} فتح الشحنة بالكامل</button>
+    <div class="bsgt-operations-detail-actions">
+      <button type="button" class="btn btn-primary bsgt-operations-quick-open" data-bsgt-open-full="${escapeHtml(record.id)}">${icon('eye',14)} فتح الشحنة بالكامل</button>
+      ${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-primary" id="bsgtOperationsDocumentsSend" hidden style="display:none" disabled>${icon('plane',14)} إرسال للمالية</button>`:''}
+    </div>
   </div>`;
 }
 
@@ -9629,6 +9632,8 @@ function wireBsgtOperationsDetail(record){
   document.querySelector('[data-bsgt-open-full]')?.addEventListener('click',()=>openBsgtFullShipment(record.id,'operations'));
   const send=document.getElementById('bsgtOperationsQuickSend');
   if(send) send.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,send,true));
+  const documentsSend=document.getElementById('bsgtOperationsDocumentsSend');
+  if(documentsSend) documentsSend.addEventListener('click',()=>submitBsgtOperationsToFinance(record.id,documentsSend,true));
   document.getElementById('bsgtOperationsMobileBack')?.addEventListener('click',()=>{
     bsgtOperationsListState.mobileDetail=false;
     document.getElementById('bsgtOperationsWorkspace')?.classList.remove('show-detail');
@@ -21944,6 +21949,6 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260915-qr-ready-send-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260915-finance-send-icon-1"></script>
 </body>
 </html>

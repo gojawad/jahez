@@ -558,10 +558,19 @@ async function main(){
       assert.deepStrictEqual((await page.evaluate(()=>renderedPackageLanguages)).slice(-4),Array(4).fill(language));
       await page.locator('#pdfPreviewCloseX').click();
       assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn').isVisible(),true,'send appears after successful package publication');
+      assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn .bx-paper-plane').count(),1,'finance send keeps its send icon after merge');
       assert.match(await page.locator('[data-bsgt-qr-package-status]').innerText(),/حزمة QR جاهزة/);
       assert.doesNotMatch(await page.locator('[data-bsgt-qr-package-status]').innerText(),/المرحلة المبدئية/);
       assert.strictEqual(await page.locator('#shipmentWorkflowDialog').count(),0,'no legacy bank-send gate');
     }
+    await page.locator('#closeDetail').click();
+    await page.locator('[data-bsgt-ops-tab="documents"]').click();
+    const documentsSend=page.locator('#bsgtOperationsDocumentsSend');
+    await documentsSend.waitFor({state:'visible'});
+    assert.strictEqual(await documentsSend.isEnabled(),true,'merged shipment can be sent beside its preview button');
+    assert.strictEqual(await documentsSend.locator('.bx-paper-plane').count(),1);
+    assert.strictEqual(await documentsSend.evaluate(button=>Boolean(button.parentElement.querySelector('[data-bsgt-open-full]'))),true,'send and shipment preview share the action row');
+    await page.locator('[data-bsgt-open-full]').click();
     await page.waitForFunction(()=>document.querySelector('#bsgtSendToFinanceBtn:not([disabled])'));
     assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn:not([disabled])').count(), 1);
     await page.locator('#bsgtSendToFinanceBtn').click();

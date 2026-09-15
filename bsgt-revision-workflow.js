@@ -49,11 +49,11 @@
     const qrReady=hasOperationsQrPackage(record);
     const qrStatus=document.querySelector('#detailCard [data-bsgt-qr-package-status]');
     if(qrStatus&&(qrReady||record.qrPackagePath)) qrStatus.innerHTML='<b>حزمة QR جاهزة.</b> تم حفظ الحزمة؛ المسح يفتح ملف PDF المدموج مباشرة.';
-    for(const id of ['bsgtOperationsQuickSend','bsgtSendToFinanceBtn']){
+    for(const id of ['bsgtOperationsQuickSend','bsgtOperationsDocumentsSend','bsgtSendToFinanceBtn']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
       button.hidden=!qrReady;button.style.display=qrReady?'':'none';
       const canSend=allowed&&qrReady;
-      button.disabled=!canSend;button.textContent=record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم الإرسال للمالية';
+      button.disabled=!canSend;button.innerHTML=`${icon('plane',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم الإرسال للمالية'}`;
       button.title=canSend?'إرسال الحزمة المدموجة للمالية':record.bsgtStage==='operations_draft'?'ادمج الحزمة أولاً من تفاصيل الشحنة.':'';
       button.onclick=null;
     }
