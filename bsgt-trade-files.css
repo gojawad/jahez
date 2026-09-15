@@ -23,7 +23,10 @@
 .bsgt-trade-preview{width:min(950px,95vw);height:90dvh;max-height:90dvh;border:1px solid #e5e7eb;border-radius:16px;padding:16px;background:#fff;color:#1f2937}
 .bsgt-trade-preview[open]{display:flex;flex-direction:column;gap:12px}
 .bsgt-trade-preview::backdrop{background:#18212b88}
-.bsgt-trade-preview header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bsgt-trade-preview header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bsgt-trade-preview .tf-preview-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bsgt-trade-preview [data-print-status]:empty{display:none}
+.bsgt-trade-preview .tf-print-frame{position:fixed;left:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none}
 .bsgt-trade-preview h3{margin:0}
 .bsgt-trade-preview [data-pages]{overflow:auto;flex:1;min-height:0;background:#f8f9fa;padding:10px}
 .bsgt-trade-preview canvas,.bsgt-trade-preview img{display:block;width:100%;height:auto;margin:0 auto 12px;background:white}

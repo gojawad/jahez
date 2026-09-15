@@ -101,10 +101,37 @@
   async function preview(fileId,source){
     if(!allowed())return;
     const dialog=document.createElement('dialog');dialog.className='bsgt-trade-preview';
-    dialog.innerHTML=`<header><h3>${esc(source.title)}</h3><button class="btn btn-ghost" data-close>إغلاق</button></header><div data-pages aria-live="polite">جاري تحميل المعاينة…</div>`;
-    let task=null,closed=false;
+    dialog.innerHTML=`<header><h3>${esc(source.title)}</h3><div class="tf-preview-actions"><button type="button" class="btn btn-ghost" data-print disabled>${icon('printer',16)} طباعة</button><button type="button" class="btn btn-ghost" data-download disabled>${icon('download',16)} تنزيل</button><button type="button" class="btn btn-ghost" data-close>إغلاق</button></div></header><div data-print-status role="status"></div><div data-pages aria-live="polite">جاري تحميل المعاينة…</div>`;
+    let task=null,closed=false,fileUrl=null,mimeType=null,printFrame=null,printTimer=null;
+    const printButton=dialog.querySelector('[data-print]'),downloadButton=dialog.querySelector('[data-download]'),printStatus=dialog.querySelector('[data-print-status]');
+    downloadButton.onclick=()=>{
+      if(!fileUrl||closed)return;
+      const extension=mimeType==='application/pdf'?'pdf':mimeType==='image/png'?'png':'jpg';
+      const link=document.createElement('a');link.href=fileUrl;link.download=`${String(source.title||'document').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,120)}.${extension}`;
+      dialog.append(link);link.click();link.remove();
+    };
+    printButton.onclick=()=>{
+      if(!fileUrl||closed)return;
+      if(printFrame)printFrame.remove();clearTimeout(printTimer);printButton.disabled=true;printStatus.textContent='جاري تجهيز الطباعة…';
+      const frame=document.createElement('iframe');printFrame=frame;frame.className='tf-print-frame';frame.dataset.printFrame='true';frame.title='طباعة المستند';frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
+      const failed=()=>{if(closed||printFrame!==frame)return;clearTimeout(printTimer);printButton.disabled=false;printStatus.textContent='تعذر فتح الطباعة. يمكنك تنزيل الملف وطباعته من قارئ المستندات.';};
+      frame.onerror=failed;
+      frame.onload=async()=>{
+        if(closed||printFrame!==frame)return;
+        try{
+          if(mimeType!=='application/pdf')await frame.contentDocument.querySelector('img').decode();
+          if(closed||printFrame!==frame)return;
+          clearTimeout(printTimer);frame.contentWindow.focus();frame.contentWindow.print();
+          printButton.disabled=false;printStatus.textContent='';
+        }catch{failed();}
+      };
+      // Print the original PDF in isolation, not the portal or its canvas preview.
+      if(mimeType==='application/pdf')frame.src=fileUrl;
+      else frame.srcdoc=`<!doctype html><html><head><title>${esc(source.title)}</title><style>@page{margin:10mm}body{margin:0}img{display:block;max-width:100%;max-height:270mm;object-fit:contain;margin:auto}</style></head><body><img src="${esc(fileUrl)}" alt=""></body></html>`;
+      printTimer=setTimeout(failed,30000);dialog.append(frame);
+    };
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-    dialog.addEventListener('close',()=>{closed=true;if(task)task.destroy().catch(()=>{});dialog.remove();},{once:true});
+    dialog.addEventListener('close',()=>{closed=true;clearTimeout(printTimer);if(task)task.destroy().catch(()=>{});if(fileUrl){const url=fileUrl;setTimeout(()=>URL.revokeObjectURL(url),60000);}dialog.remove();},{once:true});
     document.body.append(dialog);dialog.showModal();
     const host=dialog.querySelector('[data-pages]');
     try{
@@ -112,6 +139,8 @@
       const response=await fetch('/api/bsgt-trade-file-preview',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({fileId,source:source.source,documentId:source.documentId,kind:source.kind})});
       const result=await response.json();if(!response.ok)throw new Error(result.error);if(closed)return;
       const bytes=Uint8Array.from(atob(result.base64),char=>char.charCodeAt(0));
+      if(!['application/pdf','image/png','image/jpeg'].includes(result.mimeType))throw new Error('نوع الملف غير مدعوم للمعاينة.');
+      mimeType=result.mimeType;fileUrl=URL.createObjectURL(new Blob([bytes],{type:mimeType}));
       host.textContent='';
       if(result.mimeType==='application/pdf'){
         task=pdfjsLib.getDocument({data:bytes});const pdf=await task.promise;
@@ -121,8 +150,9 @@
           await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;canvas.dataset.rendered='true';
         }
       }else if(['image/png','image/jpeg'].includes(result.mimeType)){
-        const image=document.createElement('img');image.alt=source.title;image.src=`data:${result.mimeType};base64,${result.base64}`;host.append(image);
+        const image=document.createElement('img');image.alt=source.title;image.src=fileUrl;host.append(image);await image.decode();
       }else throw new Error('نوع الملف غير مدعوم للمعاينة.');
+      if(!closed){printButton.disabled=false;downloadButton.disabled=false;}
     }catch(error){if(!closed)host.textContent=error.message||'تعذرت المعاينة.';}
   }
   window.JahezBsgtTradeFiles={mount};

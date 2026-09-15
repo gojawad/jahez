@@ -86,6 +86,30 @@ async function main(){
       {id:'55555555-5555-4555-8555-555555555555',document_type:'letter',document_variant:'administration_signed',is_active:false,revision_no:1,file_name:'signed-history.pdf'}];
     const files=Array.from({length:25},(_,i)=>({id:i===0?fileId:`file-${i}`,company_id:'bsgt-company',operation_no:`TC-2026-${String(i+1).padStart(6,'0')}`,status:i===0?'sent_to_collecting':'draft',revision_no:2,created_at:'2026-09-15T00:00:00Z',remitting_bank:'TEST BANK'}));
     const previewRequests=[],tableReads=[];
+    await adminPage.evaluate(()=>{
+      window.__tradePrintCalls=[];
+      document.addEventListener('load',event=>{
+        const frame=event.target;if(!frame.matches?.('iframe[data-print-frame]'))return;
+        frame.contentWindow.print=()=>window.__tradePrintCalls.push({src:frame.src,srcdoc:frame.srcdoc});
+      },true);
+    });
+    async function verifyPreviewActions(expectedBytes,extension='pdf'){
+      await adminPage.locator('.bsgt-trade-preview [data-download]:not([disabled])').waitFor();
+      const pending=adminPage.waitForEvent('download');
+      await adminPage.locator('.bsgt-trade-preview [data-download]').click();
+      const download=await pending,chunks=[];
+      for await(const chunk of await download.createReadStream())chunks.push(chunk);
+      assert.deepStrictEqual(Buffer.concat(chunks),expectedBytes,'download preserves exact preview bytes');
+      assert.ok(download.suggestedFilename().endsWith(`.${extension}`));
+      const before=await adminPage.evaluate(()=>window.__tradePrintCalls.length);
+      await adminPage.locator('.bsgt-trade-preview [data-print]').click();
+      await adminPage.waitForFunction(count=>window.__tradePrintCalls.length===count+1,before);
+      const print=await adminPage.evaluate(()=>window.__tradePrintCalls.at(-1));
+      assert.ok(extension==='pdf'?print.src.startsWith('blob:'):print.srcdoc.includes('<img'),'print only the document in an isolated frame');
+      await adminPage.setViewportSize({width:390,height:844});
+      assert.strictEqual(await adminPage.locator('.bsgt-trade-preview').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'print/download toolbar fits mobile');
+      await adminPage.setViewportSize({width:1440,height:900});
+    }
     await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/trade_collection*`,async route=>{
       const request=route.request(),url=new URL(request.url()),table=url.pathname.split('/').pop();
       assert.strictEqual(request.method(),'GET','trade file portal is read-only');tableReads.push(table);
@@ -127,7 +151,9 @@ async function main(){
     for(const id of [shipmentId,'77777777-7777-4777-8777-777777777777']){
       await adminPage.locator(`#bsgtTradeFiles [data-shipment-preview="${id}"]`).click();
       await adminPage.locator('.bsgt-trade-preview canvas[data-rendered=true]').waitFor();
+      await verifyPreviewActions(Buffer.from(encoded,'base64'));
       await adminPage.locator('.bsgt-trade-preview [data-close]').click();
+      assert.strictEqual(await adminPage.locator('iframe[data-print-frame]').count(),0,'closing preview removes print frame');
       assert.strictEqual(previewRequests.at(-1).documentId,id);
     }
     await adminPage.locator('#bsgtTradeFiles details summary').click();
@@ -141,6 +167,17 @@ async function main(){
     }
     assert.deepStrictEqual(previewRequests.map(r=>r.source),['shipment','shipment','collection','relations','operations']);
     assert.ok(previewRequests.every(r=>r.fileId===fileId&&!r.path));
+    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5S0AAAAASUVORK5CYII=','base64');
+    await adminContext.route(`${APP_ORIGIN}/api/bsgt-trade-file-preview`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mimeType:'image/png',base64:png.toString('base64')})}));
+    await adminPage.locator('#bsgtTradeFiles [data-preview]').first().click();
+    await verifyPreviewActions(png,'png');
+    await adminPage.locator('.bsgt-trade-preview [data-close]').click();
+    await adminContext.route(`${APP_ORIGIN}/api/bsgt-trade-file-preview`,route=>route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({error:'Preview denied'})}));
+    await adminPage.locator('#bsgtTradeFiles [data-preview]').first().click();
+    await adminPage.getByText('Preview denied',{exact:true}).waitFor();
+    assert.ok(await adminPage.locator('.bsgt-trade-preview [data-print]').isDisabled());
+    assert.ok(await adminPage.locator('.bsgt-trade-preview [data-download]').isDisabled());
+    await adminPage.locator('.bsgt-trade-preview [data-close]').click();
     await adminPage.setViewportSize({width:390,height:844});
     assert.strictEqual(await adminPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'trade files fit mobile width');
     await adminPage.setViewportSize({width:1440,height:900});
