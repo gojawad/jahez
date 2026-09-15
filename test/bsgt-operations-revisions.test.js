@@ -93,6 +93,55 @@ test('finance/admin documents cannot be appended by manipulating generated or up
   },async()=>{},'r'), /scope/);
 });
 
+test('merged PDF restores legacy order and saved preferences without changing document contents or scope', async () => {
+  const defaults = ['contract','import_permit','proforma','invoice','certificate_of_origin','bill_of_lading','packing'];
+  const sources = new Map();
+  for (const [index,kind] of defaults.entries()) {
+    const pdf = await PDFDocument.create();
+    pdf.addPage([300 + index * 10, 700]);
+    pdf.addPage([301 + index * 10, 700]);
+    sources.set(kind, Buffer.from(await pdf.save()));
+  }
+  const cases = [
+    [undefined, defaults],
+    [null, defaults],
+    ['invalid', defaults],
+    [[], defaults],
+    [['packing','bol','invoice','cert','proforma','contract'],
+      ['contract','import_permit','packing','bill_of_lading','invoice','certificate_of_origin','proforma']],
+    [['invoice','invoice','letter','signed_document','optionalAttachment','__proto__',null,{},'importPermit','contract'],
+      ['contract','import_permit','invoice','proforma','certificate_of_origin','bill_of_lading','packing']]
+  ];
+  for (const [docOrder,expected] of cases) {
+    const f = await fixture(), writes = new Map();
+    f.input.shipment.data = {docOrder};
+    // SQL supplies uploads alphabetically, not in the bank's document order.
+    f.input.files.sort((a,b) => a.kind.localeCompare(b.kind));
+    for (const kind of Object.keys(f.generated)) f.generated[kind] = sources.get(kind).toString('base64');
+    const before = JSON.stringify(f.input);
+    const result = await buildPackage(f.input,f.generated,
+      async path => sources.get(path.split('/').pop()),
+      async (path,bytes) => writes.set(path,bytes),'ordered-revision');
+    assert.deepEqual(result.documents.map(doc => doc.kind),expected);
+    const merged = await PDFDocument.load(writes.get(result.packagePath));
+    assert.deepEqual(merged.getPages().map(page => page.getWidth()),expected.flatMap(kind => {
+      const index = defaults.indexOf(kind); return [300 + index * 10,301 + index * 10];
+    }));
+    for (const doc of result.documents) {
+      assert.deepEqual(writes.get(doc.path),sources.get(doc.kind),'individual PDFs remain unchanged');
+      assert.equal(doc.sourceId,f.input.files.find(file => file.kind === doc.kind)?.id || null);
+    }
+    assert.equal(JSON.stringify(f.input),before,'saved shipment and source order remain unchanged');
+  }
+});
+
+test('duplicate uploads are rejected before reading or storing package sources', async () => {
+  const f = await fixture();
+  f.input.files.push(f.input.files[0]);
+  await assert.rejects(buildPackage(f.input,f.generated,
+    async () => assert.fail('must not download'),async () => assert.fail('must not store'),'duplicate'),/scope/);
+});
+
 test('missing or invalid sources fail rather than publishing an incomplete PDF', async () => {
   const f = await fixture();
   await assert.rejects(buildPackage({...f.input,files:f.input.files.slice(1)},f.generated,async()=>f.bytes,async()=>{},'r'), /Missing/);

@@ -4,6 +4,8 @@ const { randomUUID } = require('node:crypto');
 const { PDFDocument } = require('../experiments/bs-collection/collection-pdf-lib.js');
 const BUCKET = 'bsgt-operations-packages';
 const GENERATED = Object.freeze(['contract', 'proforma', 'invoice', 'packing']);
+const LEGACY_ORDER = Object.freeze(['proforma', 'invoice', 'cert', 'bol', 'packing']);
+const UPLOAD_ALIASES = new Map([['cert', 'certificate_of_origin'], ['bol', 'bill_of_lading']]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BODY = 64 * 1024 * 1024;
 
@@ -65,19 +67,31 @@ async function buildPackage(input, generated, download, store, revisionId) {
     await store(path, pdf);
     documents.push({ kind, sourceId, path, name: `${kind}.pdf`, source: 'operations' });
   }
-  for (const kind of GENERATED) {
-    const encoded = generated[kind];
-    if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Invalid generated PDF');
-    const pdf = Buffer.from(encoded, 'base64');
-    if (pdf.subarray(0,5).toString() !== '%PDF-') throw new Error('Generated document must be PDF');
-    await append(kind, pdf);
-  }
   const allowedUploads = new Set(['import_permit', 'certificate_of_origin', 'bill_of_lading']);
+  const uploads = new Map();
   for (const file of input.files) {
     if (!allowedUploads.delete(file.kind)) throw new Error('Unexpected uploaded document scope');
-    await append(file.kind, await download(file.path), file.id);
+    uploads.set(file.kind, file);
   }
   if (allowedUploads.size) throw new Error('Missing required operations attachments');
+  // Match the legacy shipment order, with contract and import permit always first.
+  // Only the authorized snapshot supplies preferences; it cannot expand document scope.
+  const savedOrder = input.shipment.data?.docOrder;
+  const preferred = Array.isArray(savedOrder) ? savedOrder.filter(kind => LEGACY_ORDER.includes(kind)) : [];
+  const sequence = ['contract', 'import_permit', ...new Set([...preferred, ...LEGACY_ORDER])];
+  for (const key of sequence) {
+    const kind = UPLOAD_ALIASES.get(key) || key;
+    const file = uploads.get(kind);
+    if (file) {
+      await append(kind, await download(file.path), file.id);
+    } else {
+      const encoded = generated[kind];
+      if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Invalid generated PDF');
+      const pdf = Buffer.from(encoded, 'base64');
+      if (pdf.subarray(0,5).toString() !== '%PDF-') throw new Error('Generated document must be PDF');
+      await append(kind, pdf);
+    }
+  }
   const packagePath = `${folder}/package.pdf`;
   await store(packagePath, Buffer.from(await merged.save()));
   return { documents, packagePath };
