@@ -577,6 +577,7 @@ async function main(){
       },shipmentId);
       await page.waitForFunction(id=>document.getElementById(id)?.getAttribute('aria-disabled')==='false',buttonId);
       assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn').isVisible(),false,'QR token alone does not reveal send');
+      assert.strictEqual(await page.locator('.bsgt-operations-submit .is-ready').count(),0,'QR token alone does not mark a shipment ready');
       assert.match(await page.locator('#packageBtn').innerText(),/تجميع الحزمة الكاملة PDF/);
       assert.match(await page.locator('#mergeAllBtn').innerText(),/دمج الحزمة في ملف واحد/);
       assert.doesNotMatch(await page.locator(`#${buttonId}`).getAttribute('title')||'',/إرسال الشحنة للبنك/);
@@ -600,6 +601,7 @@ async function main(){
       assert.deepStrictEqual((await page.evaluate(()=>renderedPackageLanguages)).slice(-4),Array(4).fill(language));
       await page.locator('#pdfPreviewCloseX').click();
       assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn').isVisible(),true,'send appears after successful package publication');
+      assert.strictEqual(await page.locator('.bsgt-operations-submit .is-ready').innerText(),'جاهزة للمالية','merged package gets the green ready badge without submission');
       assert.strictEqual(await page.locator('#bsgtSendToFinanceBtn .bx-paper-plane').count(),1,'finance send keeps its send icon after merge');
       assert.match(await page.locator('[data-bsgt-qr-package-status]').innerText(),/حزمة QR جاهزة/);
       assert.doesNotMatch(await page.locator('[data-bsgt-qr-package-status]').innerText(),/المرحلة المبدئية/);
@@ -612,6 +614,13 @@ async function main(){
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('#bsgtOperationsQuickSend').waitFor({state:'visible'});
     assert.strictEqual(await page.locator('#bsgtOperationsQuickSend').isEnabled(),true,'send survives full page reload');
+    for(const selector of ['.bsgt-operations-row.is-selected .bsgt-stage-badge','.bsgt-operations-detail-identity .bsgt-stage-badge']){
+      assert.strictEqual(await page.locator(selector).innerText(),'جاهزة للمالية');
+      assert.match(await page.locator(selector).getAttribute('class'),/is-ready/);
+      assert.match(await page.locator(selector).getAttribute('title'),/لم تُرسل بعد/);
+      assert.strictEqual(await page.locator(selector).evaluate(el=>getComputedStyle(el).color),'rgb(20, 122, 71)');
+    }
+    assert.strictEqual(currentStage,'operations_draft','readiness badge does not advance the workflow');
     const reopened=await context.newPage();
     await reopened.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`);
     await reopened.locator('#bsgtOperationsQuickSend').waitFor({state:'visible'});
