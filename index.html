@@ -2497,7 +2497,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-overview-full-2">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
 </head>
 <body class="landing-active">
@@ -9545,6 +9545,41 @@ function bsgtOperationsFlag(code){
   return `<img class="bsgt-operations-flag" data-country-code="${code}" src="country-flags/${code.toLowerCase()}.png" width="28" height="20" alt="علم ${escapeHtml(countryName)}" onerror="this.hidden=true">`;
 }
 
+function renderBsgtOperationsRouteIllustration(record){
+  const origin=escapeHtml(record.countryOrigin||record.countryOfOrigin||'—');
+  const destination=escapeHtml(record.portDischarge||'—');
+  const originFlag=bsgtOperationsFlag(window.JahezBsgtOperationsDisplay.originCode(record));
+  const destinationFlag=bsgtOperationsFlag(window.JahezBsgtOperationsDisplay.destinationCode(record));
+  return `<figure class="bsgt-operations-route" aria-label="رسم توضيحي لمسار الشحنة">
+    <figcaption><h4>${icon('ship',18)} مسار الشحنة</h4><span>رسم توضيحي، وليس تتبعاً مباشراً</span></figcaption>
+    <div class="bsgt-operations-route-map">
+      <svg class="bsgt-operations-route-art" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <g fill="#dbe5ef" stroke="#f5f8fb" stroke-width="2" opacity=".75">
+          <path d="M20 44 52 30 81 37 104 24 143 33 156 48 180 45 200 62 227 65 216 88 187 93 174 112 150 119 135 143 114 139 101 119 81 112 66 86 43 78 24 62Z"/>
+          <path d="M148 147 178 141 207 152 221 177 207 201 195 235 173 260 161 239 168 214 155 194 151 175 136 162Z"/>
+          <path d="M235 19 282 9 306 21 292 51 263 65 244 44Z"/>
+          <path d="M426 59 446 44 447 25 460 20 468 48 482 54 494 48 516 63 530 57 546 76 531 93 506 94 492 106 471 96 447 103 436 88 419 86Z"/>
+          <path d="M445 110 476 101 510 111 530 130 545 140 535 160 518 172 508 197 486 225 470 216 462 188 446 169 428 153 428 129Z"/>
+          <path d="M519 56 545 43 578 49 608 33 638 39 664 26 694 31 720 20 749 29 787 22 820 41 851 40 875 58 908 56 928 77 906 94 883 100 865 124 835 127 819 149 792 145 779 126 753 141 739 169 723 153 715 134 688 133 675 115 647 125 631 107 604 111 583 92 554 98 532 91Z"/>
+          <path d="M557 123 583 118 600 137 584 157 562 149Z M782 160 796 162 806 187 823 195 829 206 810 204 793 188Z M839 181 848 172 855 196 848 206Z M881 91 887 104 881 123 874 116Z"/>
+          <path d="M823 223 850 204 875 209 895 200 924 220 929 245 908 259 882 249 858 254 835 242Z M949 242 956 249 948 265 939 269Z"/>
+        </g>
+        <path d="M145 207 C310 189 365 143 500 133 S755 104 850 67" fill="none" stroke="#ea1b23" stroke-width="2.5" stroke-dasharray="9 7" stroke-linecap="round"/>
+        <g fill="#ea1b23"><circle cx="145" cy="207" r="5"/><circle cx="850" cy="67" r="5"/></g>
+        <g transform="translate(472 107)">
+          <path d="M-5 21 52 18 42 31 7 33Z" fill="#253858"/>
+          <path d="M4 11H44V20H4Z" fill="#ea1b23"/><path d="M10 3H35V10H10Z" fill="#d01119"/>
+          <path d="M7 4H3V20H8 M10 11V20 M20 11V20 M30 11V20 M40 11V20 M18 3V10 M27 3V10" fill="none" stroke="#fff" stroke-width="1.3"/>
+          <path d="M-4 37Q4 34 12 37T28 37T44 37" fill="none" stroke="#9aafc3" stroke-width="2"/>
+        </g>
+      </svg>
+      <div class="bsgt-operations-route-point is-origin">${originFlag}<div><b dir="auto">${origin}</b><small>بلد المنشأ</small></div></div>
+      <div class="bsgt-operations-route-point is-destination">${destinationFlag}<div><b dir="auto">${destination}</b><small>ميناء الوصول</small></div></div>
+    </div>
+    <div class="bsgt-operations-route-labels"><div>${icon('globe',20)}<span><b dir="auto">${origin}</b><small>بلد المنشأ</small></span></div><div>${icon('anchor',20)}<span><b dir="auto">${destination}</b><small>ميناء الوصول</small></span></div></div>
+  </figure>`;
+}
+
 function renderBsgtOperationsStageTrack(record, returnContext){
   const api = window.JahezBsgtOperations;
   const presentation = api.workflowPresentation(record.bsgtStage);
@@ -9626,6 +9661,7 @@ function renderBsgtOperationsDetail(record){
       <div class="bsgt-operations-overview-grid">
         <section class="bsgt-operations-information"><h4>${icon('doc',18)} معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b dir="auto">${label==='بلد المنشأ'?originFlag:label==='ميناء الوصول'?destinationFlag:''}${escapeHtml(String(value))}</b></p>`).join('')}</div></section>
       </div>
+      ${renderBsgtOperationsRouteIllustration(record)}
     </section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsQuickDocumentsPanel">${renderBsgtOperationsQuickDocuments(record)}</div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='attachments'?'active':''}" data-bsgt-ops-panel="attachments" id="bsgtOperationsAttachments">${renderBsgtOperationsAttachments(record)}</section>

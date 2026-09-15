@@ -430,6 +430,30 @@
 }
 
 /* Read-only Operations overview; other workspace sections keep their layout. */
+#viewBsgtWorkspace .bsgt-operations-route{margin:16px 0 0;padding:18px;border:1px solid #e5eaf0;border-radius:16px;background:linear-gradient(145deg,#fff 0%,#f3f7fb 70%,#fafcfe 100%);overflow:hidden}
+#viewBsgtWorkspace .bsgt-operations-route figcaption{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+#viewBsgtWorkspace .bsgt-operations-route h4{display:flex;align-items:center;gap:8px;margin:0;color:#253858;font-size:14px}
+#viewBsgtWorkspace .bsgt-operations-route figcaption>span{font-size:10px;color:#7b8798}
+#viewBsgtWorkspace .bsgt-operations-route-map{position:relative;height:clamp(240px,21vw,360px);border-radius:12px;background:radial-gradient(ellipse at 50% 70%,#eaf0f7 0%,#f6f9fc 70%,#fff 100%);overflow:hidden;direction:ltr}
+#viewBsgtWorkspace .bsgt-operations-route-art{position:absolute;inset:0;width:100%;height:100%}
+#viewBsgtWorkspace .bsgt-operations-route-point{position:absolute;display:flex;align-items:center;gap:10px;max-width:36%;padding:12px 15px;border:1px solid #edf0f4;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 8px 22px rgba(37,56,88,.06);direction:ltr}
+#viewBsgtWorkspace .bsgt-operations-route-point.is-origin{right:3%;top:10%}
+#viewBsgtWorkspace .bsgt-operations-route-point.is-destination{left:3%;bottom:10%}
+#viewBsgtWorkspace .bsgt-operations-route-point>div{min-width:0}
+#viewBsgtWorkspace .bsgt-operations-route b{display:block;color:#253858;font-size:13px;overflow-wrap:anywhere}
+#viewBsgtWorkspace .bsgt-operations-route small{display:block;margin-top:3px;color:#7b8798;font-size:10px;text-align:start}
+#viewBsgtWorkspace .bsgt-operations-route-labels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+#viewBsgtWorkspace .bsgt-operations-route-labels>div{display:flex;align-items:center;gap:12px;min-width:0;padding:14px;border:1px solid #edf0f4;border-radius:12px;background:rgba(255,255,255,.8)}
+#viewBsgtWorkspace .bsgt-operations-route-labels .ic{flex-shrink:0;color:#d01119}
+#viewBsgtWorkspace .bsgt-operations-route-labels span{min-width:0}
+@media(max-width:520px){
+  #viewBsgtWorkspace .bsgt-operations-route{padding:12px}
+  #viewBsgtWorkspace .bsgt-operations-route figcaption{align-items:start;flex-direction:column;gap:4px}
+  #viewBsgtWorkspace .bsgt-operations-route-point{max-width:64%;gap:7px;padding:9px}
+  #viewBsgtWorkspace .bsgt-operations-route b{font-size:11px}
+  #viewBsgtWorkspace .bsgt-operations-route-labels{gap:8px}
+  #viewBsgtWorkspace .bsgt-operations-route-labels>div{padding:10px;gap:7px}
+}
 #viewBsgtWorkspace .bsgt-operations{background:var(--background-soft,#f8f9fa)}
 #viewBsgtWorkspace .bsgt-operations-list-heading{display:flex;align-items:center;justify-content:center;gap:9px;margin:12px 12px 0;padding:15px 12px;border-radius:12px;background:var(--brand-gradient,linear-gradient(135deg,#ea1b23,#d01119));color:#fff;font-size:17px}
 #viewBsgtWorkspace .bsgt-operations-workspace{gap:16px;border:0;background:transparent;box-shadow:none;overflow:visible}

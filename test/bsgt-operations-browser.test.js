@@ -225,7 +225,7 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-overview-full-2')), 'operations CSS invalidates the prior overview layout');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-route-art-1')), 'operations CSS invalidates the prior overview layout');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260914-operations-revisions-1')), 'operations JS invalidates the pre-revision cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260914-internal-revisions-1')), 'management JS invalidates the mandatory-signature cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260915-merge-routing-1')), 'company wizard invalidates the legacy merge click interceptor');
@@ -242,6 +242,12 @@ async function main(){
     assert.match(overviewText, /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
     assert.match(overviewText, /الكمية\s*10 PACKAGES/, 'shipment overview shows the quantity and unit');
     assert.equal(await page.locator('.bsgt-operations-data-card, .bsgt-operations-shipment-data').count(),0,'duplicate shipment cards are not rendered');
+    assert.equal(await page.locator('[data-bsgt-ops-panel="overview"] .bsgt-operations-route').count(),1,'the route illustration appears only below overview information');
+    assert.match(await page.locator('.bsgt-operations-route').textContent(),/CHINA/);
+    assert.match(await page.locator('.bsgt-operations-route').textContent(),/PORT SUDAN/);
+    assert.equal(await page.locator('.bsgt-operations-route button, .bsgt-operations-route a, .bsgt-operations-route input').count(),0,'the illustration adds no actions');
+    const routePosition=await page.locator('.bsgt-operations-route').evaluate(el=>({top:el.getBoundingClientRect().top,informationBottom:el.previousElementSibling.getBoundingClientRect().bottom}));
+    assert.ok(routePosition.top>=routePosition.informationBottom,'illustration does not displace or overlap shipment information');
     assert.equal(await page.locator('.bsgt-operations-information button, .bsgt-operations-information input, .bsgt-operations-information select, .bsgt-operations-information textarea, .bsgt-operations-information a').count(),0,'shipment information remains read only');
     assert.equal(await page.locator('[data-bsgt-ops-panel="overview"] .bsgt-operations-notes').count(),0,'notes are not part of overview');
     assert.equal(await page.getByRole('button',{name:'متابعة الشحنة',exact:true}).count(),0,'no tracking action is added');
