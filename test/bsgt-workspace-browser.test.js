@@ -77,10 +77,68 @@ async function main(){
     const adminPage = await adminContext.newPage();
     await adminPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await adminPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
-    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 5);
-    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المالية','الإدارة','العلاقات التجارية','مركز العمليات']);
+    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 6);
+    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المالية','الإدارة','العلاقات التجارية','ملفات العمليات التجارية','مركز العمليات']);
     assert.strictEqual((await adminPage.locator('#navBsgt').textContent()).trim(), 'مساحة BSGT');
     assert.ok(adminPage.url().includes('section=operations'));
+    const fileId='11111111-1111-4111-8111-111111111111',shipmentId='22222222-2222-4222-8222-222222222222',revisionId='33333333-3333-4333-8333-333333333333';
+    const documents=[{id:'44444444-4444-4444-8444-444444444444',document_type:'letter',document_variant:'finance_original',is_active:true,revision_no:2,file_name:'original.pdf'},
+      {id:'55555555-5555-4555-8555-555555555555',document_type:'letter',document_variant:'administration_signed',is_active:false,revision_no:1,file_name:'signed-history.pdf'}];
+    const files=Array.from({length:25},(_,i)=>({id:i===0?fileId:`file-${i}`,company_id:'bsgt-company',operation_no:`TC-2026-${String(i+1).padStart(6,'0')}`,status:i===0?'sent_to_collecting':'draft',revision_no:2,created_at:'2026-09-15T00:00:00Z',remitting_bank:'TEST BANK'}));
+    const previewRequests=[],tableReads=[];
+    await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/trade_collection*`,async route=>{
+      const request=route.request(),url=new URL(request.url()),table=url.pathname.split('/').pop();
+      assert.strictEqual(request.method(),'GET','trade file portal is read-only');tableReads.push(table);
+      let data=[];const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':APP_ORIGIN,'Access-Control-Expose-Headers':'Content-Range'};
+      if(table==='trade_collection_files'){
+        if(url.searchParams.has('id'))data=files[0];
+        else{
+          assert.strictEqual(url.searchParams.get('company_id'),'eq.bsgt-company');
+          let matches=files;
+          if(url.searchParams.has('operation_no'))matches=matches.filter(f=>f.operation_no.includes('000025'));
+          if(url.searchParams.has('status'))matches=matches.filter(f=>f.status===url.searchParams.get('status').slice(3));
+          const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||24);
+          data=matches.slice(offset,offset+limit);headers['Content-Range']=`${offset}-${offset+data.length-1}/${matches.length}`;
+        }
+      }else if(table==='trade_collection_file_shipments')data=[{id:'link',shipment_id:shipmentId,operations_revision_id:revisionId},{id:'link-2',shipment_id:'77777777-7777-4777-8777-777777777777',operations_revision_id:'88888888-8888-4888-8888-888888888888'}];
+      else if(table==='trade_collection_file_documents')data=documents;
+      else if(table==='trade_collection_relations_attachments')data=[{id:'66666666-6666-4666-8666-666666666666',attachment_type:'company_letter',original_name:'company.pdf',revision_no:2,is_active:true}];
+      else if(table==='trade_collection_file_events')data=[{id:'event',event_type:'sent_to_collecting',revision_no:2,created_at:'2026-09-15',note:'Test event'}];
+      return route.fulfill({status:200,headers,body:JSON.stringify(data)});
+    });
+    await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/bsgt_operations_revisions*`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:revisionId,revision_no:3,shipment_snapshot:{id:shipmentId,data:{operationNo:'BSGTX-2026-0001'}},documents:[{kind:'invoice',path:'unused'}]},{id:'88888888-8888-4888-8888-888888888888',revision_no:2,shipment_snapshot:{id:'77777777-7777-4777-8777-777777777777',data:{operationNo:'BSGTX-2026-0002'}},documents:[{kind:'packing',path:'unused-2'}]}])}));
+    const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');const pdf=await PDFDocument.create();pdf.addPage();const encoded=Buffer.from(await pdf.save()).toString('base64');
+    await adminContext.route(`${APP_ORIGIN}/api/bsgt-trade-file-preview`,route=>{previewRequests.push(route.request().postDataJSON());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mimeType:'application/pdf',base64:encoded})});});
+    await adminPage.getByRole('button',{name:'ملفات العمليات التجارية',exact:true}).click();
+    await adminPage.locator('#bsgtTradeFiles [data-file]').first().waitFor();
+    assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-file]').count(),24);
+    await adminPage.locator('#bsgtTradeFiles [data-next]').click();
+    await adminPage.getByText('TC-2026-000025',{exact:true}).waitFor();
+    assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-file]').count(),1);
+    await adminPage.locator('#bsgtTradeFiles [data-search]').fill('000025');
+    await adminPage.waitForFunction(()=>document.querySelector('#bsgtTradeFiles [data-count]').textContent.startsWith('1 ملف'));
+    await adminPage.locator('#bsgtTradeFiles [data-search]').fill('');
+    await adminPage.locator('#bsgtTradeFiles [data-status]').selectOption('sent_to_collecting');
+    await adminPage.locator(`#bsgtTradeFiles [data-file="${fileId}"]`).waitFor();
+    await adminPage.locator(`#bsgtTradeFiles [data-file="${fileId}"]`).click();
+    await adminPage.locator('#bsgtTradeFiles [data-preview]').first().waitFor();
+    assert.match(await adminPage.locator('#bsgtTradeFiles [data-detail]').innerText(),/نسخة موقعة.*المراجعة 1/);
+    assert.strictEqual(await adminPage.locator('#bsgtTradeFiles [data-preview]').count(),7,'original, historical signed, relations attachment and saved sources for BOTH shipments');
+    assert.match(await adminPage.locator('#bsgtTradeFiles [data-detail]').innerText(),/BSGTX-2026-0002/);
+    for(const i of [0,2,3]){
+      await adminPage.locator('#bsgtTradeFiles [data-preview]').nth(i).click();
+      await adminPage.locator('.bsgt-trade-preview canvas[data-rendered=true]').waitFor();
+      await adminPage.locator('.bsgt-trade-preview [data-close]').click();
+    }
+    assert.deepStrictEqual(previewRequests.map(r=>r.source),['collection','relations','operations']);
+    assert.ok(previewRequests.every(r=>r.fileId===fileId&&!r.path));
+    await adminPage.setViewportSize({width:390,height:844});
+    assert.strictEqual(await adminPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'trade files fit mobile width');
+    await adminPage.setViewportSize({width:1440,height:900});
+    await adminPage.reload({waitUntil:'domcontentloaded'});
+    await adminPage.locator('#bsgtTradeFiles').waitFor({timeout:20000});
+    assert.ok(adminPage.url().includes('section=tradeFiles'),'refresh stays in the independent portal');
+    await adminContext.unroute(`${SUPABASE_ORIGIN}/rest/v1/trade_collection*`);
     const scopedRequest = adminPage.waitForRequest(request=>{
       const url = new URL(request.url());
       return url.pathname==='/rest/v1/shipments' && url.searchParams.get('company_id')===`eq.bsgt-company`;
@@ -103,9 +161,9 @@ async function main(){
     const financeContext = await createContext(browser, 'editor', [{section:'finance',can_view:true,can_edit:true}], ['bsgt.finance.view','bsgt.finance.edit']);
     const financePage = await financeContext.newPage();
     await financePage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
-    await financePage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').waitFor({timeout:20000});
-    assert.strictEqual(await financePage.locator('.bsgt-workspace-tab').count(), 1);
-    assert.strictEqual((await financePage.locator('.bsgt-workspace-tab').textContent()).trim(), 'المالية');
+    await financePage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
+    assert.strictEqual(await financePage.locator('.bsgt-workspace-tab').count(), 2);
+    assert.deepStrictEqual(await financePage.locator('.bsgt-workspace-tab').allTextContents(), ['المالية','ملفات العمليات التجارية']);
     assert.ok(financePage.url().includes('section=finance'));
     assert.strictEqual(await financePage.locator('.bsgt-workspace-readonly').count(), 0);
     await financeContext.close();
@@ -114,7 +172,7 @@ async function main(){
     const viewerPage = await viewerContext.newPage();
     await viewerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=finance`, {waitUntil:'domcontentloaded'});
     await viewerPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-readonly').waitFor({timeout:20000});
-    assert.strictEqual(await viewerPage.locator('.bsgt-workspace-tab').count(), 1);
+    assert.strictEqual(await viewerPage.locator('.bsgt-workspace-tab').count(), 2);
     assert.strictEqual(await viewerPage.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     await viewerContext.close();
 

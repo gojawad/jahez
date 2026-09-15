@@ -14,10 +14,15 @@ const editor = {id:'editor-1', role:'editor', active:true};
 const viewer = {id:'viewer-1', role:'viewer', active:true};
 const financeOnly = [{section:'finance', can_view:true, can_edit:true}];
 
-assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'finance', 'management', 'relations', 'operationCenter']);
+assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'finance', 'management', 'relations', 'tradeFiles', 'operationCenter']);
 assert.deepStrictEqual(workspace.LEGACY_SECTION_KEYS, ['operations', 'finance', 'management', 'relations']);
 assert.deepStrictEqual(workspace.allowedSections(admin, []).map(item=>item.key), workspace.SECTION_KEYS);
-assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['finance']);
+assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['finance', 'tradeFiles']);
+assert.strictEqual(workspace.permissionFor('tradeFiles',editor,financeOnly).canEdit,false);
+for(const section of ['finance','management','relations']){
+  assert.strictEqual(workspace.permissionFor('tradeFiles',editor,[],{featureKeys:[`bsgt.${section}.view`]}).canEdit,false);
+}
+assert.strictEqual(workspace.permissionFor('tradeFiles',editor,[],{featureKeys:['bsgt.operations.view']}),null);
 assert.strictEqual(workspace.permissionFor('finance', editor, financeOnly).canEdit, true);
 assert.strictEqual(workspace.permissionFor('finance', viewer, financeOnly).canEdit, false);
 assert.strictEqual(workspace.resolveSection('operations', editor, financeOnly), 'finance');

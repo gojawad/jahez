@@ -39,6 +39,13 @@
       message: 'سيتم هنا استكمال المرفقات والإرسال للبنك المحصل.'
     }),
     Object.freeze({
+      key: 'tradeFiles',
+      label: 'ملفات العمليات التجارية',
+      icon: 'briefcase',
+      permissionKeys: ['bsgt.finance.view', 'bsgt.management.view', 'bsgt.relations.view'],
+      message: 'سجل ملفات العمليات التجارية وتفاصيلها ومستنداتها للعرض فقط.'
+    }),
+    Object.freeze({
       key: 'operationCenter',
       label: 'مركز العمليات',
       icon: 'folder',
@@ -70,7 +77,7 @@
     }
     if (featurePermissions && Array.isArray(featurePermissions.featureKeys)) {
       return Object.freeze(SECTIONS.map(section => {
-        const canView = featurePermissions.featureKeys.includes(section.permissionKey);
+        const canView = (section.permissionKeys || [section.permissionKey]).some(key => featurePermissions.featureKeys.includes(key));
         if (!canView) return null;
         return Object.freeze({
           section:section.key,
@@ -89,6 +96,9 @@
         canEdit: canEditAssignedSection && permission.canEdit
       }));
     });
+    if (['finance','management','relations'].some(section => bySection.has(section))) {
+      bySection.set('tradeFiles', Object.freeze({section:'tradeFiles',canView:true,canEdit:false}));
+    }
     return Object.freeze(SECTION_KEYS.map(section => bySection.get(section)).filter(Boolean));
   }
 

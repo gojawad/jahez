@@ -2494,6 +2494,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-four-stage-workflow-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260912-1">
+  <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260913-mobile-scroll-1">
@@ -5854,7 +5855,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="permissions.js?v=20260912-authoritative-1"></script>
 <script src="portal-access.js?v=20260912-2"></script>
 <script src="session-navigation.js?v=20260912-1"></script>
-  <script src="bsgt-workspace.js?v=20260912-four-stage-workflow-1"></script>
+  <script src="bsgt-workspace.js?v=20260915-trade-files-1"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260912-1"></script>
@@ -10316,6 +10317,8 @@ function renderBsgtWorkspace(requestedSection){
       loadBsgtOperationsPage();
     });
     loadBsgtOperationsPage();
+  }else if(activeSection === 'tradeFiles'){
+    window.JahezBsgtTradeFiles.mount(content);
   }else if(activeSection === 'operationCenter'){
     content.innerHTML = '<div class="bsgt-operation-center-embed" aria-live="polite"><div class="operation-center-empty">جاري تحميل مركز عمليات BSGT…</div></div>';
     loadBsgtOperationCenter(content.querySelector('.bsgt-operation-center-embed'));
@@ -21951,5 +21954,6 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
 <script src="bsgt-revision-workflow.js?v=20260915-inline-package-preview-1"></script>
+<script src="bsgt-trade-files.js?v=20260915-1"></script>
 </body>
 </html>
