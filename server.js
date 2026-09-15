@@ -19,6 +19,7 @@ const API = {
   'render-bsgt-pdf': require('./api/render-bsgt-pdf'),
   'qr-package': require('./api/qr-package'),
   'bsgt-operations-package': require('./api/bsgt-operations-package'),
+  'bsgt-trade-file-preview': require('./api/bsgt-trade-file-preview'),
   'bsgt-internal-document': require('./api/bsgt-internal-document'),
   'import-permit-invoices': require('./api/import-permit-invoices'),
   'commodity-image': require('./api/commodity-image'),

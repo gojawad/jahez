@@ -683,6 +683,11 @@ async function main() {
       const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       assert.strictEqual(r.status, 400);
     });
+    await check('trade file preview route is registered and requires authentication', async () => {
+      assert.strictEqual((await fetch(`${BASE}/api/bsgt-trade-file-preview`)).status,405);
+      const r=await fetch(`${BASE}/api/bsgt-trade-file-preview`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      assert.strictEqual(r.status,401);
+    });
     await check('render-bsgt-pdf rejects unsupported response formats', async () => {
       const r = await fetch(`${BASE}/api/render-bsgt-pdf`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ html: '<p>Test</p>', responseFormat: 'invalid' }) });
       assert.strictEqual(r.status, 400);
