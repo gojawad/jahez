@@ -2497,7 +2497,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260913-mobile-scroll-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-overview-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
 </head>
 <body class="landing-active">
@@ -5863,6 +5863,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="bsgt-management.js?v=20260914-internal-revisions-1"></script>
 <script src="collection-bank-profiles.js?v=20260914-1"></script>
 <script src="sending-data.js?v=20260915-1"></script>
+<script src="bsgt-operations-display.js?v=20260915-1"></script>
 <script src="bsgt-relations.js?v=20260914-case"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
@@ -9447,6 +9448,7 @@ function renderBsgtOperationsShell(canEditOperations){
     <div class="bsgt-operations-kpis" id="bsgtOperationsKpis" aria-label="ملخص العمليات"></div>
     <div class="bsgt-operations-workspace" id="bsgtOperationsWorkspace">
       <aside class="bsgt-operations-navigator">
+        <h4 class="bsgt-operations-list-heading">${icon('list',18)} قائمة الشحنات</h4>
         <div class="bsgt-operations-tools">
           <label class="bsgt-operations-search">${icon('search',14)}<input id="bsgtOperationsSearch" type="search" placeholder="ابحث برقم العملية أو الصنف أو المرسل إليه..." value="${escapeHtml(bsgtOperationsListState.search)}"></label>
           <div class="bsgt-operations-tool-row">
@@ -9531,8 +9533,16 @@ function bsgtOperationsOverviewFields(record){
     ['رقم العملية',record.operationNo],['رقم الفاتورة',record.invoiceNo],['رقم البوليصة',record.billNo],['المرسل إليه',record.consignee],['الصنف',record.itemDesc],['الكمية',shownQuantity],
     ['بلد المنشأ',record.countryOrigin||record.countryOfOrigin],['ميناء الشحن',record.portLoading],['ميناء الوصول',record.portDischarge],
     ['تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate],['عدد الحاويات',record.containers||record.containerCount||record.containerNo],
-    ['الوزن',record.weight||record.totalWeight||record.grossWeight],['القيمة',money.amount],['العملة',money.currency]
+    ['الوزن',record.weight||record.totalWeight||record.grossWeight],['القيمة',money.amount],['العملة',money.currency],
+    ['الحالة',window.JahezBsgtOperations.stageLabel(record.bsgtStage)],
+    ['أنشئ بواسطة',record.ownerId?shipmentAuditUserName(record.ownerId):''],['تاريخ الإنشاء',record.createdAt?formatShipmentAuditDate(record.createdAt):'']
   ].filter(([,value])=>value!==undefined && value!==null && String(value).trim());
+}
+
+function bsgtOperationsFlag(code){
+  if(!/^[A-Z]{2}$/.test(code||''))return '';
+  const countryName=typeof Intl.DisplayNames==='function'?new Intl.DisplayNames(['ar'],{type:'region'}).of(code):code;
+  return `<img class="bsgt-operations-flag" data-country-code="${code}" src="country-flags/${code.toLowerCase()}.png" width="28" height="20" alt="علم ${escapeHtml(countryName)}" onerror="this.hidden=true">`;
 }
 
 function renderBsgtOperationsStageTrack(record, returnContext){
@@ -9590,27 +9600,35 @@ function renderBsgtOperationsDetail(record){
   if(!host || !record) return;
   const evaluation = window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, shipmentFilesCache[record.id] || []);
   const money = bsgtOperationsMoney(record);
+  const originFlag=bsgtOperationsFlag(window.JahezBsgtOperationsDisplay.originCode(record));
+  const destinationFlag=bsgtOperationsFlag(window.JahezBsgtOperationsDisplay.destinationCode(record));
   const summaries = [
-    ['calendar','تاريخ الإنشاء',formatShipmentAuditDate(record.createdAt)],
-    money.currency?['invoice','العملة',money.currency]:null,
-    money.amount?['bank','القيمة',window.JahezBsgtFinance?.formatMoney(money.currency,money.amount)||money.amount]:null,
-    (record.containers||record.containerCount||record.containerNo)?['box','الحاويات',record.containers||record.containerCount||record.containerNo]:null,
-    (record.weight||record.totalWeight||record.grossWeight)?['tag','الوزن',record.weight||record.totalWeight||record.grossWeight]:null
-  ].filter(Boolean);
+    ['user','العميل',record.consignee],
+    ['globe','بلد المنشأ',record.countryOrigin||record.countryOfOrigin,originFlag],
+    ['ship','ميناء الوصول',record.portDischarge,destinationFlag],
+    ['invoice','العملة',money.currency],
+    ['bank','القيمة',money.amount],
+    ['calendarIcon','تاريخ الشحن',record.departureDate||record.billDate||record.invoiceDate]
+  ];
   const fields = bsgtOperationsOverviewFields(record);
+  const values=new Map(fields);
+  const dataCards=[['invoice','رقم الفاتورة',record.invoiceNo],['box','نوع البضاعة',record.itemDesc],['tag','الكمية',values.get('الكمية')],['ship','رقم البوليصة',record.billNo]];
   const returnContext = bsgtOperationsListState.tradeContextByShipment[record.id];
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
       <div class="bsgt-operations-detail-identity"><div><span>${bsgtOperationsStageBadge(record.bsgtStage)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
       <div class="bsgt-operations-detail-actions"><button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
     </header>
-    ${summaries.length?`<div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value])=>`<div><span>${icon(ic,14)}</span><small>${label}</small><b>${escapeHtml(String(value))}</b></div>`).join('')}</div>`:''}
+    <div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value,flag])=>`<div><span>${flag||icon(ic,19)}</span><small>${label}</small><b dir="auto">${escapeHtml(String(value??'').trim()||'—')}</b></div>`).join('')}</div>
+    <div class="bsgt-operations-progress-card"><header><div><h4>متطلبات العمليات</h4><span>${evaluation.completedCount} من ${evaluation.requiredCount} متطلبات مكتملة</span></div><b>${evaluation.completedCount}/${evaluation.requiredCount}</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/evaluation.requiredCount*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
     <nav class="bsgt-operations-tabs" aria-label="أقسام الشحنة">
       ${[['overview','نظرة عامة'],['documents','المستندات'],['attachments','المرفقات'],['timeline','الجدول الزمني'],['notes','الملاحظات']].map(([key,label])=>`<button type="button" data-bsgt-ops-tab="${key}" class="${bsgtOperationsListState.activeTab===key?'active':''}">${label}</button>`).join('')}
     </nav>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='overview'?'active':''}" data-bsgt-ops-panel="overview">
-      <div class="bsgt-operations-progress-card"><header><div><h4>حالة مرحلة العمليات</h4><span>${evaluation.completedCount} من ${evaluation.requiredCount} متطلبات مكتملة</span></div><b>${Math.round(evaluation.completedCount/evaluation.requiredCount*100)}%</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/evaluation.requiredCount*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
-      <div class="bsgt-operations-overview-grid"><section><h4>معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b>${escapeHtml(String(value))}</b></p>`).join('')}</div></section><section><h4>المتطلبات</h4><div class="bsgt-operations-requirements"><b>${evaluation.completedCount}/${evaluation.requiredCount}</b><span>${evaluation.completed?'جميع المتطلبات الإلزامية مكتملة':'المتبقي: '+evaluation.missing.join('، ')}</span></div></section></div>
+      <div class="bsgt-operations-overview-grid">
+        <section class="bsgt-operations-information"><h4>${icon('doc',18)} معلومات الشحنة</h4><div>${fields.map(([label,value])=>`<p><span>${label}</span><b dir="auto">${label==='بلد المنشأ'?originFlag:label==='ميناء الوصول'?destinationFlag:''}${escapeHtml(String(value))}</b></p>`).join('')}</div></section>
+        <section class="bsgt-operations-shipment-data"><h4>${icon('invoice',20)} بيانات الشحنة</h4><div class="bsgt-operations-data-cards">${dataCards.map(([ic,label,value])=>`<article class="bsgt-operations-data-card"><span class="bsgt-operations-data-icon">${icon(ic,24)}</span><div><h5>${label}</h5><b dir="auto">${escapeHtml(String(value??'').trim()||'—')}</b></div></article>`).join('')}</div></section>
+      </div>
     </section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='documents'?'active':''}" data-bsgt-ops-panel="documents"><div id="bsgtOperationsQuickDocumentsPanel">${renderBsgtOperationsQuickDocuments(record)}</div></section>
     <section class="bsgt-operations-tab-panel ${bsgtOperationsListState.activeTab==='attachments'?'active':''}" data-bsgt-ops-panel="attachments" id="bsgtOperationsAttachments">${renderBsgtOperationsAttachments(record)}</section>

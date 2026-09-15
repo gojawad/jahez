@@ -41,7 +41,7 @@ function shipmentRow(stage = 'operations_draft'){
     bsgt_stage_updated_at:'2026-09-12T06:00:00Z', operations_completed_at:stage==='ready_for_finance'?'2026-09-12T07:00:00Z':null,
     operations_completed_by:stage==='ready_for_finance'?userId:null,
     created_at:'2026-09-12T06:00:00Z', updated_at:'2026-09-12T06:00:00Z',
-    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',qtyUnit:'PACKAGES',totalAmount:'USD 100.00',qrToken:'permanent_test_qr_token_12345'}
+    data:{operationNo:'BSGTX-2026-0099',consignee:'TEST BUYER',itemDesc:'TEST GOODS',proformaNo:'PI-99',invoiceNo:'INV-99',billNo:'BL-99',qty:'10',qtyUnit:'PACKAGES',countryOrigin:'CHINA',portDischarge:'PORT SUDAN',departureDate:'2026-09-13',totalAmount:'USD 100.00',qrToken:'permanent_test_qr_token_12345'}
   };
 }
 
@@ -82,6 +82,14 @@ const initialFiles = [
 ];
 
 async function main(){
+  const display=require('../bsgt-operations-display');
+  for(const [name,code] of [['CHINA','CN'],['UAE','AE'],['EGYPT','EG'],['INDIA','IN'],['جمهورية مصر العربية','EG'],['الصين','CN'],['Germany','DE'],['Brazil','BR'],['JP','JP'],['South Africa','ZA']])assert.equal(display.countryCode(name),code,`${name} resolves to its own country flag`);
+  assert.equal(display.countryCode('NOT A COUNTRY'),'');
+  assert.equal(display.originCode({countryOrigin:'CHINA',countryOriginCode:'IN'}),'IN','existing ISO code takes priority');
+  assert.equal(display.destinationCode({portDischarge:'PORT SUDAN'}),'SD');
+  assert.equal(display.destinationCode({portDischarge:'PORT SUDAN',countryDestination:'EGYPT'}),'EG','explicit destination takes priority over port fallback');
+  assert.equal(display.destinationCode({portDischarge:'UNKNOWN PORT'}),'','unknown ports must not receive an invented flag');
+  assert.match(fs.readFileSync(path.join(__dirname,'../Dockerfile'),'utf8'),/^COPY country-flags \.\/country-flags$/m,'flag assets are included in deployment');
   const executablePath = chromiumPath();
   if(!executablePath) throw new Error('Chrome or Chromium executable was not found.');
   const server = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {env:{...process.env,PORT:String(PORT),BUILD_SHA:'bsgt-operations-browser-test'},stdio:['ignore','inherit','inherit']});
@@ -216,7 +224,7 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260913-mobile-scroll-1')), 'operations CSS uses the mobile scroll cache version');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-overview-1')), 'operations CSS invalidates the prior overview layout');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260914-operations-revisions-1')), 'operations JS invalidates the pre-revision cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260914-internal-revisions-1')), 'management JS invalidates the mandatory-signature cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260915-merge-routing-1')), 'company wizard invalidates the legacy merge click interceptor');
@@ -232,6 +240,17 @@ async function main(){
     assert.match(overviewText, /رقم الفاتورة\s*INV-99/, 'shipment overview shows the invoice number');
     assert.match(overviewText, /رقم البوليصة\s*BL-99/, 'shipment overview shows the bill of lading number');
     assert.match(overviewText, /الكمية\s*10 PACKAGES/, 'shipment overview shows the quantity and unit');
+    assert.equal(await page.locator('.bsgt-operations-data-card').count(),4,'overview contains exactly four read-only shipment data cards');
+    assert.equal(await page.locator('.bsgt-operations-shipment-data button, .bsgt-operations-shipment-data input, .bsgt-operations-shipment-data select, .bsgt-operations-shipment-data textarea, .bsgt-operations-shipment-data a').count(),0,'shipment data contains no edit or other actions');
+    assert.equal(await page.locator('[data-bsgt-ops-panel="overview"] .bsgt-operations-notes').count(),0,'notes are not part of overview');
+    assert.equal(await page.getByRole('button',{name:'متابعة الشحنة',exact:true}).count(),0,'no tracking action is added');
+    assert.equal(await page.locator('.bsgt-operations-top-summary>div').count(),6,'summary reuses the six shipment fields');
+    assert.equal(await page.locator('.bsgt-operations-top-summary [data-country-code="CN"]').count(),1);
+    assert.equal(await page.locator('.bsgt-operations-top-summary [data-country-code="SD"]').count(),1);
+    await page.waitForFunction(()=>[...document.querySelectorAll('.bsgt-operations-flag')].every(img=>img.complete&&img.naturalWidth>0&&!img.hidden));
+    assert.deepEqual(await page.locator('[data-bsgt-ops-tab]').allTextContents(),['نظرة عامة','المستندات','المرفقات','الجدول الزمني','الملاحظات'],'existing tabs are preserved');
+    fs.mkdirSync(path.join(__dirname,'output'),{recursive:true});
+    await page.locator('.bsgt-operations').screenshot({path:path.join(__dirname,'output/operations-overview-desktop.png')});
     await page.waitForTimeout(200);
     assert.strictEqual(imageApiCalls, 0, 'Operations does not request the commodity image API');
 
@@ -318,6 +337,7 @@ async function main(){
       assert.ok(await page.locator('[data-bsgt-ops-panel="documents"].active').isVisible(), `${width}px tabs remain functional`);
       await page.locator('[data-bsgt-ops-tab="overview"]').click();
       await assertStageGeometry(page,width);
+      if(width===390)await page.locator('.bsgt-operations-detail').screenshot({path:path.join(__dirname,'output/operations-overview-mobile.png')});
       const progressSeparation = await page.evaluate(()=>{
         const bar=document.querySelector('.bsgt-operations-progress-bar');
         const stage=document.querySelector('.bsgt-operations-stage-region');
