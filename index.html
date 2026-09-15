@@ -9791,7 +9791,7 @@ async function loadBsgtOperationsPage(){
   const to = from + bsgtOperationsListState.pageSize - 1;
   try{
     let pageQuery = sb.from('shipments')
-      .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,created_at,updated_at,data', {count:'exact'})
+      .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,operations_revision_id,created_at,updated_at,data', {count:'exact'})
       .eq('company_id', companyId);
     const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
     if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);

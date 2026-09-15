@@ -159,7 +159,8 @@ async function main(){
         {permission_key:'bsgt.operations.view',allowed:true},
         {permission_key:'bsgt.operations.edit',allowed:true},
         {permission_key:'bsgt.operation_center.view',allowed:true},
-        {permission_key:'shipment_documents.delete',allowed:true}
+        {permission_key:'shipment_documents.delete',allowed:true},
+        ...(mergeCalls ? [{permission_key:'package.merge',allowed:true}] : [])
       ])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions') return route.fulfill({status:200,headers,body:JSON.stringify([{section:'operations',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/complete_bsgt_operations'){
@@ -188,7 +189,12 @@ async function main(){
         }
         const single = String(request.headers().accept||'').includes('vnd.pgrst.object');
         const total=String(request.headers().prefer||'').includes('count=exact')?11:1;
-        return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?currentShipment():[currentShipment()])});
+        const selected=url.searchParams.get('select');
+        const row=currentShipment();
+        const projected=selected&&selected!=='*'
+          ? Object.fromEntries(selected.split(',').filter(key=>Object.hasOwn(row,key)).map(key=>[key,row[key]]))
+          : row;
+        return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?projected:[projected])});
       }
       if(url.pathname==='/rest/v1/shipment_files'){
         shipmentFileReads++;
@@ -600,6 +606,19 @@ async function main(){
       assert.strictEqual(await page.locator('#shipmentWorkflowDialog').count(),0,'no legacy bank-send gate');
     }
     await page.locator('#closeDetail').click();
+    await page.evaluate(()=>loadBsgtOperationsPage());
+    assert.strictEqual(await page.locator('#bsgtOperationsQuickSend').isVisible(),true,'saved package keeps finance send visible after list reload');
+    assert.strictEqual(await page.locator('#bsgtOperationsQuickSend').isEnabled(),true);
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#bsgtOperationsQuickSend').waitFor({state:'visible'});
+    assert.strictEqual(await page.locator('#bsgtOperationsQuickSend').isEnabled(),true,'send survives full page reload');
+    const reopened=await context.newPage();
+    await reopened.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`);
+    await reopened.locator('#bsgtOperationsQuickSend').waitFor({state:'visible'});
+    assert.strictEqual(await reopened.locator('#bsgtOperationsQuickSend').isEnabled(),true,'new tab restores saved package readiness');
+    await reopened.close();
+    assert.strictEqual(mergeCalls,2,'reopening never remerges the saved package');
+    assert.strictEqual(completeCalls,0,'reopening never submits to finance');
     await page.locator('[data-bsgt-ops-tab="documents"]').click();
     const documentsSend=page.locator('#bsgtOperationsDocumentsSend');
     await documentsSend.waitFor({state:'visible'});
