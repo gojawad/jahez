@@ -115,13 +115,17 @@
   }
   function decorateOperations(record){
     if(!record)return;
-    const correctionHost=$('detailCard')?.querySelector('#packageBtn')?.parentElement;
-    const previous=$('bsgtReopenCorrection');
-    if(previous&&(!isAdmin()||record.bsgtStage!=='final_accepted'||previous.dataset.shipmentId!==record.id))previous.remove();
-    if(correctionHost&&isAdmin()&&record.bsgtStage==='final_accepted'&&!$('bsgtReopenCorrection')){
-      const button=document.createElement('button');button.id='bsgtReopenCorrection';button.dataset.shipmentId=record.id;
-      button.type='button';button.className='btn btn-ghost';button.textContent='إعادة فتح للتصحيح';
-      button.onclick=()=>run(()=>reopenAcceptedForCorrection(record));correctionHost.append(button);
+    for(const [id,anchor] of [
+      ['bsgtReopenCorrection',$('detailCard')?.querySelector('#packageBtn')],
+      ['bsgtOperationsReopenCorrection',$('bsgtOperationsOpenFull')]
+    ]){
+      const previous=$(id);
+      if(previous&&(!isAdmin()||record.bsgtStage!=='final_accepted'||previous.dataset.shipmentId!==record.id))previous.remove();
+      if(anchor&&isAdmin()&&record.bsgtStage==='final_accepted'&&!$(id)){
+        const button=document.createElement('button');button.id=id;button.dataset.shipmentId=record.id;
+        button.type='button';button.className='btn btn-ghost';button.textContent='إعادة فتح للتصحيح';
+        button.onclick=()=>run(()=>reopenAcceptedForCorrection(record));anchor.after(button);
+      }
     }
     const evaluation=JahezBsgtOperations.evaluateBsgtOperationsReadiness(record,shipmentFilesCache[record.id]||[]);
     const allowed=!bsgtOperationsActionInFlight.has(record.id)&&record.bsgtStage==='operations_draft'&&evaluation.completed&&bsgtOperationsPermission(true)&&JahezPermissions.can('package.merge');
