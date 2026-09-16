@@ -109,7 +109,9 @@ async function main(){
     let currentStage = 'operations_draft';
     let currentRevisionId = null;
     let mergeCalls = 0;
-    const currentShipment=()=>({...shipmentRow(currentStage),operations_revision_id:currentRevisionId});
+    let correctionReturn = null, correctionCalls = 0;
+    const correctionFileId='66666666-6666-4666-8666-666666666666';
+    const currentShipment=()=>{const row=shipmentRow(currentStage);return {...row,operations_revision_id:currentRevisionId,data:{...row.data,...(correctionReturn?{bsgtFinanceReturn:correctionReturn}:{})}};};
     let files = initialFiles.map(file=>({...file}));
     let imageApiCalls = 0;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
@@ -169,6 +171,14 @@ async function main(){
         currentStage = 'ready_for_finance';
         return route.fulfill({status:200,headers,body:JSON.stringify(currentShipment())});
       }
+      if(url.pathname==='/rest/v1/rpc/bsgt_correction_context')return route.fulfill({status:200,headers,body:JSON.stringify({fileId:correctionFileId,operationNo:'TC-CORRECTION',revisionNo:2,shipments:[{id:shipmentId,operationNo:'BSGTX-2026-0099'}]})});
+      if(url.pathname==='/rest/v1/rpc/reopen_bsgt_accepted_for_correction'){
+        const body=request.postDataJSON();assert.equal(body.p_file_id,correctionFileId);assert.equal(body.p_revision_no,2);assert.ok(body.p_note.trim());
+        assert.equal(currentStage,'final_accepted');correctionCalls++;currentStage='operations_draft';
+        correctionReturn={correction:true,previousRevisionId:currentRevisionId,note:body.p_note};
+        return route.fulfill({status:200,headers,body:'{"reopened":true}'});
+      }
+      if(url.pathname.startsWith('/storage/v1/object/shipment-files/')&&request.method()==='POST')return route.fulfill({status:200,headers,body:'{}'});
       if(url.pathname==='/rest/v1/rpc/bsgt_operations_package_input') return route.fulfill({status:200,headers,body:JSON.stringify({workflowVersion:2,shipment:currentShipment(),fingerprint:'a'.repeat(32),generated:{contract:true,invoice:true,packing:true,proforma:true}})});
       if(url.pathname==='/rest/v1/rpc/delete_bsgt_operations_document'){
         const payload=request.postDataJSON();
@@ -197,6 +207,10 @@ async function main(){
         return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-0/${total}`},body:JSON.stringify(single?projected:[projected])});
       }
       if(url.pathname==='/rest/v1/shipment_files'){
+        if(request.method()==='POST'){
+          files.unshift({...request.postDataJSON(),id:'77777777-7777-4777-8777-777777777777',created_at:'2026-09-16T12:00:00Z'});
+          return route.fulfill({status:201,headers,body:'{}'});
+        }
         shipmentFileReads++;
         return route.fulfill({status:200,headers,body:JSON.stringify(files)});
       }
@@ -664,6 +678,31 @@ async function main(){
     await page.waitForFunction(()=>location.hash==='#v=bsgtWorkspace&section=operationCenter');
     assert.ok(page.url().includes('#v=bsgtWorkspace&section=operationCenter'), 'back returns to the BSGT operation center source');
     assert.deepStrictEqual(consoleErrors, [], `browser console errors: ${consoleErrors.join(' | ')}`);
+    currentStage='final_accepted';
+    await page.evaluate(async id=>{await fetchLatestShipmentWorkflowState(id);openDetail(id,{returnTo:'operations'});},shipmentId);
+    assert.strictEqual(await page.locator('#bsgtReopenCorrection').count(),0,'employee cannot reopen accepted files');
+    await page.evaluate(id=>{currentUser.role='admin';if(currentUser.profile)currentUser.profile.role='admin';syncCurrentPermissionContext();JahezRevisionWorkflow.decorateOperations(records.find(r=>r.id===id));},shipmentId);
+    await page.locator('#bsgtReopenCorrection').click();
+    const correctionDialog=page.locator('dialog[open]').filter({hasText:'إعادة فتح للتصحيح'});
+    await correctionDialog.waitFor();
+    assert.match(await correctionDialog.innerText(),/TC-CORRECTION/);
+    assert.match(await correctionDialog.innerText(),/BSGTX-2026-0099/);
+    assert.match(await correctionDialog.innerText(),/جميع الشحنات/);
+    await correctionDialog.locator('[type="submit"]').click();assert.equal(correctionCalls,0,'reason required');
+    await correctionDialog.locator('[data-close]').click();assert.equal(correctionCalls,0,'cancel is read only');
+    await page.locator('#bsgtReopenCorrection').click();
+    await correctionDialog.locator('textarea').fill('New import permit');
+    await correctionDialog.locator('[type="submit"]').click();
+    await page.locator('#btnBaharImportPermitUpload').waitFor();
+    assert.equal(correctionCalls,1);
+    assert.equal(await page.locator('#bsgtSendToFinanceBtn').isVisible(),false,'old package cannot make the correction ready');
+    const oldFiles=JSON.stringify(files),oldDeleteCalls=storageDeleteCalls;
+    const chooser=page.waitForEvent('filechooser');await page.locator('#btnBaharImportPermitUpload').click();
+    await (await chooser).setFiles({name:'new-permit.pdf',mimeType:'application/pdf',buffer:fixturePdfBytes});
+    await page.waitForFunction(()=>document.getElementById('btnBaharImportPermitWrap')?.textContent.includes('مرفوع: new-permit.pdf'));
+    assert.equal(JSON.stringify(files.slice(1)),oldFiles,'replacement preserves all previous source records');
+    assert.equal(storageDeleteCalls,oldDeleteCalls,'replacement never deletes approved source objects');
+    assert.equal(completeCalls,1,'correction and upload never send to finance');
     await context.close();
     console.log('BSGT operations list, readiness, re-verification, and submit: passed');
   } finally {

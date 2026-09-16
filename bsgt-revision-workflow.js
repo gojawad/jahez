@@ -85,15 +85,50 @@
     }catch(error){if(sequence===previewSequence)throw error;}
   });}
   function hasOperationsQrPackage(record){
+    if(record?.bsgtStage==='operations_draft'&&record.bsgtFinanceReturn?.correction&&
+      record.bsgtFinanceReturn.previousRevisionId===record.operationsRevisionId)return false;
     return Boolean(record?.operationsRevisionId&&/^[A-Za-z0-9_-]{20,64}$/.test(record.qrToken||''));
+  }
+  async function reopenAcceptedForCorrection(record){
+    if(!isAdmin())return;
+    const context=await rpc('bsgt_correction_context',{p_shipment_id:record.id});
+    const node=dialog('إعادة فتح للتصحيح'),host=node.querySelector('[data-content]');
+    host.innerHTML=`<p>سيُعاد ملف التحصيل <b>${esc(context.operationNo)}</b> وجميع الشحنات التالية إلى العمليات:</p>
+      <ul>${context.shipments.map(s=>`<li>${esc(s.operationNo)}</li>`).join('')}</ul>
+      <p>ستبقى النسخ السابقة محفوظة. يلزم استبدال المستند ثم إعادة الدمج والإرسال للمالية والمراجعة، ولا يتم إرسال شيء للبنك تلقائياً. سيظل QR يعرض آخر حزمة محفوظة إلى أن تُحفظ الحزمة الجديدة.</p>
+      <form><label>سبب التصحيح<textarea required maxlength="10000" rows="4" style="width:100%" data-correction-note></textarea></label>
+      <p data-correction-error role="alert"></p><button type="submit" class="btn btn-primary">تأكيد إعادة الفتح للتصحيح</button></form>`;
+    host.querySelector('form').onsubmit=async event=>{
+      event.preventDefault();const button=host.querySelector('[type="submit"]'),errorHost=host.querySelector('[data-correction-error]');
+      const note=host.querySelector('textarea').value.trim();if(!note)return;
+      button.disabled=true;errorHost.textContent='';
+      try{
+        await rpc('reopen_bsgt_accepted_for_correction',{p_shipment_id:record.id,p_file_id:context.fileId,p_revision_no:context.revisionNo,p_note:note});
+        node.close();
+        await fetchLatestShipmentWorkflowState(record.id);
+        await loadBsgtOperationsPage();
+        openDetail(record.id,{returnTo:'operations'});
+        toast('أُعيد الملف للعمليات للتصحيح. النسخ السابقة محفوظة.');
+      }catch(error){errorHost.textContent=error.message||'تعذر إعادة فتح الملف.';}
+      finally{button.disabled=false;}
+    };
   }
   function decorateOperations(record){
     if(!record)return;
+    const correctionHost=$('detailCard')?.querySelector('#packageBtn')?.parentElement;
+    const previous=$('bsgtReopenCorrection');
+    if(previous&&(!isAdmin()||record.bsgtStage!=='final_accepted'||previous.dataset.shipmentId!==record.id))previous.remove();
+    if(correctionHost&&isAdmin()&&record.bsgtStage==='final_accepted'&&!$('bsgtReopenCorrection')){
+      const button=document.createElement('button');button.id='bsgtReopenCorrection';button.dataset.shipmentId=record.id;
+      button.type='button';button.className='btn btn-ghost';button.textContent='إعادة فتح للتصحيح';
+      button.onclick=()=>run(()=>reopenAcceptedForCorrection(record));correctionHost.append(button);
+    }
     const evaluation=JahezBsgtOperations.evaluateBsgtOperationsReadiness(record,shipmentFilesCache[record.id]||[]);
     const allowed=!bsgtOperationsActionInFlight.has(record.id)&&record.bsgtStage==='operations_draft'&&evaluation.completed&&bsgtOperationsPermission(true)&&JahezPermissions.can('package.merge');
     const qrReady=hasOperationsQrPackage(record);
     const qrStatus=document.querySelector('#detailCard [data-bsgt-qr-package-status]');
     if(qrStatus&&(qrReady||record.qrPackagePath)) qrStatus.innerHTML='<b>حزمة QR جاهزة.</b> تم حفظ الحزمة؛ المسح يفتح ملف PDF المدموج مباشرة.';
+    if(qrStatus&&!qrReady&&record.bsgtFinanceReturn?.correction)qrStatus.textContent='الملف قيد التصحيح. QR يعرض الحزمة السابقة؛ أعد الدمج لحفظ النسخة الجديدة قبل الإرسال للمالية.';
     for(const id of ['bsgtOperationsQuickSend','bsgtOperationsDocumentsSend','bsgtSendToFinanceBtn','bsgtPackagePreviewSend']){
       const button=$(id);if(!button||button.dataset.workflowBusy==='true')continue;
       button.hidden=!qrReady;button.style.display=qrReady?'':'none';

@@ -11074,7 +11074,7 @@ function baharUploadedDoc(r, key){
   return list.find(f=>f.document_type===documentType || f.label===label) || null;
 }
 function triggerBaharDocUpload(r, key){
-  if(!canManageShipmentFiles(r)) return;
+  if(!bsgtFullShipmentActions(r).canEditDocuments) return;
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg'; input.style.display = 'none';
   input.addEventListener('change', async function(){
@@ -11086,7 +11086,7 @@ function triggerBaharDocUpload(r, key){
   input.click();
 }
 async function uploadBaharDocument(r, key, file){
-  if(!file || !canManageShipmentFiles(r)) return;
+  if(!file || !bsgtFullShipmentActions(r).canEditDocuments) return;
   if(!window.JahezBsgtOperations.isSupportedFile(file)){
     alert('ارفع ملف PDF أو PNG أو JPG/JPEG فقط.');
     return;
@@ -11099,7 +11099,7 @@ async function uploadBaharDocument(r, key, file){
   if(status) status.textContent = `جارٍ رفع ${file.name}...`;
   await uploadShipmentFiles(r.id, [file], BAHAR_DOC_LABELS[key], {documentType, isRequired:true});
   const latest = baharUploadedDoc(r, key);
-  if(latest && !previous.some(item=>item.id===latest.id) && previous.length){
+  if(!r.operationsRevisionId && latest && !previous.some(item=>item.id===latest.id) && previous.length){
     try{
       await sb.storage.from('shipment-files').remove(previous.map(item=>item.path));
       const {error} = await sb.from('shipment_files').delete().in('id', previous.map(item=>item.id));
@@ -22023,7 +22023,7 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260911-workflow-4"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260915-inline-package-preview-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260916-correction-1"></script>
 <script src="bsgt-trade-files.js?v=20260915-print-download-1"></script>
 </body>
 </html>
