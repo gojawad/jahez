@@ -248,3 +248,11 @@
 /* When the stages section is open the full progress already shows the badge;
    keep the header badge only for the collapsed state. */
 .bsgt-detail-card #bsgtWorkflow .bsgt-detail-collapse[open] .bsgt-detail-collapse-meta{display:none;}
+
+/* Stages section: the BSGT business track (same component as the operations
+   quick view) sits above the bank/documents track so both stay visible. */
+.bsgt-detail-card .bsgt-detail-stage-block + .bsgt-detail-stage-block{margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdc-border);}
+.bsgt-detail-card .bsgt-detail-stage-block .bsgt-operations-stage-region{margin-top:0;padding-top:0;border-top:0;}
+.bsgt-detail-card .bsgt-detail-stage-block .bsgt-operations-stage-heading{margin-bottom:10px;}
+.bsgt-detail-card .bsgt-detail-stage-block .bsgt-operations-stage-heading h5{font-size:12px;color:var(--bdc-ink);}
+.bsgt-detail-card .bsgt-detail-collapse-meta .bsgt-stage-badge{margin:0;}
