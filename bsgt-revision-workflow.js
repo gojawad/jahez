@@ -20,11 +20,16 @@
     const input=await rpc('bsgt_operations_package_input',{p_shipment_id:record.id});
     if(input.workflowVersion!==2)throw new Error('يلزم تطبيق تحديث فصل الدمج عن الإرسال للمالية أولاً (SQL 47).');
     const snapshot=rowToRecord(input.shipment),generated={};
-    for(const kind of Object.keys(input.generated)){
+    // The four generated documents are rendered concurrently (each is an
+    // independent server render); their order in the package is fixed by the
+    // server from the shipment's document order, not by completion time.
+    const kinds=Object.keys(input.generated);
+    const rendered=await Promise.all(kinds.map(async kind=>{
       const pdf=await PDFLib.PDFDocument.create();
       await appendBsgtBrowserlessPagePdf(pdf,snapshot,kind,language);
-      generated[kind]=base64(await pdf.save());
-    }
+      return base64(await pdf.save());
+    }));
+    kinds.forEach((kind,index)=>{generated[kind]=rendered[index];});
     const result=await post('/api/bsgt-operations-package',{shipmentId:record.id,fingerprint:input.fingerprint,generated,language});
     return result.shipment;
   }
