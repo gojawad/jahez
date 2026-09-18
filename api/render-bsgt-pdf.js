@@ -41,6 +41,35 @@ async function renderWithBrowserless(html, token) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+// الخطوط نفسها التي يطلبها القالب من Google Fonts (Tajawal، IBM Plex Sans Arabic،
+// IBM Plex Sans، IBM Plex Mono) مضمّنة محلياً من pdf-fonts/ حتى لا ينتظر Chromium
+// تنزيلها عند كل مستند. عند غياب المجلد يبقى السلوك القديم (تحميل من الإنترنت).
+const fs = require('fs');
+const path = require('path');
+const GOOGLE_FONTS_IMPORT = /@import\s+url\((['"]?)https:\/\/fonts\.googleapis\.com[^)]*\1\);?/g;
+let localFontCss = null;
+function getLocalFontCss() {
+  if (localFontCss !== null) return localFontCss;
+  try {
+    const dir = path.join(__dirname, '..', 'pdf-fonts');
+    const css = fs.readFileSync(path.join(dir, 'fonts.css'), 'utf8');
+    localFontCss = css.replace(/url\(\.\/([^)]+\.woff2)\)/g, (match, file) => {
+      const bytes = fs.readFileSync(path.join(dir, file));
+      return `url(data:font/woff2;base64,${bytes.toString('base64')})`;
+    });
+  } catch (error) {
+    console.warn('render-bsgt-pdf: local fonts unavailable, falling back to Google Fonts:', error.message);
+    localFontCss = '';
+  }
+  return localFontCss;
+}
+function withLocalFonts(html) {
+  const css = getLocalFontCss();
+  if (!css || !GOOGLE_FONTS_IMPORT.test(html)) { GOOGLE_FONTS_IMPORT.lastIndex = 0; return { html, local: false }; }
+  GOOGLE_FONTS_IMPORT.lastIndex = 0;
+  return { html: html.replace(GOOGLE_FONTS_IMPORT, css), local: true };
+}
+
 // متصفح واحد مشترك يُفتح عند أول طلب ويُعاد استخدامه.
 let browserPromise = null;
 async function getBrowser() {
@@ -62,8 +91,14 @@ async function renderLocally(html) {
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
-    // networkidle حتى تُحمَّل الخطوط الخارجية قبل الطباعة.
-    await page.setContent(html, { waitUntil: 'networkidle', timeout: 60000 });
+    const prepared = withLocalFonts(html);
+    if (prepared.local) {
+      // الخطوط أصبحت مضمّنة؛ أي طلب متبقٍ لخدمة Google Fonts يُلغى فوراً بدل انتظاره.
+      await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort());
+    }
+    // networkidle حتى تُحمَّل الصور والأصول المتبقية قبل الطباعة.
+    await page.setContent(prepared.html, { waitUntil: 'networkidle', timeout: 60000 });
+    await page.evaluate(() => document.fonts.ready);
     await page.emulateMedia({ media: 'print' });
     return await page.pdf(PDF_OPTIONS);
   } finally {
@@ -72,6 +107,10 @@ async function renderLocally(html) {
 }
 
 module.exports = async function renderBsgtPdf(req, res) {
+  return handleRender(req, res);
+}
+module.exports.withLocalFonts = withLocalFonts;
+async function handleRender(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed.' });
@@ -102,4 +141,4 @@ module.exports = async function renderBsgtPdf(req, res) {
     console.error('BSGT PDF render failed:', error.message);
     return res.status(502).json({ error: 'Could not render the BSGT invoice PDF.' });
   }
-};
+}

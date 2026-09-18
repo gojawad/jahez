@@ -32,6 +32,7 @@ COPY api ./api
 COPY experiments ./experiments
 COPY invoice-template-preview ./invoice-template-preview
 COPY country-flags ./country-flags
+COPY pdf-fonts ./pdf-fonts
 COPY index.html public-shipment.html qr-splash.html sending-data.html ./
 COPY *.js *.css *.png *.jpeg *.pdf ./
 
