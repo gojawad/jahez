@@ -3,7 +3,10 @@ const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
 const order=['contract','proforma','invoice','packing','import_permit','certificate_of_origin','bill_of_lading','letter','undertaking','exchange'];
 
 // A transient, internal preview only. Never publish this bundle to the shipment QR.
-async function buildShipmentBundle({file,link,shipment,revision,documents,attachments,download}){
+// mode 'current': one up-to-date copy of each document — every operations and
+// finance document is replaced by its active administration-signed version when
+// one exists (no duplicates). Default mode keeps the historical layout.
+async function buildShipmentBundle({file,link,shipment,revision,documents,attachments,download,mode}){
   if(!file||!link||link.trade_file_id!==file.id||link.shipment_id!==shipment?.id)throw new Error('Shipment is outside this trade file');
   let baseline;
   if(link.operations_revision_id){
@@ -18,7 +21,18 @@ async function buildShipmentBundle({file,link,shipment,revision,documents,attach
   const finance=documents.filter(row=>current(row)&&row.document_variant!=='administration_signed').sort(sort);
   const signed=documents.filter(row=>current(row)&&row.document_variant==='administration_signed'&&row.shipment_id===shipment.id&&row.operations_revision_id===link.operations_revision_id).sort(sort);
   const relations=attachments.filter(current).sort((a,b)=>String(a.attachment_type).localeCompare(String(b.attachment_type))||String(a.id).localeCompare(String(b.id)));
-  const sources=[baseline,...finance.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...signed.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...relations.map(row=>({bucket:'trade-collection-documents',path:row.storage_path}))];
+  let sources;
+  if(mode==='current'){
+    const signedBySource=new Map();
+    for(const row of signed){const previous=signedBySource.get(row.source_document_path);if(!previous||String(row.created_at||'')>String(previous.created_at||''))signedBySource.set(row.source_document_path,row);}
+    const swap=(bucket,path)=>{const row=signedBySource.get(path);return row?{bucket:'trade-collection-documents',path:row.storage_path}:{bucket,path};};
+    const operations=link.operations_revision_id&&Array.isArray(revision.documents)&&revision.documents.length
+      ?revision.documents.filter(doc=>doc&&typeof doc.path==='string').map(doc=>swap('bsgt-operations-packages',doc.path))
+      :[baseline];
+    sources=[...operations,...finance.map(row=>swap('trade-collection-documents',row.storage_path)),...relations.map(row=>({bucket:'trade-collection-documents',path:row.storage_path}))];
+  }else{
+    sources=[baseline,...finance.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...signed.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...relations.map(row=>({bucket:'trade-collection-documents',path:row.storage_path}))];
+  }
   const merged=await PDFDocument.create(),seen=new Set();let totalBytes=0;
   for(const source of sources){
     if(!source.path)throw new Error('Stored document path is missing');

@@ -36,6 +36,7 @@ module.exports=async function(req,res){
     if(!body){let text='';for await(const chunk of req){text+=chunk;if(text.length>4096)throw new Error('Request too large');}body=JSON.parse(text);}
     if(typeof body==='string')body=JSON.parse(body);
     const {fileId,source,documentId,kind}=body;
+    const mode=body.mode==='current'?'current':undefined;
     if(!UUID.test(fileId||'')||!UUID.test(documentId||''))throw new Error('Invalid reference');
     const files=await rows(`trade_collection_files?id=eq.${fileId}&select=id,revision_no`);
     if(!files.length)throw new Error('File is not accessible');
@@ -45,11 +46,11 @@ module.exports=async function(req,res){
       const shipments=await rows(`shipments?id=eq.${documentId}&select=id,data`);
       if(!shipments.length)throw new Error('Shipment is not accessible');
       const link=links[0];
-      const revisions=link.operations_revision_id?await rows(`bsgt_operations_revisions?id=eq.${link.operations_revision_id}&shipment_id=eq.${documentId}&approved_at=not.is.null&select=id,shipment_id,approved_at,package_path`):[];
+      const revisions=link.operations_revision_id?await rows(`bsgt_operations_revisions?id=eq.${link.operations_revision_id}&shipment_id=eq.${documentId}&approved_at=not.is.null&select=id,shipment_id,approved_at,package_path,documents`):[];
       const scope=`trade_file_id=eq.${fileId}&revision_no=eq.${Number(files[0].revision_no)||1}&is_active=eq.true&or=(shipment_id.is.null,shipment_id.eq.${documentId})`;
       const documents=await allRows(`trade_collection_file_documents?${scope}&select=*`);
       const attachments=await allRows(`trade_collection_relations_attachments?${scope}&select=*`);
-      const bundle=await buildShipmentBundle({file:files[0],link,shipment:shipments[0],revision:revisions[0],documents,attachments,download});
+      const bundle=await buildShipmentBundle({file:files[0],link,shipment:shipments[0],revision:revisions[0],documents,attachments,download,mode});
       return res.status(200).json({mimeType:'application/pdf',base64:bundle.bytes.toString('base64'),pageCount:bundle.pageCount,sourceCount:bundle.sourceCount});
     }
     let bucket,path;

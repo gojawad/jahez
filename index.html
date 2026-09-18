@@ -2495,7 +2495,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-four-stage-workflow-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260918-icon-actions-1">
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
-  <link rel="stylesheet" href="bsgt-management.css?v=20260912-1">
+  <link rel="stylesheet" href="bsgt-management.css?v=20260918-full-bundle-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
@@ -10107,7 +10107,7 @@ function renderBsgtManagementDetail(){
   }).join('');
   const collectionRows=window.JahezBsgtManagement.requiredDocumentTypes(file).map(type=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(type))}</b><small>نسخة التحصيل غير الموقعة · مستبعدة من QR</small></div><span class="bsgt-management-doc-state is-ready">متاحة</span><div class="bsgt-management-doc-actions"><a class="btn btn-ghost btn-small" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">معاينة</a></div></div>`).join('');
   const signedRows=readiness.requiredTypes.map(type=>{const document=currentDocs.get(type);return `<div class="bsgt-management-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(type))}</b><small>${document?escapeHtml(document.file_name):`مطلوب للمراجعة رقم ${Number(file.revision_no)||1}`}</small></div><span class="bsgt-management-doc-state ${document?'is-ready':''}">${document?'مكتمل':'ناقص'}</span><div class="bsgt-management-doc-actions">${document?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-management-signed-open="${escapeHtml(document.storage_path)}">معاينة</button>`:''}${canEdit&&reviewing?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-management-upload="${type}">${document?'استبدال':'رفع مستند'}</button>`:''}${document&&canEdit&&reviewing?`<button type="button" class="btn btn-danger btn-small" data-bsgt-management-archive="${escapeHtml(document.id)}">أرشفة</button>`:''}</div></div>`;}).join('');
-  host.innerHTML=`<section class="bsgt-management-detail"><header class="bsgt-management-detail-head"><div><h3>${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtManagement.statusLabel(file.status))} · المراجعة ${Number(file.revision_no)||1}</p></div><div class="bsgt-management-actions"><button type="button" class="btn btn-ghost" id="bsgtManagementClose">إغلاق</button>${canEdit&&file.status==='sent_to_remitting'?'<button type="button" class="btn bsgt-management-primary" id="bsgtManagementStart">بدء المراجعة</button>':''}${canEdit&&reviewing?'<button type="button" class="btn bsgt-management-return" id="bsgtManagementReturn">إرجاع</button><button type="button" class="btn bsgt-management-primary" id="bsgtManagementAccept">قبول نهائي</button>':''}</div></header>
+  host.innerHTML=`<section class="bsgt-management-detail"><header class="bsgt-management-detail-head"><div><h3>${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtManagement.statusLabel(file.status))} · المراجعة ${Number(file.revision_no)||1}</p></div><div class="bsgt-management-actions">${shipments.length&&file.metadata?.operationsRevisionWorkflow?'<button type="button" class="btn btn-ghost" id="bsgtManagementBundlePreview" title="كل مستندات الملف مدموجة في PDF واحد بأحدث النسخ الموقعة">'+icon('doc',14)+' الملف الكامل المحدّث</button>':''}<button type="button" class="btn btn-ghost" id="bsgtManagementClose">إغلاق</button>${canEdit&&file.status==='sent_to_remitting'?'<button type="button" class="btn bsgt-management-primary" id="bsgtManagementStart">بدء المراجعة</button>':''}${canEdit&&reviewing?'<button type="button" class="btn bsgt-management-return" id="bsgtManagementReturn">إرجاع</button><button type="button" class="btn bsgt-management-primary" id="bsgtManagementAccept">قبول نهائي</button>':''}</div></header>
     <div class="bsgt-management-summary"><div class="bsgt-management-stat"><span>رقم العملية</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-management-stat"><span>الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-management-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-management-stat"><span>البنك المرسل</span><b>${escapeHtml(file.remitting_bank||'—')}</b></div><div class="bsgt-management-stat"><span>اكتمال الموقع</span><b>${escapeHtml(readiness.progress)}</b></div></div>
     <section class="bsgt-management-section"><header><h4>الشحنات المرتبطة</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${shipments.map(row=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.consignee||'—')}</small></div><span>${escapeHtml(row.itemDesc||'—')}</span><div>${escapeHtml(row.invoiceNo||row.proformaNo||'—')}</div></div>`).join('')}</div></section>
     <section class="bsgt-management-section"><header><h4>مستندات العمليات</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${operationRows||'<div class="bsgt-management-empty">لا توجد مستندات.</div>'}</div></section>
@@ -10117,6 +10117,7 @@ function renderBsgtManagementDetail(){
     <section class="bsgt-management-section"><header><h4>التسلسل الزمني</h4><small>${events.length} حدث</small></header><div class="bsgt-management-timeline">${events.map(event=>`<div class="bsgt-management-event"><b>${escapeHtml(bsgtManagementEventLabel(event))}</b><span>${escapeHtml(event.note||`${event.from_status||''}${event.to_status?` ← ${event.to_status}`:''}`)}</span><small>${escapeHtml(bsgtManagementActor(event.actor_id))} · ${escapeHtml(formatShipmentAuditDate(event.created_at))} · م${event.revision_no}</small></div>`).join('')||'<div class="bsgt-management-empty">لا توجد أحداث بعد.</div>'}</div></section>
   </section>`;
   document.getElementById('bsgtManagementClose')?.addEventListener('click',()=>{bsgtManagementState.detailId=null;host.replaceChildren();});
+  document.getElementById('bsgtManagementBundlePreview')?.addEventListener('click',()=>previewBsgtManagementBundle(file,shipments,canEdit&&reviewing));
   document.getElementById('bsgtManagementStart')?.addEventListener('click',()=>runBsgtManagementRpc('start_bsgt_management_review',{p_trade_file_id:file.id},'بدأت مراجعة الملف.'));
   document.getElementById('bsgtManagementAccept')?.addEventListener('click',()=>acceptBsgtManagementFile(file));
   document.getElementById('bsgtManagementReturn')?.addEventListener('click',()=>openBsgtManagementReturn(file.id));
@@ -10127,6 +10128,47 @@ function renderBsgtManagementDetail(){
   host.querySelectorAll('[data-bsgt-management-operation-file]').forEach(button=>button.addEventListener('click',()=>openShipmentFile(button.dataset.bsgtManagementOperationFile,button.dataset.fileName)));
   host.querySelectorAll('[data-bsgt-management-generated]').forEach(button=>button.addEventListener('click',()=>{const shipment=shipments.find(row=>row.id===button.dataset.shipmentId);if(shipment)openBsgtGeneratedDocument(shipment,button.dataset.bsgtManagementGenerated);}));
   if(file.metadata?.operationsRevisionWorkflow) window.JahezRevisionWorkflow?.renderInternalPackage(host,file);
+}
+
+// One PDF for the whole trade file: every shipment's operations documents,
+// finance documents and relations attachments, each in its newest active
+// administration-signed version. Built by the existing authenticated preview
+// API (mode 'current') per shipment and merged in the browser; nothing is stored.
+let bsgtManagementBundleUrl=null;
+function closeBsgtManagementBundle(){
+  document.getElementById('bsgtManagementBundleActions')?.remove();
+  if(bsgtManagementBundleUrl){const url=bsgtManagementBundleUrl;bsgtManagementBundleUrl=null;setTimeout(()=>URL.revokeObjectURL(url),60000);}
+}
+async function previewBsgtManagementBundle(file,shipments,canDecide){
+  const button=document.getElementById('bsgtManagementBundlePreview');
+  if(!button||button.dataset.busy==='true')return;
+  button.dataset.busy='true';const original=button.innerHTML;button.innerHTML=`${icon('history',14)} جاري تجهيز الملف…`;button.disabled=true;netStart();
+  try{
+    const {data:{session}}=await sb.auth.getSession();if(!session)throw new Error('سجل الدخول أولاً.');
+    const merged=await PDFLib.PDFDocument.create();let sources=0;
+    for(const shipment of shipments){
+      const response=await fetch('/api/bsgt-trade-file-preview',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({fileId:file.id,source:'shipment',documentId:shipment.id,mode:'current'})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||`تعذر تجهيز شحنة ${shipment.operationNo||''}`);
+      const part=await PDFLib.PDFDocument.load(Uint8Array.from(atob(result.base64),char=>char.charCodeAt(0)));
+      for(const page of await merged.copyPages(part,part.getPageIndices()))merged.addPage(page);
+      sources+=result.sourceCount||0;
+    }
+    const bytes=await merged.save();
+    closeBsgtManagementBundle();
+    bsgtManagementBundleUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    openPdfPreview(bsgtManagementBundleUrl,`الملف الكامل المحدّث · ${file.operation_no} · ${merged.getPageCount()} صفحة`);
+    const frame=document.getElementById('pdfPreviewFrame');
+    const actions=document.createElement('div');actions.id='bsgtManagementBundleActions';actions.className='bsgt-management-bundle-actions';
+    const info=document.createElement('span');info.className='bsgt-management-bundle-info';info.textContent=`${shipments.length} شحنة · ${sources} مستند بأحدث النسخ الموقعة · المراجعة ${Number(file.revision_no)||1}`;actions.append(info);
+    const download=document.createElement('a');download.className='btn btn-ghost btn-small';download.href=bsgtManagementBundleUrl;download.download=`${file.operation_no}-full.pdf`;download.innerHTML=`${icon('download',14)} تحميل PDF`;actions.append(download);
+    if(canDecide){
+      const back=document.createElement('button');back.type='button';back.className='btn bsgt-management-return btn-small';back.innerHTML=`${icon('arrowLeft',14)} إرجاع`;back.onclick=()=>{closePdfPreview();openBsgtManagementReturn(file.id);};actions.append(back);
+      const accept=document.createElement('button');accept.type='button';accept.className='btn bsgt-management-primary btn-small';accept.innerHTML=`${icon('check',14)} قبول نهائي`;accept.onclick=()=>{closePdfPreview();acceptBsgtManagementFile(file);};actions.append(accept);
+    }
+    frame.before(actions);
+    addLog('print',JSON.stringify({action:'management_full_bundle_previewed',tradeFile:file.id,revision:file.revision_no,pages:merged.getPageCount()}));
+  }catch(error){console.error('management bundle',error);toast(error.message||'تعذر تجهيز الملف الكامل.','err');}
+  finally{button.dataset.busy='false';button.innerHTML=original;button.disabled=false;netEnd();}
 }
 
 async function runBsgtManagementRpc(name,args,successMessage){
@@ -11286,6 +11328,7 @@ function openPdfPreview(url, name){
 }
 function closePdfPreview(){
   window.JahezRevisionWorkflow?.closeOperationsPreview();
+  if(typeof closeBsgtManagementBundle==='function')closeBsgtManagementBundle();
   document.getElementById('pdfPreviewOverlay').classList.remove('open');
   document.getElementById('pdfPreviewFrame').src = 'about:blank';
 }

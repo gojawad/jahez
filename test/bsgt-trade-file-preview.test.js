@@ -119,3 +119,28 @@ test('complete shipment API resolves authorized stored paths and blocks unrelate
     missing=true;assert.equal((await invoke()).code,409);
   }finally{global.fetch=savedFetch;if(savedKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=savedKey;}
 });
+
+test('current mode bundles one up-to-date copy of each document with signed versions substituted in place',async()=>{
+  const file={id:fileId,revision_no:2},link={trade_file_id:fileId,shipment_id:shipmentId,operations_revision_id:documentId};
+  const shipment={id:shipmentId,data:{}};
+  const revision={id:documentId,shipment_id:shipmentId,approved_at:'2026-09-15',package_path:'operations.pdf',documents:[{kind:'contract',path:'ops/contract.pdf'},{kind:'invoice',path:'ops/invoice.pdf'}]};
+  const common={trade_file_id:fileId,revision_no:2,is_active:true};
+  const signedCommon={...common,shipment_id:shipmentId,operations_revision_id:documentId,document_variant:'administration_signed'};
+  const documents=[
+    {...common,id:'letter',document_variant:'finance_original',document_type:'letter',storage_path:'finance/letter.pdf'},
+    {...common,id:'undertaking',document_variant:'finance_original',document_type:'undertaking',storage_path:'finance/undertaking.pdf'},
+    {...signedCommon,id:'s-contract-old',document_type:'contract',storage_path:'signed/contract-old.pdf',source_document_path:'ops/contract.pdf',created_at:'2026-09-16'},
+    {...signedCommon,id:'s-contract',document_type:'contract',storage_path:'signed/contract.pdf',source_document_path:'ops/contract.pdf',created_at:'2026-09-17'},
+    {...signedCommon,id:'s-letter',document_type:'letter',storage_path:'signed/letter.pdf',source_document_path:'finance/letter.pdf',created_at:'2026-09-17'}
+  ];
+  const attachments=[{...common,id:'relations',shipment_id:shipmentId,attachment_type:'company_letter',storage_path:'relations.pdf'}];
+  const sizes={'operations.pdf':100,'ops/contract.pdf':201,'ops/invoice.pdf':202,'finance/letter.pdf':301,'finance/undertaking.pdf':302,'signed/contract.pdf':401,'signed/contract-old.pdf':400,'signed/letter.pdf':402,'relations.pdf':500};
+  const reads=[];const download=async(bucket,path)=>{assert.ok(sizes[path],path);reads.push([bucket,path]);return pageBytes(sizes[path]);};
+  const result=await buildShipmentBundle({file,link,shipment,revision,documents,attachments,download,mode:'current'});
+  assert.deepEqual((await PDFDocument.load(result.bytes)).getPages().map(p=>p.getWidth()),[401,202,402,302,500],'signed contract, original invoice, signed letter, original undertaking, relations attachment');
+  assert.ok(!reads.some(r=>r[1]==='operations.pdf'),'the historical merged package is not duplicated in current mode');
+  assert.ok(!reads.some(r=>r[1]==='signed/contract-old.pdf'),'only the newest active signed version is used');
+  assert.deepEqual(reads.filter(r=>r[1].startsWith('signed/')).map(r=>r[0]),['trade-collection-documents','trade-collection-documents']);
+  const historical=await buildShipmentBundle({file,link,shipment,revision,documents,attachments,download});
+  assert.equal((await PDFDocument.load(historical.bytes)).getPage(0).getWidth(),100,'default mode still starts with the historical package');
+});
