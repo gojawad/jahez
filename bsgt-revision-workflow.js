@@ -38,6 +38,22 @@
     const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,300);if(error)throw error;
     openPdfPreview(data.signedUrl,title);
   }
+  // Opens the approved merged operations package (revision.package_path) in a
+  // real browser tab so it can be compared side by side with original documents.
+  // The tab is opened synchronously from the click so popup blockers allow it.
+  function openMergedPackageTab(shipmentId){
+    const tab=window.open('about:blank','_blank');
+    return run(async()=>{
+      try{
+        const {revision}=await revisionFor(shipmentId);
+        if(!revision.package_path)throw new Error('لا يوجد ملف مدموج لهذه المراجعة.');
+        const {data,error}=await sb.storage.from('bsgt-operations-packages').createSignedUrl(revision.package_path,300);if(error)throw error;
+        if(tab&&!tab.closed){tab.location.replace(data.signedUrl);try{tab.focus();}catch(e){}}
+        else{toast('اسمح للنوافذ المنبثقة لفتح الملف المدموج في تبويب مستقل.','err');openPdfPreview(data.signedUrl,'الحزمة الكاملة المدموجة');}
+        addLog('edit',JSON.stringify({action:'finance_package_opened',shipment:shipmentId,revision:revision.revision_no}));
+      }catch(error){if(tab&&!tab.closed)tab.close();throw error;}
+    });
+  }
   let previewTask=null,previewSequence=0;
   function closeOperationsPreview(){
     previewSequence++;
@@ -188,6 +204,9 @@
       if(cell&&!cell.querySelector('[data-revision-preview]')){
         const button=document.createElement('button');button.dataset.revisionPreview=row.id;button.className='btn btn-ghost btn-small';button.textContent='معاينة الشحنة';
         button.onclick=()=>run(()=>previewFinance(row.id));cell.append(button);
+        const packageButton=document.createElement('button');packageButton.dataset.revisionPackage=row.id;packageButton.className='btn btn-ghost btn-small';packageButton.type='button';
+        packageButton.textContent='فتح الملف المدموج';packageButton.title='فتح الحزمة المدموجة كاملة في تبويب جديد بالمتصفح';
+        packageButton.onclick=()=>openMergedPackageTab(row.id);cell.append(packageButton);
       }
     });updateFinanceSelection();
   }
@@ -199,6 +218,11 @@
       <h4>مستندات العمليات الأصلية · قراءة فقط</h4><div data-documents></div><div data-actions style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px"></div>`;
     const docs=host.querySelector('[data-documents]');
     revision.documents.forEach(d=>{const b=document.createElement('button');b.className='btn btn-ghost';b.textContent=labels[d.kind]||d.kind;b.onclick=()=>run(()=>openStored('bsgt-operations-packages',d.path,b.textContent));docs.append(b);});
+    if(revision.package_path){
+      const merged=document.createElement('button');merged.className='btn btn-ghost';merged.type='button';merged.dataset.revisionPackage=id;
+      merged.textContent='فتح الملف المدموج كاملاً في تبويب';merged.title='يفتح الحزمة المدموجة في تبويب جديد بالمتصفح للمطابقة مع المستندات الأصلية';
+      merged.onclick=()=>openMergedPackageTab(id);host.querySelector('[data-actions]').append(merged);
+    }
     if(shipment.bsgt_stage==='ready_for_finance'){
       const actions=host.querySelector('[data-actions]'),open=document.createElement('button');open.className='btn btn-primary';open.textContent='فتح بوابة التحصيل';open.onclick=()=>run(()=>openFinance([id]));actions.append(open);
       if(bsgtFinancePermission(true)){
