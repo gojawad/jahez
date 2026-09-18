@@ -348,6 +348,36 @@ async function logoutPortal(){
   }
 }
 function showCollectionNotice(message){ const notice=$('collectionNotice'); if(!notice) return; notice.textContent=message; notice.hidden=false; }
+// Visible send feedback beside the send buttons: phase = 'idle' | 'sending' | 'sent' | 'error'.
+// Only presentation; the send logic and its notices are unchanged.
+function setRemittingSendState(phase,detail){
+  const compact=$('compactRecordCollectionBtn'),header=$('recordCollectionBtn'),banner=$('remittingSendResult');
+  const buttons=[compact,header].filter(Boolean);
+  buttons.forEach(button=>{button.classList.toggle('is-sending',phase==='sending');button.classList.toggle('is-sent',phase==='sent');});
+  if(compact){
+    const label=compact.querySelector('strong'),icon=compact.querySelector('i');
+    if(label){
+      if(phase==='sending')label.textContent='جاري الإرسال…';
+      else if(phase==='sent')label.textContent='تم الإرسال ✓';
+      else label.innerHTML='إرسال (<b id="compactCollectionCount">0</b>)';
+      if(phase==='idle'){const count=$('compactCollectionCount');if(count)count.textContent=String(detected().rows.length);}
+    }
+    if(icon)icon.className=phase==='sent'?'bx bx-check-double':phase==='sending'?'bx bx-loader-alt bx-spin':'bx bx-send';
+  }
+  if(header){
+    if(phase==='sending')header.innerHTML='<i class="bx bx-loader-alt bx-spin"></i> جاري الإرسال…';
+    else if(phase==='sent')header.innerHTML='<i class="bx bx-check-double"></i> تم الإرسال للبنك المُرسل';
+    else header.innerHTML='<i class="bx bx-send"></i> إرسال للبنك المُرسل';
+  }
+  if(banner){
+    if(phase==='sent'||phase==='error'){
+      banner.className=`remitting-send-result is-${phase}`;
+      banner.innerHTML=`<i class="bx ${phase==='sent'?'bx-check-circle':'bx-error-circle'}"></i><span>${esc(detail||(phase==='sent'?'تم الإرسال للبنك المُرسل بنجاح.':'تعذر الإرسال.'))}</span>`;
+      banner.hidden=false;banner.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }else if(phase==='sending'){banner.hidden=true;}
+  }
+}
+window.setRemittingSendState=setRemittingSendState;
 function sectionCollapseState(){ try { return JSON.parse(localStorage.getItem(sectionCollapseStorageKey)||'{}')||{}; } catch (_) { return {}; } }
 function setSectionCollapsed(sectionName, collapsed){
   const section=document.querySelector(`.${sectionName}`), button=document.querySelector(`[data-collapse-section="${sectionName}"]`); if(!section||!button) return;
@@ -815,6 +845,7 @@ function renderCollectionSummary(){
   $('compactShipmentCount').textContent=rows.length;
   $('compactCollectionTotal').textContent=collection?formatMoney(collection.currency,collection.number):(rows.length?'عملات متعددة':'-');
   action.disabled=!rows.length;
+  if(state.tradeFile?.status==='sent_to_remitting'&&!action.classList.contains('is-sent')){setRemittingSendState('sent',`تم إرسال الملف ${state.tradeFile.operation_no||''} للبنك المُرسل.`);action.disabled=true;}
 }
 function renderPicker(){
   const search=$('searchInput').value.trim().toLowerCase(), cur=$('currencyFilter').value, consignee=$('consigneeFilter').value;
@@ -929,6 +960,7 @@ async function sendToRemittingBank(){
   if(currencies.length!==1){ alert('أرسل كل عملة في حزمة مستقلة حتى تبقى المستندات متسقة.'); return; }
   const total=collectionTotal(rows);
   if(!confirm(`سيتم تجهيز ${rows.length} شحنة للإرسال إلى ${state.settings.remittingBank}.\n${formatMoney(total.currency,total.number)}\n\nهل تؤكد الإرسال؟`)) return;
+  setRemittingSendState('sending');
   const sentAt=new Date();
   const batch={id:state.tradeFile?.id||(crypto.randomUUID?crypto.randomUUID():`send-${sentAt.getTime()}`),operationNo:state.tradeFile?.operation_no||createCollectionOperationNo(sentAt),shipmentIds:rows.map(row=>row.id),snapshotsByShipment:Object.fromEntries(rows.map(row=>[row.id,collectionShipmentSnapshot(row)])),remittingBank:state.settings.remittingBank,amount:formatMoney(total.currency,total.number),sentAt:sentAt.toISOString(),documentSettings:{...state.settings},documentKinds:collectionDocumentKinds(),convertToAed:state.convertToAed,exchangeRate:state.exchangeRate,qrIncluded:false};
   try{
@@ -943,8 +975,10 @@ async function sendToRemittingBank(){
     state.activeOperationNo=batch.operationNo;
     if(!state.tradeFile) rebuildRemittingBatches(); renderAll();
     showCollectionNotice(`تم إنشاء عملية التحصيل التجاري ${batch.operationNo}. المستندات مرتبطة بالشحنات ومُستبعدة من حزمة QR.`);
+    setRemittingSendState('sent',`تم الإرسال للبنك المُرسل ${batch.remittingBank||''} · عملية التحصيل ${batch.operationNo}`);
     document.querySelector('.collection-portal-section')?.scrollIntoView({behavior:'smooth',block:'start'});
   }catch(error){
+    setRemittingSendState('error',`تعذّر الإرسال: ${error?.message||error}`);
     alert(`تعذّر حفظ حالة الإرسال للشحنات. ${error?.message||error}`);
   }
 }

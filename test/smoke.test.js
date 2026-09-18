@@ -493,7 +493,7 @@ async function main() {
       assert.ok(!glass.includes('.bahar-inv'));
       const collectionHtml = await (await fetch(`${BASE}/experiments/bs-collection/`)).text();
       assert.ok(collectionHtml.includes('../../jahez-glass.css?v=20260908-glass-4'));
-      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260913-premium-1'));
+      assert.ok(collectionHtml.includes('collection-enterprise.css?v=20260918-send-green-1'));
       assert.ok(collectionHtml.includes('role-collection-preview-only collection-enterprise-ui'));
       assert.strictEqual((collectionHtml.match(/href="\/#v=dashboard"/g) || []).length, 2);
       assert.ok(collectionHtml.includes('id="documentEditorShell"'));

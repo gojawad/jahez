@@ -28,6 +28,7 @@
     if(!confirm('سيتم حفظ نسخ جديدة من مستندات التحصيل الثلاثة ثم إرسال الملف للإدارة عبر البنك المرسل. هل تؤكد؟'))return;
     busy=true;
     const buttons=[$('compactRecordCollectionBtn'),$('recordCollectionBtn')].filter(Boolean);buttons.forEach(b=>b.disabled=true);
+    window.setRemittingSendState?.('sending');
     try{
       const context=await rpc('get_bsgt_finance_context',{p_context_id:requestedFinanceContext});
       if(context.readOnly)throw new Error('تم إرسال الملف وأصبح للقراءة فقط.');
@@ -48,8 +49,9 @@
         p_metadata:{documentSettings:{...state.settings},documentKinds:collectionDocumentKinds(),amountSnapshot:total.number,currency:total.currency,shipmentNumbers:rows.map(row=>row.shipmentNo),convertToAed:state.convertToAed,exchangeRate:state.exchangeRate,qrIncluded:false}});
       state.shipments=state.shipments.map(s=>({...s,bsgtStage:'sent_to_remitting'}));renderAll();
       showCollectionNotice('حُفظت مستندات المالية وأُرسل الملف للإدارة. حزمة العمليات ورمز QR لم يتغيرا.');
-    }catch(error){alert(error.message||'تعذر إرسال الملف.');}
-    finally{busy=false;buttons.forEach(b=>b.disabled=state.tradeFile?.status==='sent_to_remitting');}
+      window.setRemittingSendState?.('sent',`تم الإرسال للبنك المُرسل ${state.settings.remittingBank||''} · الملف ${state.tradeFile?.operation_no||''} أصبح لدى الإدارة.`);
+    }catch(error){window.setRemittingSendState?.('error',`تعذر الإرسال: ${error.message||'تعذر إرسال الملف.'}`);alert(error.message||'تعذر إرسال الملف.');}
+    finally{busy=false;const sent=state.tradeFile?.status==='sent_to_remitting';buttons.forEach(b=>b.disabled=sent);if(!sent)window.setRemittingSendState?.('idle');}
   }
   window.CollectionRevisionContext={load,send};
 })();
