@@ -9,6 +9,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vthcmqqiexaedukduquv.s
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'shipment-files';
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,64}$/;
+const { buildSignedOperationsPackage, pickSignedRows } = require('./qr-signed-package');
+// Trade-file states in which the administration has finished signing. Before
+// that, the QR keeps opening the untouched approved operations package.
+const SIGNED_FILE_STATUSES = ['final_accepted', 'sent_to_collecting'];
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -28,6 +32,44 @@ function authHeaders() {
   // المفاتيح الجديدة sb_secret_ تكفيها apikey، ومفاتيح JWT القديمة تحتاج Authorization أيضاً.
   if (!SERVICE_KEY.startsWith('sb_secret_')) headers.Authorization = `Bearer ${SERVICE_KEY}`;
   return headers;
+}
+
+async function restRows(pathAndQuery) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`rest ${pathAndQuery.split('?')[0]} ${response.status}`);
+  return response.json();
+}
+
+async function downloadObject(bucket, storagePath) {
+  if (!storagePath || storagePath.includes('..')) throw new Error('Invalid storage path');
+  const objectUrl = `${SUPABASE_URL}/storage/v1/object/${bucket}/${storagePath.split('/').map(encodeURIComponent).join('/')}`;
+  const file = await fetch(objectUrl, { headers: authHeaders() });
+  if (!file.ok) throw new Error(`storage download ${bucket}/${storagePath} ${file.status}`);
+  return Buffer.from(await file.arrayBuffer());
+}
+
+// Returns the signed operations package for the shipment's approved revision,
+// or null when no administration-signed operations document exists yet.
+async function signedPackageFor(row, revision) {
+  const links = await restRows(`trade_collection_file_shipments?${new URLSearchParams({
+    select: 'trade_file_id', shipment_id: `eq.${row.id}`, operations_revision_id: `eq.${revision.id}`
+  })}`);
+  const fileIds = [...new Set(links.map(link => link.trade_file_id).filter(Boolean))];
+  if (!fileIds.length) return null;
+  const files = await restRows(`trade_collection_files?${new URLSearchParams({
+    select: 'id,revision_no,status,final_accepted_at,created_at', id: `in.(${fileIds.join(',')})`,
+    status: `in.(${SIGNED_FILE_STATUSES.join(',')})`, order: 'created_at.desc', limit: '1'
+  })}`);
+  const file = files[0];
+  if (!file) return null;
+  const rows = await restRows(`trade_collection_file_documents?${new URLSearchParams({
+    select: 'id,document_type,document_variant,storage_path,source_document_path,shipment_id,operations_revision_id,revision_no,is_active,created_at',
+    trade_file_id: `eq.${file.id}`, revision_no: `eq.${file.revision_no}`, document_variant: 'eq.administration_signed',
+    shipment_id: `eq.${row.id}`, is_active: 'eq.true'
+  })}`);
+  const signedRows = pickSignedRows(rows, { shipmentId: row.id, revisionId: revision.id, revisionNo: file.revision_no });
+  if (!signedRows.length) return null;
+  return buildSignedOperationsPackage({ documents: revision.documents, signedRows, download: downloadObject });
 }
 
 module.exports = async (req, res) => {
@@ -65,7 +107,7 @@ module.exports = async (req, res) => {
     let bucket = BUCKET;
     if (row.operations_revision_id) {
       const revisionQuery = new URLSearchParams({
-        select: 'id,package_path', id: `eq.${row.operations_revision_id}`,
+        select: 'id,package_path,documents', id: `eq.${row.operations_revision_id}`,
         shipment_id: `eq.${row.id}`, approved_at: 'not.is.null', limit: '1'
       });
       const revisionResponse = await fetch(`${SUPABASE_URL}/rest/v1/bsgt_operations_revisions?${revisionQuery}`, { headers: authHeaders() });
@@ -76,6 +118,22 @@ module.exports = async (req, res) => {
       }
       packagePath = revision.package_path;
       bucket = 'bsgt-operations-packages';
+      // Once the administration has accepted the trade file, serve the same
+      // package with its signed operations documents. Any problem here falls
+      // back to the plain approved package so the public link never breaks.
+      try {
+        const signed = await signedPackageFor(row, revision);
+        if (signed) {
+          const filename = `operation-${String(row.operationNo || row.id).replace(/[^\w.-]+/g, '_')}-signed.pdf`;
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+          res.setHeader('Content-Length', signed.bytes.length);
+          res.setHeader('X-Jahez-Package', `signed:${signed.signedKinds.join(',')}`);
+          return res.status(200).send(signed.bytes);
+        }
+      } catch (error) {
+        console.error('qr signed package', error);
+      }
     }
     if (!packagePath || packagePath.includes('..')) {
       return res.status(200).send(preliminaryPage(row.operationNo));

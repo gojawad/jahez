@@ -72,6 +72,18 @@ const files = [
   }
 ];
 
+const { PDFDocument } = require('../experiments/bs-collection/collection-pdf-lib');
+const signedScenario = { active: false, fileStatus: 'under_management_review' };
+const pdfCache = {};
+async function pdfWithPages(key, count) {
+  if (!pdfCache[key]) { const pdf = await PDFDocument.create(); for (let i = 0; i < count; i += 1) pdf.addPage(); pdfCache[key] = Buffer.from(await pdf.save()); }
+  return pdfCache[key];
+}
+const REVISION_DOCS = () => [
+  { kind: 'contract', path: `${SHIPMENT_ID}/${shipment.operations_revision_id}/contract.pdf` },
+  { kind: 'invoice', path: `${SHIPMENT_ID}/${shipment.operations_revision_id}/invoice.pdf` }
+];
+
 function json(res, value) {
   const body = JSON.stringify(value);
   res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
@@ -98,9 +110,36 @@ function startFakeSupabase() {
       assert.equal(url.searchParams.get('shipment_id'), `eq.${shipment.id}`);
       assert.equal(url.searchParams.get('id'), `eq.${shipment.operations_revision_id}`);
       assert.equal(url.searchParams.get('approved_at'), 'not.is.null');
-      return json(res, [{id:shipment.operations_revision_id,package_path:`${shipment.id}/${shipment.operations_revision_id}/package.pdf`}]);
+      return json(res, [{id:shipment.operations_revision_id,package_path:`${shipment.id}/${shipment.operations_revision_id}/package.pdf`,documents:REVISION_DOCS()}]);
+    }
+    if (url.pathname === '/rest/v1/trade_collection_file_shipments') {
+      if (!signedScenario.active) { res.writeHead(404); return res.end('not found'); }
+      assert.equal(url.searchParams.get('shipment_id'), `eq.${shipment.id}`);
+      return json(res, [{ trade_file_id: 'file-1' }]);
+    }
+    if (url.pathname === '/rest/v1/trade_collection_files') {
+      assert.equal(url.searchParams.get('status'), 'in.(final_accepted,sent_to_collecting)');
+      const accepted = ['final_accepted', 'sent_to_collecting'].includes(signedScenario.fileStatus);
+      return json(res, accepted ? [{ id: 'file-1', revision_no: 2, status: signedScenario.fileStatus, created_at: '2026-09-17T10:00:00Z' }] : []);
+    }
+    if (url.pathname === '/rest/v1/trade_collection_file_documents') {
+      assert.equal(url.searchParams.get('document_variant'), 'eq.administration_signed');
+      assert.equal(url.searchParams.get('is_active'), 'eq.true');
+      const base = { document_variant: 'administration_signed', shipment_id: shipment.id, operations_revision_id: shipment.operations_revision_id, revision_no: 2, is_active: true };
+      return json(res, [
+        { ...base, id: 'd1', document_type: 'contract', storage_path: 'signed/contract-signed.pdf', source_document_path: REVISION_DOCS()[0].path, created_at: '2026-09-17T10:05:00Z' },
+        { ...base, id: 'd2', document_type: 'letter', storage_path: 'signed/letter-signed.pdf', source_document_path: 'finance/letter.pdf', created_at: '2026-09-17T10:06:00Z' }
+      ]);
+    }
+    if (url.pathname.startsWith('/storage/v1/object/trade-collection-documents/')) {
+      const storagePath = decodeURIComponent(url.pathname.replace('/storage/v1/object/trade-collection-documents/', ''));
+      if (storagePath === 'signed/letter-signed.pdf') { res.writeHead(500); return res.end('confidential document must never be requested by the QR route'); }
+      return pdfWithPages('signed-contract', 2).then(body => { res.writeHead(200, {'Content-Type':'application/pdf'}); res.end(body); });
     }
     if (url.pathname.startsWith('/storage/v1/object/bsgt-operations-packages/')) {
+      const storagePath = decodeURIComponent(url.pathname.replace('/storage/v1/object/bsgt-operations-packages/', ''));
+      if (signedScenario.active && storagePath.endsWith('/invoice.pdf')) return pdfWithPages('invoice', 1).then(body => { res.writeHead(200, {'Content-Type':'application/pdf'}); res.end(body); });
+      if (signedScenario.active && storagePath.endsWith('/contract.pdf')) { res.writeHead(500); return res.end('signed contract must replace the original'); }
       const body=Buffer.from(`%PDF-operations-${shipment.operations_revision_id}`);
       res.writeHead(200, {'Content-Type':'application/pdf'}); return res.end(body);
     }
@@ -179,6 +218,22 @@ async function main() {
     assert.strictEqual(await (await fetch(packageUrl+'&document=letter&bucket=trade-collection-documents')).text(),'%PDF-operations-revision-1');
     shipment.operations_revision_id='revision-2';
     assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-2');
+
+    // Administration signatures: only after the trade file is accepted, only operations documents, finance stays out.
+    signedScenario.active = true; signedScenario.fileStatus = 'under_management_review';
+    let response = await fetch(packageUrl);
+    assert.strictEqual(response.headers.get('x-jahez-package'), null, 'no signed package before management acceptance');
+    assert.strictEqual(await response.text(), '%PDF-operations-revision-2');
+    signedScenario.fileStatus = 'final_accepted';
+    response = await fetch(packageUrl);
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(response.headers.get('x-jahez-package'), 'signed:contract');
+    const signedPdf = await PDFDocument.load(Buffer.from(await response.arrayBuffer()));
+    assert.strictEqual(signedPdf.getPageCount(), 3, 'signed contract (2 pages) + original invoice (1 page); confidential letter excluded');
+    signedScenario.fileStatus = 'sent_to_collecting';
+    assert.strictEqual((await fetch(packageUrl)).headers.get('x-jahez-package'), 'signed:contract');
+    signedScenario.active = false;
+    console.log('✔ QR serves administration-signed operations documents after acceptance and never finance documents');
 
     const appHtml = await fs.promises.readFile(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(appHtml.includes('if(!rec.qrToken) rec.qrToken = newQrToken();'));
