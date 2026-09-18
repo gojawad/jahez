@@ -1,0 +1,18 @@
+/* Archive browser (shipments) + archive action buttons. */
+.jahez-archive-modal{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:20px;background:rgba(12,26,45,.54)}
+.jahez-archive-modal[hidden]{display:none}
+.jahez-archive-card{width:min(760px,100%);max-height:85dvh;display:grid;grid-template-rows:auto 1fr;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+.jahez-archive-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #e8edf4;background:#f8fafc}
+.jahez-archive-card>header h3{margin:0;font-size:17px;color:#132c50}
+.jahez-archive-card>header p{margin:3px 0 0;color:#6b7f99;font-size:12px}
+.jahez-archive-list{display:grid;gap:8px;padding:12px;overflow:auto}
+.jahez-archive-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e3eaf3;border-radius:12px;background:#fff}
+.jahez-archive-row>div{display:grid;gap:2px;min-width:0}
+.jahez-archive-row b{font:700 14px 'IBM Plex Mono',monospace;color:#132c50}
+.jahez-archive-row small{color:#657a95;font-size:12px;overflow-wrap:anywhere}
+.jahez-archive-row .btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.jahez-archive-empty{padding:26px;text-align:center;color:#6b7f99}
+.btn.jahez-archive-action{display:inline-flex;align-items:center;gap:6px;color:#8a5a00;border-color:#f0d593;background:#fff8e6}
+.btn.jahez-archive-action:hover{background:#fff1cc}
+@media(max-width:520px){.jahez-archive-row{flex-direction:column;align-items:stretch}.jahez-archive-row .btn{justify-content:center}}
+.tf-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

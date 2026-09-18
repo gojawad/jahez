@@ -129,7 +129,7 @@
 
     const portalSlot = view.querySelector('.shipment-portal-slot');
     if(portalSlot){
-      ['bsgtImportPermitBtn', 'bsgtCollectionLabBtn'].forEach(id=>{
+      ['bsgtImportPermitBtn', 'bsgtCollectionLabBtn', 'archiveBtn'].forEach(id=>{
         const button = document.getElementById(id);
         if(button) portalSlot.appendChild(button);
       });
@@ -484,6 +484,8 @@
   }
 
   function applyScopeToQuery(query){
+    // Archived (test / non-operational) shipments never reach the list or its statistics.
+    if(window.JahezArchive) query = window.JahezArchive.active(query);
     const bahar = typeof baharCompanyEntry === 'function' ? baharCompanyEntry() : null;
     if(scopeKey() === 'bsgt'){
       if(bahar && bahar.id) return query.or(`company_id.eq.${bahar.id},data->>operationNo.ilike.BSGTX-*`);

@@ -423,7 +423,7 @@ async function main() {
     });
     await check('shipment list glass UI is isolated and server-paginated', async () => {
       assert.ok(appHtml.includes('shipment-list.css?v=20260911-workflow-4'));
-      assert.ok(appHtml.includes('shipment-list.js?v=20260911-workflow-4'));
+      assert.ok(appHtml.includes('shipment-list.js?v=20260918-archive-1'));
       assert.ok(shipmentListCss.includes('sp-view-table :is(#listBody, #seaBody, #issuedBody, #draftsBody)'));
       assert.ok(shipmentListCss.includes('backdrop-filter: none'));
       assert.ok(shipmentListCss.includes('#viewRecords.shipment-glass-page'));
@@ -454,7 +454,7 @@ async function main() {
       assert.ok(shipmentListJs.includes("state.viewMode === 'table'"));
       assert.ok(shipmentListJs.includes('shipment-empty-state'));
       assert.ok(shipmentListJs.includes('shipment-portal-slot'));
-      assert.ok(shipmentListJs.includes("['bsgtImportPermitBtn', 'bsgtCollectionLabBtn']"));
+      assert.ok(shipmentListJs.includes("['bsgtImportPermitBtn', 'bsgtCollectionLabBtn', 'archiveBtn']"));
       assert.ok(shipmentListJs.includes('record.invoiceNo || record.proformaNo'));
       assert.ok(shipmentListJs.includes('record.billNo'));
       assert.ok(shipmentListJs.includes('فاتورة: <b>'));

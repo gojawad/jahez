@@ -2497,6 +2497,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260918-full-bundle-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
+  <link rel="stylesheet" href="archive.css?v=20260918-archive-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
   <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-3">
@@ -2770,6 +2771,7 @@ try{
   </div>
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
+    <button type="button" class="btn btn-ghost btn-small" id="archiveBtn" style="display:none;" data-ic="archive" aria-controls="jahezArchiveModal">الأرشيف</button>
     <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">بوابة التحصيل التجاري</button>
     <button type="button" class="btn btn-ghost" id="bsgtImportPermitBtn" style="display:none;" data-ic="invoice" onclick="openImportPermitInvoice()" aria-controls="importPermitOverlay">فاتورة إذن الاستيراد</button>
     <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
@@ -2968,6 +2970,8 @@ try{
   <div class="view" id="viewOperationCenter"></div>
 
   <!-- ===== الشحنات ===== -->
+  <div class="jahez-archive-modal" id="jahezArchiveModal" hidden><div class="jahez-archive-card" role="dialog" aria-modal="true" aria-labelledby="jahezArchiveTitle"><header><div><h3 id="jahezArchiveTitle">الأرشيف — الشحنات المؤرشفة</h3><p>شحنات تجريبية أو غير تشغيلية أُخرجت من القوائم والحسابات دون حذف. يمكن استعادتها في أي وقت.</p></div><button type="button" class="btn btn-ghost btn-small" id="jahezArchiveClose">إغلاق</button></header><div class="jahez-archive-list" id="jahezArchiveList"></div></div></div>
+
   <div class="view" id="viewRecords">
 
   <div class="ship-tabs">
@@ -5871,6 +5875,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="sending-data.js?v=20260915-1"></script>
 <script src="bsgt-operations-display.js?v=20260915-2"></script>
 <script src="bsgt-relations.js?v=20260918-bank-wording-1"></script>
+<script src="archive.js?v=20260918-archive-1"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
 <script src="contract-client-assets.js?v=20260912-1"></script>
@@ -6068,6 +6073,7 @@ function rowToRecord(row){
   const r = Object.assign({}, row.data || {}, JahezShipmentWorkflow.fromRow(row));
   r.id = row.id;
   r.status = row.status;
+  r.archivedAt = row.archived_at || null;
   r.ownerId = row.owner_id;
   r.reviewNote = row.review_note || '';
   r.dueDate = row.due_date || '';
@@ -6108,8 +6114,9 @@ function recordToRow(r){
 async function loadRecords(){
   netStart();
   try{
-    const {data, error} = await sb.from('shipments')
-      .select('*').order('updated_at', {ascending:false});
+    await window.JahezArchive.ready();
+    const {data, error} = await window.JahezArchive.active(sb.from('shipments').select('*'))
+      .order('updated_at', {ascending:false});
     if(error) throw error;
     records = (data||[]).map(r=>{ const x = rowToRecord(r); x.__saved = true; return x; });
     console.log('loadRecords: تم تحميل ' + records.length + ' شحنة');
@@ -7216,7 +7223,7 @@ async function bootData(){
   try{ subscribeRealtime(); }catch(e){ console.error(e); }
   // تحقق ذاتي: هل المحمّل مطابق لما على الخادم؟
   try{
-    const {count} = await sb.from('shipments').select('id', {count:'exact', head:true});
+    const {count} = await window.JahezArchive.active(sb.from('shipments').select('id', {count:'exact', head:true}));
     if(typeof count === 'number' && count !== records.length){
       console.warn('عدم تطابق: الخادم='+count+' المحمّل='+records.length+' — إعادة محاولة');
       await new Promise(r=>setTimeout(r, 600));
@@ -7271,6 +7278,8 @@ function applyPermissionsUi(){
       el.style.display = allowed ? '' : 'none';
     }
   });
+  const archiveBtn = document.getElementById('archiveBtn');
+  if(archiveBtn) archiveBtn.style.display = (document.getElementById('viewRecords')?.classList.contains('active') && window.JahezArchive?.canArchive()) ? 'inline-flex' : 'none';
   document.body.classList.toggle('role-viewer', !ed);
   document.body.classList.toggle('no-shipment-write', !window.JahezPermissions?.canAny(['shipments.create','shipments.edit']));
   document.body.classList.toggle('role-admin', isAdmin());
@@ -9359,6 +9368,7 @@ function switchView(v, options){
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('commercial_collection')) ? 'inline-flex' : 'none';
   document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('import_permit')) ? 'inline-flex' : 'none';
   document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && bsgtOperationsPermission(true)) ? 'inline-flex' : 'none';
+  document.getElementById('archiveBtn').style.display = (v==='records' && window.JahezArchive?.canArchive()) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
   if(v==='operationCenter') renderOperationCenter();
   if(v==='records'){
@@ -9805,9 +9815,9 @@ async function loadBsgtOperationsPage(){
   const from = (bsgtOperationsListState.page - 1) * bsgtOperationsListState.pageSize;
   const to = from + bsgtOperationsListState.pageSize - 1;
   try{
-    let pageQuery = sb.from('shipments')
+    let pageQuery = window.JahezArchive.active(sb.from('shipments')
       .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,operations_revision_id,created_at,updated_at,data', {count:'exact'})
-      .eq('company_id', companyId);
+      .eq('company_id', companyId));
     const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
     if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);
     if(bsgtOperationsListState.consignee) pageQuery=pageQuery.eq('data->>consignee',bsgtOperationsListState.consignee);
@@ -9817,8 +9827,8 @@ async function loadBsgtOperationsPage(){
       : sb.from('shipments').select('data').eq('company_id',companyId).limit(1000);
     const [pageResult,draftResult,readyResult,consigneeOptionsResult] = await Promise.all([
       pageQuery,
-      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft'),
-      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance'),
+      window.JahezArchive.active(sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft')),
+      window.JahezArchive.active(sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')),
       consigneeOptionsRequest
     ]);
     const {data,count,error}=pageResult;
@@ -10023,8 +10033,8 @@ async function loadBsgtFinance(){
   const requestId=++bsgtFinanceState.requestId;
   try{
     const [readyResult,fileResult]=await Promise.all([
-      sb.from('shipments').select('*').eq('company_id',companyId).eq('bsgt_stage','ready_for_finance').order('operations_completed_at',{ascending:false}).limit(200),
-      sb.from('trade_collection_files').select('*').eq('company_id',companyId).order('created_at',{ascending:false}).limit(200)
+      window.JahezArchive.active(sb.from('shipments').select('*').eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')).order('operations_completed_at',{ascending:false}).limit(200),
+      window.JahezArchive.active(sb.from('trade_collection_files').select('*').eq('company_id',companyId)).order('created_at',{ascending:false}).limit(200)
     ]);
     if(readyResult.error) throw readyResult.error; if(fileResult.error) throw fileResult.error;
     const files=fileResult.data||[], fileIds=files.map(file=>file.id);
@@ -10214,7 +10224,7 @@ async function loadBsgtManagement(){
   const companyId=resolveBsgtCompanyId();if(!companyId){waiting.innerHTML='<div class="bsgt-management-error">تعذر تحديد شركة بحر سواكن.</div>';return;}
   const requestId=++bsgtManagementState.requestId;
   try{
-    const fileResult=await sb.from('trade_collection_files').select('*').eq('company_id',companyId).in('status',['sent_to_remitting','under_management_review']).order('updated_at',{ascending:false});if(fileResult.error)throw fileResult.error;
+    const fileResult=await window.JahezArchive.active(sb.from('trade_collection_files').select('*').eq('company_id',companyId).in('status',['sent_to_remitting','under_management_review'])).order('updated_at',{ascending:false});if(fileResult.error)throw fileResult.error;
     const files=fileResult.data||[],fileIds=files.map(file=>file.id);let links=[],shipments=[],documents=[],events=[],operationDocuments=[],profiles=[];
     if(fileIds.length){const [linkResult,documentResult,eventResult]=await Promise.all([sb.from('trade_collection_file_shipments').select('*').in('trade_file_id',fileIds),sb.from('trade_collection_file_documents').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false}),sb.from('trade_collection_file_events').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false})]);if(linkResult.error)throw linkResult.error;if(documentResult.error)throw documentResult.error;if(eventResult.error)throw eventResult.error;links=linkResult.data||[];documents=documentResult.data||[];events=eventResult.data||[];}
     const shipmentIds=[...new Set(links.map(link=>link.shipment_id))];if(shipmentIds.length){const [shipmentResult,operationDocumentResult]=await Promise.all([sb.from('shipments').select('*').in('id',shipmentIds),sb.from('shipment_files').select('id,shipment_id,document_type,label,name,path').in('shipment_id',shipmentIds)]);if(shipmentResult.error)throw shipmentResult.error;if(operationDocumentResult.error)throw operationDocumentResult.error;shipments=(shipmentResult.data||[]).map(rowToRecord);operationDocuments=operationDocumentResult.data||[];}
@@ -10638,7 +10648,7 @@ async function loadBsgtOperationCenter(host){
   }
   const requestId = ++bsgtOperationCenterState.requestId;
   try{
-    const {data,error} = await sb.from('shipments').select('*').eq('company_id',companyId).order('updated_at',{ascending:false});
+    const {data,error} = await window.JahezArchive.active(sb.from('shipments').select('*').eq('company_id',companyId)).order('updated_at',{ascending:false});
     if(error) throw error;
     if(requestId !== bsgtOperationCenterState.requestId || !host.isConnected) return;
     bsgtOperationCenterState.rows = (data || []).map(rowToRecord);
@@ -17641,6 +17651,7 @@ function renderBsgtDetail(r){
           ${r.consignee ? `<button class="btn btn-ghost btn-small bsgt-icon-btn" id="shipCostBtn" title="تكلفة الشحن" aria-label="تكلفة الشحن" data-tip="تكلفة الشحن">${icon('truck',16)} <span class="bsgt-icon-label">تكلفة الشحن</span></button>` : ''}
           ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="dupBtn" title="نسخة جديدة منها" aria-label="نسخة جديدة منها" data-tip="نسخة جديدة منها">${icon('folder',16)} <span class="bsgt-icon-label">نسخة جديدة منها</span></button>`:''}
           ${bsgtOperationsPermission(true)?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="editBtn" title="تعديل" aria-label="تعديل" data-tip="تعديل">${icon('edit',16)} <span class="bsgt-icon-label">تعديل</span></button>`:''}
+          ${window.JahezArchive?.canArchive()?`<button type="button" class="btn btn-ghost btn-small jahez-archive-action" id="archiveShipmentBtn" title="إخراج الشحنة من القوائم والحسابات دون حذف">${icon('archive',15)} أرشفة</button>`:''}
           ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
         </footer>
       </main>
@@ -17752,6 +17763,7 @@ function openDetail(id, options = {}){
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
       ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>`:''}
       ${window.JahezPermissions?.can('shipments.edit')?`<button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>`:''}
+      ${window.JahezArchive?.canArchive()?`<button type="button" class="btn btn-ghost btn-small jahez-archive-action" id="archiveShipmentBtn" title="إخراج الشحنة من القوائم والحسابات دون حذف">${icon('archive',15)} أرشفة</button>`:''}
       ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
     </div>
   `;
@@ -17842,6 +17854,14 @@ function openDetail(id, options = {}){
     addLog('edit', (toSent?'تحويل لصادرة: ':'إرجاع لمسودة: ') + (rec.itemDesc||'شحنة').slice(0,40));
     overlay.classList.remove('open');
     render(); renderDrafts(); renderIssued(); renderSea(); renderDashboard();
+  });
+
+  document.getElementById('archiveShipmentBtn')?.addEventListener('click', async (event)=>{
+    const ok = await window.JahezArchive.archiveShipmentFromDetail(id, event.currentTarget);
+    if(!ok) return;
+    overlay.classList.remove('open');
+    render(); renderDrafts(); renderIssued(); renderSea(); renderDashboard();
+    if(document.getElementById('viewBsgtWorkspace')?.classList.contains('active') && document.getElementById('bsgtOperationsList')) loadBsgtOperationsPage();
   });
 
   document.getElementById('deleteBtn')?.addEventListener('click', async ()=>{
@@ -22170,10 +22190,10 @@ initializeAuthentication();
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260915-merge-routing-1"></script>
 <script src="shipment-detail.js"></script>
-<script src="shipment-list.js?v=20260911-workflow-4"></script>
+<script src="shipment-list.js?v=20260918-archive-1"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
 <script src="bsgt-revision-workflow.js?v=20260918-signed-preview-1"></script>
-<script src="bsgt-trade-files.js?v=20260915-print-download-1"></script>
+<script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 </body>
 </html>
