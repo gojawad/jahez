@@ -19,6 +19,9 @@
       state.exchangeRate=Number(result.file.metadata?.exchangeRate)||state.exchangeRate;
     }
     document.body.classList.add('trade-file-context');
+    // Same as loadTradeFileContext(): finance staff must see and fill section 03
+    // (بيانات الإرسال للبنك المُرسل) before sending; only the list manager stays admin-only.
+    for(const selector of ['[data-step-section="settings-section"]','.settings-section'])document.querySelector?.(selector)?.classList.remove('admin-document-settings');
   }
   async function send(){
     if(busy)return;
