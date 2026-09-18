@@ -357,9 +357,11 @@ function setRemittingSendState(phase,detail){
   if(compact){
     const label=compact.querySelector('strong'),icon=compact.querySelector('i');
     if(label){
-      if(phase==='sending')label.textContent='جاري الإرسال…';
-      else if(phase==='sent')label.textContent='تم الإرسال ✓';
-      else label.innerHTML='إرسال (<b id="compactCollectionCount">0</b>)';
+      // The counter element must survive every phase: renderCollectionSummary() writes to it after each render.
+      const current=$('compactCollectionCount')?.textContent||'0';
+      if(phase==='sending')label.innerHTML=`جاري الإرسال… <b id="compactCollectionCount" hidden>${esc(current)}</b>`;
+      else if(phase==='sent')label.innerHTML=`تم الإرسال ✓ <b id="compactCollectionCount" hidden>${esc(current)}</b>`;
+      else label.innerHTML=`إرسال (<b id="compactCollectionCount">${esc(current)}</b>)`;
       if(phase==='idle'){const count=$('compactCollectionCount');if(count)count.textContent=String(detected().rows.length);}
     }
     if(icon)icon.className=phase==='sent'?'bx bx-check-double':phase==='sending'?'bx bx-loader-alt bx-spin':'bx bx-send';
@@ -841,7 +843,7 @@ function updateConversionControls(){
 function renderCollectionSummary(){
   const {rows,currencies}=detected(), action=$('compactRecordCollectionBtn');
   const collection=rows.length&&currencies.length===1?collectionTotal(rows):null;
-  $('compactCollectionCount').textContent=rows.length;
+  const compactCount=$('compactCollectionCount');if(compactCount)compactCount.textContent=rows.length;
   $('compactShipmentCount').textContent=rows.length;
   $('compactCollectionTotal').textContent=collection?formatMoney(collection.currency,collection.number):(rows.length?'عملات متعددة':'-');
   action.disabled=!rows.length;
