@@ -16,3 +16,14 @@
 .bsgt-finance-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:rgba(15,23,42,.52)}.bsgt-finance-modal[hidden]{display:none}.bsgt-finance-modal-card{width:min(540px,100%);padding:22px;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.25)}.bsgt-finance-modal-card h3{margin:0 0 10px}.bsgt-finance-modal-card p{color:#667085;font-size:12px;line-height:1.8}.bsgt-finance-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 @media(max-width:1050px){.bsgt-finance-files{grid-template-columns:repeat(2,minmax(0,1fr))}.bsgt-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.bsgt-finance-head,.bsgt-finance-detail-header{align-items:stretch;flex-direction:column}.bsgt-finance-files,.bsgt-finance-summary{grid-template-columns:1fr}.bsgt-finance-bank{grid-template-columns:1fr}.bsgt-finance-detail-actions{display:grid}.bsgt-finance-detail-actions .btn{width:100%}}
+
+/* Finance row icon actions (preview shipment / open merged package). Labels stay in the DOM for screen readers; a CSS tooltip mirrors them. */
+.bsgt-finance-row-tools{display:inline-flex;align-items:center;gap:6px;vertical-align:middle}
+.bsgt-finance-row .bsgt-icon-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;min-height:36px;padding:0!important;border:1px solid #d3dce8!important;border-radius:9px;background:#fff!important;color:#3d5570!important;font-size:0!important;line-height:0;box-shadow:none;transition:background .16s ease,border-color .16s ease,color .16s ease,transform .1s ease}
+.bsgt-finance-row .bsgt-icon-btn .ic{width:16px;height:16px;font-size:16px!important;line-height:1}
+.bsgt-finance-row .bsgt-icon-btn .bsgt-icon-label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.bsgt-finance-row .bsgt-icon-btn:hover{background:#fff1f2!important;border-color:rgba(234,27,35,.32)!important;color:#d01119!important}
+.bsgt-finance-row .bsgt-icon-btn:active{transform:scale(.94)}
+.bsgt-finance-row .bsgt-icon-btn:focus-visible{outline:2px solid rgba(234,27,35,.18);outline-offset:2px}
+.bsgt-finance-row .bsgt-icon-btn[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translate(-50%,3px);padding:5px 8px;border-radius:7px;background:#17243a;color:#fff;font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;z-index:20;transition:opacity .14s ease,transform .14s ease,visibility 0s linear .14s}
+.bsgt-finance-row .bsgt-icon-btn[data-tip]:hover::after,.bsgt-finance-row .bsgt-icon-btn[data-tip]:focus-visible::after{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:.15s,.15s,0s}

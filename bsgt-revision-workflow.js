@@ -202,11 +202,13 @@
       input.disabled=false;
       const cell=input.closest('.bsgt-finance-row')?.lastElementChild;
       if(cell&&!cell.querySelector('[data-revision-preview]')){
-        const button=document.createElement('button');button.dataset.revisionPreview=row.id;button.className='btn btn-ghost btn-small';button.textContent='معاينة الشحنة';
-        button.onclick=()=>run(()=>previewFinance(row.id));cell.append(button);
-        const packageButton=document.createElement('button');packageButton.dataset.revisionPackage=row.id;packageButton.className='btn btn-ghost btn-small';packageButton.type='button';
-        packageButton.textContent='فتح الملف المدموج';packageButton.title='فتح الحزمة المدموجة كاملة في تبويب جديد بالمتصفح';
-        packageButton.onclick=()=>openMergedPackageTab(row.id);cell.append(packageButton);
+        const iconButton=(label,tip,iconName)=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-small bsgt-icon-btn';b.title=tip;b.setAttribute('aria-label',label);b.dataset.tip=label;b.innerHTML=`${icon(iconName,16)} <span class="bsgt-icon-label">${esc(label)}</span>`;return b;};
+        const tools=document.createElement('span');tools.className='bsgt-finance-row-tools';
+        const button=iconButton('معاينة الشحنة','معاينة بيانات الشحنة ومستندات العمليات الأصلية','eye');button.dataset.revisionPreview=row.id;
+        button.onclick=()=>run(()=>previewFinance(row.id));tools.append(button);
+        const packageButton=iconButton('فتح الملف المدموج','فتح الحزمة المدموجة كاملة في تبويب جديد بالمتصفح','doc');packageButton.dataset.revisionPackage=row.id;
+        packageButton.onclick=()=>openMergedPackageTab(row.id);tools.append(packageButton);
+        cell.append(tools);
       }
     });updateFinanceSelection();
   }
