@@ -1,0 +1,148 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {spawn}=require('node:child_process');const {chromium}=require('playwright-core');
+const PORT=5100+Math.floor(Math.random()*100),BASE=`http://127.0.0.1:${PORT}`,APP=`http://jahez.test:${PORT}`;
+const HASH='#v=bsgtWorkspace&section=operations',SUPA='https://vthcmqqiexaedukduquv.supabase.co';
+const userId='33333333-3333-4333-8333-333333333333',companyId='22222222-2222-4222-8222-222222222222';
+async function main(){
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'permit-browser-'));
+  const server=spawn(process.execPath,[path.join(__dirname,'../server.js')],{env:{...process.env,PORT:String(PORT),JAHEZ_DATA_DIR:dir,SUPABASE_SERVICE_ROLE_KEY:''},stdio:['ignore','inherit','inherit']});
+  const oldFetch=global.fetch,oldDir=process.env.JAHEZ_DATA_DIR,oldKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let browser;
+  try{
+    for(let i=0;i<50;i++){try{if((await fetch(BASE+'/healthz')).ok)break;}catch{}await new Promise(r=>setTimeout(r,200));}
+    const profile={id:userId,email:'permit@example.test',display_name:'Permit Tester',role:'admin',active:true};
+    process.env.JAHEZ_DATA_DIR=dir;process.env.SUPABASE_SERVICE_ROLE_KEY='test-key';
+    global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:userId}:[profile]});
+    const api=require('../api/import-permit-invoices');
+    const legacyData={proformaNo:'LEGACY',proformaDate:'2026-09-01',consignee:'BUYER',consigneeAddress:'ADDRESS',portDischarge:'PORT SUDAN',countryOrigin:'CHINA',currency:'USD',convertToAed:true,aedRate:3.67,incoterm:'CFR',paymentTerm:'D/A',bankId:'bank',items:[{commodityId:'legacy-not-in-catalog',description:'OLD GOODS',descriptionEn:'OLD GOODS',category:'OLD',hsCode:'123456',unit:'PCE',quantity:18.17,amount:123.456789}]};
+    const legacy={id:'legacy',reference:'BSGT-IP-2026-0001',ownerId:userId,data:legacyData,createdAt:'2026-09-01',updatedAt:'2026-09-01'};
+    const store=path.join(dir,'import-permit-invoices.json');
+    fs.writeFileSync(store,JSON.stringify([legacy,...Array.from({length:115},(_,i)=>({...legacy,id:'arch-'+i,reference:'ARCH-'+i,archivedAt:'2026-09-01'}))]));
+    const executablePath=[process.env.CHROMIUM_PATH,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].filter(Boolean).find(fs.existsSync);
+    browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP jahez.test 127.0.0.1']});
+    const context=await browser.newContext({viewport:{width:1440,height:1000}});
+    const exp=Math.floor(Date.now()/1000)+3600;const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+    const token=`${enc({alg:'HS256',typ:'JWT'})}.${enc({sub:userId,exp,aud:'authenticated'})}.signature`;
+    await context.addInitScript(({profile,token,exp})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'test',expires_at:exp,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,token,exp});
+    const apiRequests=[],foreignWrites=[];
+    await context.route(SUPA+'/**',route=>{
+      const request=route.request(),url=new URL(request.url());
+      const headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};
+      if(request.method()==='OPTIONS')return route.fulfill({status:204,headers});
+      if(['PATCH','DELETE'].includes(request.method())){
+        const sessionHeartbeat=url.pathname==='/rest/v1/profiles'&&request.method()==='PATCH'&&Object.keys(request.postDataJSON()).join(',')==='last_login';
+        if(!sessionHeartbeat)foreignWrites.push(url.pathname);
+      }
+      let body=[];
+      if(url.pathname.includes('/auth/v1/user'))body={id:userId,email:profile.email};
+      if(url.pathname==='/rest/v1/profiles')body=[profile];
+      if(url.pathname==='/rest/v1/user_portal_permissions')body=[{portal_key:'import_permit',can_view:true}];
+      if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions')body=[{permission_key:'import_permit.view',allowed:true}];
+      if(url.pathname==='/rest/v1/companies')body=[{id:companyId,name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:true,settings:{}}];
+      return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/0'},body:request.method()==='HEAD'?'':JSON.stringify(body)});
+    });
+    await context.route(APP+'/api/import-permit-invoices**',async route=>{
+      const r=route.request(),query=Object.fromEntries(new URL(r.url()).searchParams);apiRequests.push({method:r.method(),query});
+      const res={code:200,setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+      await api({method:r.method(),query,body:r.postData()?r.postDataJSON():undefined,headers:{authorization:'Bearer test'}},res);
+      await route.fulfill({status:res.code,contentType:'application/json',body:JSON.stringify(res.body)});
+    });
+    const page=await context.newPage(),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(APP+'/?portal=import-permit-records&permitView=new#v=bsgt',{waitUntil:'domcontentloaded'});
+    await page.locator('#importPermitOverlay.open').waitFor({timeout:20000}).catch(async error=>{console.error({errors,state:await page.evaluate(()=>({url:location.href,user:typeof currentUser!=='undefined'?currentUser?.role:null,company:typeof baharCompanyEntry==='function'?!!baharCompanyEntry():null,access:window.JahezAccess?.canAccessPortal('import_permit'),decimal:!!window.ImportPermitDecimal,loader:document.getElementById('importPermitRouteLoader')?.innerText}))});throw error;});assert.equal(new URL(page.url()).hash,HASH);
+    await page.reload({waitUntil:'domcontentloaded'});await page.locator('#importPermitOverlay.open').waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('permitView'),'new');
+    assert.equal(await page.locator('#permit_aedRate').inputValue(),'');
+    assert.equal(await page.locator('#permit_customCurrencyField').isVisible(),false,'manual currency is initially hidden');
+    await page.locator('#importPermitCloseX').click();await page.waitForURL(APP+'/'+HASH);
+    await page.waitForFunction(()=>typeof window.openImportPermitInvoice==='function'&&typeof currentUser!=='undefined'&&currentUser);
+    await page.evaluate(()=>openImportPermitInvoice());await page.locator('#importPermitOverlay.open').waitFor();
+    assert.equal(new URL(page.url()).hash,HASH);assert.equal(new URL(page.url()).searchParams.get('permitView'),'new');
+    // Populate existing lookup controls, not production records.
+    await page.evaluate(()=>{
+      const pairs={permit_consignee:'BUYER',permit_consigneeAddress:'ADDRESS',permit_portDischarge:'PORT SUDAN',permit_countryOrigin:'CHINA',permit_incoterm:'CFR',permit_paymentTerm:'D/A',permit_bankPick:'bank'};
+      for(const [id,value] of Object.entries(pairs)){const el=document.getElementById(id);el.add(new Option(value,value));el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));}
+    });
+    await page.locator('#permit_proformaNo').fill('DECIMAL-TEST');
+    const commodity=await page.locator('#permitCommodityOptions option').first().getAttribute('value');
+    await page.locator('.permit-item-commodity').fill(commodity);
+    await page.locator('.permit-item-qty').fill('18.170');await page.locator('.permit-item-amount').fill('123.456789');
+    await page.locator('#permit_currency').selectOption('__other__');await page.locator('#permit_customCurrency').fill('Sudanese Pound');
+    assert.equal(await page.locator('#permit_customCurrencyField').isVisible(),true);
+    await page.locator('#importPermitSaveBtn').click();assert.match(await page.locator('#importPermitValidation').innerText(),/سعر تحويل/);
+    await page.locator('#permitAedToggle').click();
+    await page.locator('#importPermitAddItemBtn').click();await page.locator('.permit-item-commodity').nth(1).fill(commodity);
+    await page.locator('.permit-item-qty').nth(1).fill('0.000001');await page.locator('.permit-item-amount').nth(1).fill('0.000001');
+    assert.equal(await page.locator('#importPermitGrandTotal').innerText(),'123.45679');
+    let dialogs=0;const cancel=d=>{dialogs++;d.dismiss();};page.on('dialog',cancel);
+    await page.locator('#importPermitCloseX').click();assert.equal(dialogs,1);assert.equal(await page.locator('#importPermitOverlay.open').count(),1);
+    await page.locator('#importPermitOverlay [data-import-permit-tab="history"]').click();assert.equal(dialogs,2);
+    await page.evaluate(()=>switchView('bsgtWorkspace',{section:'finance'}));assert.equal(dialogs,3);assert.equal(await page.locator('#importPermitOverlay.open').count(),1);
+    await page.evaluate(()=>{location.hash='v=bsgtWorkspace&section=finance';});await page.waitForFunction(()=>location.hash==='#v=bsgtWorkspace&section=operations');assert.equal(dialogs,4);
+    await page.locator('#lockNowBtn').click({force:true});assert.equal(dialogs,5);assert.equal(await page.evaluate(()=>!!currentUser),true);
+    await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);window.__permitUnloadPrevented=e.defaultPrevented;});assert.equal(await page.evaluate(()=>window.__permitUnloadPrevented),true);
+    page.off('dialog',cancel);
+    const saveResponse=page.waitForResponse(r=>r.url().includes('/api/import-permit-invoices')&&r.request().method()==='POST');
+    await page.locator('#importPermitSaveBtn').click();const saved=(await (await saveResponse).json()).record;assert.ok(saved);
+    await page.waitForFunction(()=>document.getElementById('importPermitSaveState').textContent.includes('آخر حفظ'));
+    assert.equal(saved.data.items[0].quantity,'18.17');assert.equal(saved.data.items[0].amount,'123.456789');assert.equal(saved.data.items[1].quantity,'0.000001');
+    assert.equal(saved.data.aedRate,'');assert.equal(saved.data.currency,'Sudanese Pound');
+    await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);window.__permitUnloadPrevented=e.defaultPrevented;});assert.equal(await page.evaluate(()=>window.__permitUnloadPrevented),false);
+    await page.evaluate(()=>openImportPermitHistory());await page.locator('[data-record-open="'+saved.id+'"]').first().waitFor();
+    assert.match(await page.locator('#importPermitRecords').innerText(),/123\.45679/);
+    await page.locator('[data-record-open="'+saved.id+'"]').first().click();
+    assert.equal(await page.locator('#permit_customCurrency').inputValue(),'Sudanese Pound');assert.equal(await page.locator('.permit-item-amount').first().inputValue(),'123.456789');
+    await page.evaluate(()=>{window.openPrintWindow=html=>{window.__permitPrintedHtml=html;};});
+    await page.locator('#importPermitPrintBtn').click();await page.locator('#docLangEnBtn').click();
+    await page.waitForFunction(()=>!!window.__permitPrintedHtml);
+    const printed=await page.evaluate(()=>window.__permitPrintedHtml);
+    assert.match(printed,/123\.456789/);assert.match(printed,/0\.000001/);assert.match(printed,/123\.45679/);assert.match(printed,/Sudanese Pound/i);
+    const paper=await context.newPage();await paper.setContent(printed);assert.match(await paper.locator('body').innerText(),/0\.000001/);assert.ok((await paper.pdf({format:'A4'})).length>1000);await paper.close();
+    await page.evaluate(()=>openImportPermitHistory());await page.locator('[data-record-open="legacy"]').first().click();
+    assert.equal(await page.locator('.permit-item-qty').inputValue(),'18.17');assert.equal(await page.locator('#permit_aedRate').inputValue(),'3.67');
+    await page.locator('#permit_proformaNo').fill('LEGACY-EDIT');await page.locator('#importPermitSaveBtn').click();
+    await page.waitForFunction(()=>document.getElementById('importPermitSaveState').textContent.includes('آخر حفظ'));
+    assert.equal(JSON.parse(fs.readFileSync(store)).find(r=>r.id==='legacy').reference,legacy.reference);
+    await page.evaluate(()=>{window.__permitPrintedHtml='';});await page.locator('#importPermitPrintBtn').click();await page.locator('#docLangEnBtn').click();
+    await page.waitForFunction(()=>!!window.__permitPrintedHtml);assert.match(await page.evaluate(()=>window.__permitPrintedHtml),/453\.08641563/,'legacy numeric saved exchange rate is applied exactly');
+    await page.evaluate(()=>openImportPermitHistory());page.once('dialog',d=>d.accept());await page.locator('[data-record-archive="'+saved.id+'"]').click();
+    await page.locator('#importPermitOpenArchiveBtn').click();await page.locator('[data-record-restore="'+saved.id+'"]').waitFor();
+    await page.locator('[data-record-restore="'+saved.id+'"]').click();await page.locator('[data-record-restore="'+saved.id+'"]').waitFor({state:'detached'});
+    await page.locator('[data-archive-page="12"]').first().click();await page.waitForFunction(()=>document.getElementById('importPermitArchivePagination').textContent.includes('الصفحة 12'));
+    assert.equal(await page.locator('#importPermitArchivedRecords article').count(),5);assert.ok(apiRequests.some(r=>r.query.page==='12'&&r.query.pageSize==='10'));
+    await page.locator('[data-archive-page="11"]').first().click();await page.waitForFunction(()=>document.getElementById('importPermitArchivePagination').textContent.includes('الصفحة 11'));assert.equal(await page.locator('#importPermitArchivedRecords article').count(),10);
+    await page.locator('#importPermitArchiveCloseX').click();await page.waitForURL(APP+'/'+HASH);
+    await page.waitForFunction(()=>typeof currentUser!=='undefined'&&currentUser&&typeof openImportPermitRecords==='function');
+    const popupPromise=page.waitForEvent('popup');await page.evaluate(()=>openImportPermitRecords());const popup=await popupPromise;
+    await popup.locator('#importPermitRecordsOverlay.open').waitFor({timeout:20000});assert.equal(new URL(popup.url()).hash,HASH);
+    const closed=popup.waitForEvent('close');await popup.locator('#importPermitRecordsCloseX').click();await closed;
+    const blockedPopupPromise=page.waitForEvent('popup');await page.evaluate(()=>openImportPermitRecords());const blockedPopup=await blockedPopupPromise;
+    await blockedPopup.locator('#importPermitRecordsOverlay.open').waitFor();
+    await blockedPopup.evaluate(()=>{window.close=()=>{};});await blockedPopup.locator('#importPermitRecordsCloseX').click();await blockedPopup.waitForURL(APP+'/'+HASH);await blockedPopup.close();
+    await page.goto(APP+'/?portal=import-permit-records&permitView=history'+HASH,{waitUntil:'domcontentloaded'});await page.locator('#importPermitRecordsOverlay.open').waitFor();
+    await page.reload({waitUntil:'domcontentloaded'});await page.locator('#importPermitRecordsOverlay.open').waitFor();assert.equal(new URL(page.url()).hash,HASH);
+    await page.locator('#importPermitRecordsCloseX').click();await page.waitForURL(APP+'/'+HASH);
+    await page.waitForFunction(()=>typeof currentUser!=='undefined'&&currentUser&&typeof openImportPermitInvoice==='function');
+    await page.evaluate(()=>openImportPermitInvoice());await page.locator('#permit_proformaNo').fill('TEMP');await page.locator('#permit_proformaNo').fill('');
+    assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);return e.defaultPrevented;}),false,'undoing edits restores the clean baseline');
+    await page.locator('#permit_proformaNo').fill('UNSAVED');
+    let reloadWarning=false;page.once('dialog',async d=>{reloadWarning=d.type()==='beforeunload';await d.dismiss();});
+    await page.reload({waitUntil:'domcontentloaded',timeout:5000}).catch(()=>{});assert.equal(reloadWarning,true);assert.equal(await page.locator('#permit_proformaNo').inputValue(),'UNSAVED');
+    page.once('dialog',d=>d.accept());await page.evaluate(()=>switchView('bsgtWorkspace',{section:'finance'}));assert.equal(new URL(page.url()).hash,'#v=bsgtWorkspace&section=finance');assert.equal(new URL(page.url()).searchParams.has('portal'),false);
+    await page.evaluate(()=>openImportPermitInvoice());await page.locator('#permit_proformaNo').fill('LOGOUT');page.once('dialog',d=>d.accept());await page.evaluate(()=>lockApp());assert.equal(await page.evaluate(()=>currentUser),null,'approved logout remains available');
+    profile.role='editor';profile.feature_permissions_initialized=true;
+    const employee=await context.newPage();await employee.goto(APP+'/?portal=import-permit-records&permitView=history'+HASH,{waitUntil:'domcontentloaded'});
+    await employee.locator('#importPermitRecordsOverlay.open').waitFor({timeout:20000}).catch(async error=>{console.error(await employee.evaluate(()=>({url:location.href,user:currentUser,allowed:window.JahezAccess?.canAccessPortal('import_permit'),company:!!baharCompanyEntry()})));throw error;});assert.equal(new URL(employee.url()).hash,HASH,'portal-only employee retains the required route');
+    assert.equal(await employee.evaluate(()=>canAccessAppView('bsgtWorkspace')),false,'opening the permit portal does not grant BSGT access');await employee.close();
+    assert.deepEqual(foreignWrites,[],'permit interactions never mutate shipments, finance or permissions');assert.deepEqual(errors,[]);
+    console.log('Import permit browser: decimals, real API save/reopen/print, legacy edit, dirty guards, archive pages, standalone routes and close: passed');
+  }finally{
+    if(browser)await browser.close();server.kill('SIGTERM');global.fetch=oldFetch;
+    if(oldDir===undefined)delete process.env.JAHEZ_DATA_DIR;else process.env.JAHEZ_DATA_DIR=oldDir;
+    if(oldKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=oldKey;
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});

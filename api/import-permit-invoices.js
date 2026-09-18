@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const decimal = require('../import-permit-decimal');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vthcmqqiexaedukduquv.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -92,13 +93,9 @@ async function saveStore(records) {
 }
 
 const cleanText = (value, max = 300) => String(value ?? '').trim().slice(0, max);
-const cleanNumber = value => {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : 0;
-};
-const cleanRate = value => {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 && number <= 1000 ? number : 3.67;
+const cleanDecimal = value => {
+  if(!decimal.positive(value)) throw Object.assign(new Error('أدخل قيمة عشرية موجبة صحيحة.'), {status:400});
+  return decimal.decimal(value);
 };
 
 function normalizePayload(input) {
@@ -110,8 +107,8 @@ function normalizePayload(input) {
     category: cleanText(item.category, 180),
     hsCode: cleanText(item.hsCode, 12),
     unit: cleanText(item.unit, 8),
-    quantity: cleanNumber(item.quantity),
-    amount: cleanNumber(item.amount)
+    quantity: cleanDecimal(item.quantity),
+    amount: cleanDecimal(item.amount)
   })) : [];
   if (!cleanText(data.proformaNo, 50) || !/^\d{4}-\d{2}-\d{2}$/.test(cleanText(data.proformaDate, 10))) {
     throw Object.assign(new Error('رقم وتاريخ الفاتورة مطلوبان.'), { status: 400 });
@@ -122,6 +119,10 @@ function normalizePayload(input) {
   if (!items.length || items.some(item => !item.commodityId || !item.description || !/^\d{6,10}$/.test(item.hsCode) || !item.unit || !item.quantity || !item.amount)) {
     throw Object.assign(new Error('بيانات السلع غير مكتملة أو غير صحيحة.'), { status: 400 });
   }
+  let currency;
+  try{currency=decimal.currency(data.currency);}catch{throw Object.assign(new Error('أدخل عملة صحيحة بطول لا يتجاوز 64 حرفاً.'),{status:400});}
+  const needsRate=data.convertToAed===true&&currency!=='AED';
+  const aedRate=needsRate||String(data.aedRate??'').trim()?cleanDecimal(data.aedRate):'';
   return {
     proformaNo: cleanText(data.proformaNo, 50),
     proformaDate: cleanText(data.proformaDate, 10),
@@ -129,9 +130,9 @@ function normalizePayload(input) {
     consigneeAddress: cleanText(data.consigneeAddress, 800),
     portDischarge: cleanText(data.portDischarge),
     countryOrigin: cleanText(data.countryOrigin),
-    currency: cleanText(data.currency, 8).toUpperCase(),
+    currency,
     convertToAed: data.convertToAed === true,
-    aedRate: cleanRate(data.aedRate),
+    aedRate,
     incoterm: cleanText(data.incoterm),
     paymentTerm: cleanText(data.paymentTerm, 500),
     bankId: cleanText(data.bankId, 80),
@@ -171,7 +172,7 @@ function listInvoices(records, profile, query = {}) {
   const requestedPage = Math.max(1, Math.floor(Number(query.page) || 1));
   const search = cleanText(query.search, 160).toLocaleLowerCase('en-US');
   const client = cleanText(query.client, 300);
-  const currency = cleanText(query.currency, 8).toUpperCase();
+  const currency = cleanText(query.currency, 64).toUpperCase();
   const from = /^\d{4}-\d{2}-\d{2}$/.test(String(query.from || '')) ? String(query.from) : '';
   const to = /^\d{4}-\d{2}-\d{2}$/.test(String(query.to || '')) ? String(query.to) : '';
   const sort = ['updated-desc', 'date-desc', 'date-asc', 'reference-asc'].includes(String(query.sort || ''))

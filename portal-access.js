@@ -18,7 +18,7 @@
     import_permit: Object.freeze({
       key: 'import_permit',
       label: 'فاتورة إذن الاستيراد',
-      href: '/?portal=import-permit-records&permitView=history#v=bsgt',
+      href: '/?portal=import-permit-records&permitView=history#v=bsgtWorkspace&section=operations',
       icon: 'invoice',
       allowedRoles: Object.freeze(['admin', 'editor', 'staff', 'bsgt_user'])
     })

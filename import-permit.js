@@ -18,6 +18,10 @@
   let recordListLoaded = false;
   let archivedListLoaded = false;
   let formDirty = false;
+  let cleanSnapshot = '';
+  let portalUrl=location.href;
+  const decimal = window.ImportPermitDecimal;
+  const portalHash = '#v=bsgtWorkspace&section=operations';
   let aedConversionEnabled = true;
   const portalRouteParams = new URLSearchParams(location.search);
   const standaloneRegister = portalRouteParams.get('portal') === 'import-permit-records';
@@ -29,13 +33,16 @@
   let recordClients = [];
   let recordRequestSequence = 0;
   let recordFilterTimer = 0;
+  let archivePage=1, archiveRequestSequence=0;
+  let archivePagination={page:1,total:0,totalPages:1};
 
   const byId = id => document.getElementById(id);
-  const numeric = value => {
-    const number = Number(String(value || '').replace(/,/g, '').trim());
-    return Number.isFinite(number) ? number : NaN;
+  const numeric = value => decimal.valid(value)?decimal.decimal(value):'0';
+  const money = value => String(value ?? '0');
+  const invoiceCurrency = () => {
+    const value=byId('permit_currency').value==='__other__'?byId('permit_customCurrency').value.trim():byId('permit_currency').value;
+    try{return decimal.currency(value);}catch{return value;}
   };
-  const money = value => Number(value || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const commodityLabel = item => `${item.name} — ${item.category} — HS ${item.hsCode} — ${item.unit}`;
 
   function todayIso(){
@@ -109,8 +116,14 @@
 
   async function loadArchivedRecords(force){
     if(archivedListLoaded && !force) return;
+    const sequence=++archiveRequestSequence;
+    archivedListLoaded=false;
+    byId('importPermitArchivePagination').hidden=true;
     byId('importPermitArchivedRecords').innerHTML = '<div class="import-permit-records-empty">جاري تحميل الأرشيف...</div>';
-    const result = await portalApi('/api/import-permit-invoices?status=archived&page=1&pageSize=100');
+    const result = await portalApi(`/api/import-permit-invoices?status=archived&page=${archivePage}&pageSize=10`);
+    if(sequence!==archiveRequestSequence)return;
+    archivePagination=result.pagination||{page:archivePage,total:0,totalPages:1};
+    archivePage=archivePagination.page;
     archivedRecords = Array.isArray(result.records) ? result.records : [];
     archivedListLoaded = true;
     renderArchivedRecords();
@@ -181,10 +194,10 @@
 
   function itemRowTemplate(index){
     return `<div class="field permit-commodity"><label>السلعة ${index} *</label><input type="text" class="permit-item-commodity" list="permitCommodityOptions" placeholder="ابحث باسم السلعة أو HS Code" autocomplete="off"></div>
-      <div class="field"><label>الكمية *</label><input type="number" class="permit-item-qty" min="0.000001" step="any" inputmode="decimal"></div>
+      <div class="field"><label>الكمية *</label><input type="text" class="permit-item-qty" inputmode="decimal"></div>
       <div class="field permit-unit"><label>الوحدة</label><input type="text" class="permit-item-unit" dir="ltr" readonly></div>
       <div class="field"><label>HS Code</label><input type="text" class="permit-item-hs" dir="ltr" readonly></div>
-      <div class="field"><label>إجمالي السلعة *</label><input type="number" class="permit-item-amount" min="0.01" step="any" inputmode="decimal"></div>
+      <div class="field"><label>إجمالي السلعة *</label><input type="text" class="permit-item-amount" inputmode="decimal"></div>
       <div class="field"><label>سعر الوحدة</label><input type="text" class="permit-item-price" dir="ltr" readonly></div>
       <button type="button" class="import-permit-item-remove" title="حذف السلعة" aria-label="حذف السلعة" data-ic="trash"></button>`;
   }
@@ -199,8 +212,12 @@
     row.innerHTML = itemRowTemplate(host.children.length + 1);
     host.appendChild(row);
     if(prefill?.commodityId){
-      const item = catalogById.get(String(prefill.commodityId));
+      const item = prefill.description?{
+        id:prefill.commodityId,name:prefill.description,nameEn:prefill.descriptionEn||prefill.description,
+        category:prefill.category||'',hsCode:prefill.hsCode,unit:prefill.unit
+      }:catalogById.get(String(prefill.commodityId));
       if(item){
+        row.dataset.savedCommodity=JSON.stringify(item);
         row.dataset.commodityId = item.id;
         row.querySelector('.permit-item-commodity').value = commodityLabel(item);
         row.querySelector('.permit-item-unit').value = item.unit;
@@ -224,7 +241,7 @@
   }
 
   function selectedCommodity(row){
-    const saved = catalogById.get(String(row.dataset.commodityId || ''));
+    const saved = row.dataset.savedCommodity?JSON.parse(row.dataset.savedCommodity):catalogById.get(String(row.dataset.commodityId || ''));
     const inputValue = row.querySelector('.permit-item-commodity').value.trim();
     if(saved && commodityLabel(saved) === inputValue) return saved;
     return catalog.find(item => commodityLabel(item) === inputValue) || null;
@@ -246,31 +263,32 @@
   function recalculateRow(row){
     const quantity = numeric(row.querySelector('.permit-item-qty').value);
     const amount = numeric(row.querySelector('.permit-item-amount').value);
-    row.querySelector('.permit-item-price').value = Number.isFinite(quantity) && quantity > 0 && Number.isFinite(amount)
-      ? money(amount / quantity)
+    row.querySelector('.permit-item-price').value = decimal.positive(quantity) && decimal.positive(amount)
+      ? decimal.divide(amount, quantity)
       : '';
     recalculateGrandTotal();
   }
 
   function recalculateGrandTotal(){
     const total = [...byId('importPermitItems').querySelectorAll('.permit-item-amount')]
-      .reduce((sum, input) => sum + (Number.isFinite(numeric(input.value)) ? numeric(input.value) : 0), 0);
+      .reduce((sum, input) => decimal.add(sum,numeric(input.value)), '0');
     byId('importPermitGrandTotal').textContent = money(total);
-    const currency = byId('permit_currency').value || 'AED';
+    const currency = invoiceCurrency();
     byId('importPermitGrandCurrency').textContent = currency;
     const shouldConvert = aedConversionEnabled && currency !== 'AED';
     byId('importPermitAedTotal').textContent = shouldConvert
-      ? `يعادل AED ${money(total * conversionRate())}`
+      ? (decimal.positive(conversionRate())?`يعادل AED ${decimal.multiply(total,conversionRate())}`:'أدخل سعر تحويل موجباً.')
       : '';
   }
 
   function conversionRate(){
-    const rate = numeric(byId('permit_aedRate').value);
-    return Number.isFinite(rate) && rate > 0 ? rate : 3.67;
+    return byId('permit_aedRate').value.trim();
   }
 
   function updateAedConversionUi(){
-    const currency = byId('permit_currency').value || 'AED';
+    byId('permit_customCurrencyField').hidden=byId('permit_currency').value!=='__other__';
+    byId('permit_customCurrencyField').style.display=byId('permit_customCurrencyField').hidden?'none':'';
+    const currency = invoiceCurrency();
     const needsConversion = currency !== 'AED';
     const button = byId('permitAedToggle');
     const rateInput = byId('permit_aedRate');
@@ -315,7 +333,8 @@
       const element = byId(id);
       if(!String(element.value || '').trim()) markMissing(element, label, missing, elements);
     });
-    if(aedConversionEnabled && byId('permit_currency').value !== 'AED' && !(numeric(byId('permit_aedRate').value) > 0)){
+    try{decimal.currency(invoiceCurrency());}catch{markMissing(byId('permit_customCurrency'),'عملة صحيحة (حتى 64 حرفاً)',missing,elements);}
+    if(((aedConversionEnabled && invoiceCurrency() !== 'AED')||conversionRate()) && !decimal.positive(conversionRate())){
       markMissing(byId('permit_aedRate'), 'سعر تحويل موجب إلى الدرهم', missing, elements);
     }
 
@@ -324,8 +343,8 @@
       const quantityInput = row.querySelector('.permit-item-qty');
       const amountInput = row.querySelector('.permit-item-amount');
       if(!selectedCommodity(row)) markMissing(commodityInput, `سلعة صحيحة للبند ${index + 1}`, missing, elements);
-      if(!(numeric(quantityInput.value) > 0)) markMissing(quantityInput, `كمية موجبة للبند ${index + 1}`, missing, elements);
-      if(!(numeric(amountInput.value) > 0)) markMissing(amountInput, `إجمالي موجب للبند ${index + 1}`, missing, elements);
+      if(!decimal.positive(quantityInput.value)) markMissing(quantityInput, `كمية موجبة للبند ${index + 1}`, missing, elements);
+      if(!decimal.positive(amountInput.value)) markMissing(amountInput, `إجمالي موجب للبند ${index + 1}`, missing, elements);
     });
 
     if(!missing.length) return true;
@@ -339,8 +358,8 @@
 
   function groupedQuantity(items){
     const totals = new Map();
-    items.forEach(item => totals.set(item.unit, (totals.get(item.unit) || 0) + item.quantity));
-    return [...totals.entries()].map(([unit, quantity]) => `${quantity.toLocaleString('en-US')} ${unit}`).join(' / ');
+    items.forEach(item => totals.set(item.unit, decimal.add(totals.get(item.unit) || '0',item.quantity)));
+    return [...totals.entries()].map(([unit, quantity]) => `${quantity} ${unit}`).join(' / ');
   }
 
   function formPayload(){
@@ -351,7 +370,7 @@
       consigneeAddress: byId('permit_consigneeAddress').value,
       portDischarge: byId('permit_portDischarge').value,
       countryOrigin: byId('permit_countryOrigin').value,
-      currency: byId('permit_currency').value,
+      currency: invoiceCurrency(),
       convertToAed: aedConversionEnabled,
       aedRate: conversionRate(),
       incoterm: byId('permit_incoterm').value,
@@ -384,12 +403,14 @@
     ['consignee','consigneeAddress','portDischarge','countryOrigin','incoterm','paymentTerm'].forEach(key => {
       setSelectValue(byId(`permit_${key}`), data[key] || '');
     });
-    byId('permit_currency').value = data.currency || 'AED';
+    const savedCurrency=data.currency||'AED';
+    byId('permit_currency').value = ['AED','USD','SAR','EUR'].includes(savedCurrency)?savedCurrency:'__other__';
+    byId('permit_customCurrency').value = byId('permit_currency').value==='__other__'?savedCurrency:'';
     aedConversionEnabled = data.convertToAed === true;
-    byId('permit_aedRate').value = data.aedRate || 3.67;
+    byId('permit_aedRate').value = data.aedRate ?? '';
     setSelectValue(byId('permit_bankPick'), data.bankId || '');
     byId('importPermitItems').innerHTML = '';
-    (data.items || []).forEach(item => addItem({commodityId:item.commodityId, quantity:item.quantity, amount:item.amount}));
+    (data.items || []).forEach(item => addItem(item));
     if(!byId('importPermitItems').children.length) addItem();
     clearValidation();
     updateAedConversionUi();
@@ -404,6 +425,7 @@
     printButton.disabled = true;
     const original = button.textContent;
     button.textContent = 'جاري الحفظ...';
+    const submittedSnapshot=snapshot();
     try{
       const result = await portalApi('/api/import-permit-invoices', {
         method:'POST',
@@ -414,7 +436,7 @@
       if(index >= 0) savedRecords[index] = saved;
       else savedRecords.unshift(saved);
       savedRecords.sort((a,b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-      setCurrentRecord(saved);
+      setCurrentRecord(saved,submittedSnapshot);
       toast(`تم حفظ الفاتورة بالمرجع ${saved.reference}`);
       return saved;
     }catch(error){
@@ -432,8 +454,8 @@
     const companyEntry = baharCompanyEntry();
     const sourceCurrency = data.currency || 'AED';
     const shouldConvert = data.convertToAed === true && sourceCurrency !== 'AED';
-    const savedRate = numeric(data.aedRate);
-    const rate = shouldConvert && savedRate > 0 ? savedRate : 1;
+    if(shouldConvert&&!decimal.positive(data.aedRate))throw new Error('أدخل سعر التحويل المحفوظ قبل الطباعة.');
+    const rate = shouldConvert ? decimal.decimal(data.aedRate) : '1';
     const currency = shouldConvert ? 'AED' : sourceCurrency;
     const bank = bankBook.find(entry => entry.id === data.bankId);
     const lines = (data.items || []).map(item => {
@@ -447,12 +469,12 @@
         quantity,
         unit: item.unit || commodity?.unit || '',
         hsCode: item.hsCode || commodity?.hsCode || '',
-        amount: amount * rate,
-        price: (quantity > 0 ? amount / quantity : 0) * rate
+        amount: decimal.multiply(amount,rate),
+        price: decimal.positive(quantity)?decimal.divide(decimal.multiply(amount,rate),quantity):'0'
       };
     });
     const currencyValue = value => `${currency} ${money(value)}`;
-    const grandTotal = lines.reduce((sum, line) => sum + line.amount, 0);
+    const grandTotal = lines.reduce((sum, line) => decimal.add(sum,line.amount), '0');
     const record = {
       companyId: companyEntry.id,
       permitInvoice: true,
@@ -502,10 +524,19 @@
     return portalRecordFromData(formPayload(), currentReference, lang);
   }
 
-  function setCurrentRecord(record){
+  function snapshot(){
+    return JSON.stringify([aedConversionEnabled,...[...byId('importPermitOverlay').querySelectorAll('input:not([readonly]),select')].map(input=>[input.id||input.className,input.value])]);
+  }
+  function hasUnsavedChanges(){return !!cleanSnapshot&&snapshot()!==cleanSnapshot;}
+  function confirmLeave(){
+    if(hasUnsavedChanges()&&!confirm('توجد تعديلات غير محفوظة. هل تريد المغادرة دون حفظ؟'))return false;
+    cleanSnapshot=snapshot();formDirty=false;return true;
+  }
+  function setCurrentRecord(record,baseline=snapshot()){
     currentRecordId = record?.id || '';
     currentReference = record?.reference || '';
-    formDirty = false;
+    cleanSnapshot=baseline;
+    formDirty = hasUnsavedChanges();
     byId('importPermitCurrentRef').textContent = currentReference || 'مسودة غير محفوظة';
     byId('importPermitSaveState').textContent = currentReference
       ? `آخر حفظ: ${formatSavedDate(record.updatedAt)}`
@@ -514,7 +545,7 @@
   }
 
   function markFormDirty(){
-    formDirty = true;
+    formDirty = hasUnsavedChanges();
     byId('importPermitSaveState').textContent = currentReference
       ? 'توجد تعديلات غير محفوظة.'
       : 'مسودة جديدة لم تُحفظ بعد.';
@@ -574,7 +605,7 @@
     const rows = savedRecords.map(record => {
       const active = record.id === currentRecordId ? ' active' : '';
       const items = record.data?.items || [];
-      const total = items.reduce((sum, item) => sum + (numeric(item.amount) || 0), 0);
+      const total = items.reduce((sum, item) => decimal.add(sum,numeric(item.amount)), '0');
       return `<tr class="${active.trim()}">
         <td data-label="المرجع"><b dir="ltr">${escapeText(record.reference)}</b></td>
         <td data-label="رقم الفاتورة"><button type="button" class="import-permit-record-link" data-record-open="${escapeText(record.id)}">${escapeText(record.data?.proformaNo || 'بدون رقم')}</button></td>
@@ -598,6 +629,11 @@
 
   function renderArchivedRecords(){
     const host = byId('importPermitArchivedRecords');
+    const pagination=byId('importPermitArchivePagination');
+    pagination.hidden=!archivedListLoaded||!archivePagination.total;
+    const pages=archivePagination.totalPages||1;
+    const candidates=[...new Set([1,pages,archivePage-1,archivePage,archivePage+1])].filter(p=>p>=1&&p<=pages).sort((a,b)=>a-b);
+    pagination.innerHTML=`<span>الصفحة ${archivePage} من ${pages} · ${archivePagination.total} فاتورة</span><button type="button" class="btn btn-ghost btn-small" data-archive-page="${archivePage-1}" ${archivePage<=1?'disabled':''}>السابق</button><div class="import-permit-page-numbers">${candidates.map(p=>`<button type="button" data-archive-page="${p}" ${p===archivePage?'aria-current="page" class="active"':''}>${p}</button>`).join('')}</div><button type="button" class="btn btn-ghost btn-small" data-archive-page="${archivePage+1}" ${archivePage>=pages?'disabled':''}>التالي</button>`;
     if(!archivedListLoaded){
       host.innerHTML = '<div class="import-permit-records-empty">جاري تحميل الأرشيف...</div>';
       return;
@@ -683,7 +719,8 @@
     byId('permit_proformaDate').value = todayIso();
     byId('permit_currency').value = 'AED';
     aedConversionEnabled = true;
-    byId('permit_aedRate').value = '3.67';
+    byId('permit_aedRate').value = '';
+    byId('permit_customCurrency').value = '';
     byId('importPermitItems').innerHTML = '';
     addItem();
     updateAedConversionUi();
@@ -705,11 +742,12 @@
 
   function updateStandalonePortalView(view){
     requestedPortalView = view;
-    if(!standaloneRegister) return;
     const url = new URL(location.href);
     url.searchParams.set('portal', 'import-permit-records');
     url.searchParams.set('permitView', view);
+    url.hash=portalHash;
     history.replaceState(null, '', url);
+    portalUrl=url.href;
   }
 
   function setPortalTabState(view){
@@ -723,6 +761,7 @@
 
   function openNewInvoicePortal(reset = true){
     if(!portalIsReady()) return false;
+    if(!confirmLeave())return false;
     fillPortalOptions();
     if(reset) resetPortal();
     hidePortal('importPermitRecordsOverlay');
@@ -734,28 +773,30 @@
     return true;
   }
 
-  function closePortal(){ hidePortal('importPermitOverlay'); }
+  function closePortal(event){
+    event?.stopPropagation();
+    if(!confirmLeave())return;
+    if(window.opener){try{window.close();}catch(error){}}
+    setTimeout(()=>{if(!window.closed)location.assign('/'+portalHash);},100);
+  }
 
   function openRecordsInNewTab(){
     if(standaloneRegister){
       openRecordsPortal();
       return;
     }
+    if(hasUnsavedChanges()&&!confirm('توجد تعديلات غير محفوظة. هل تريد فتح السجل في تبويب آخر؟'))return;
     const url = new URL(location.href);
     url.searchParams.set('portal', 'import-permit-records');
     url.searchParams.set('permitView', 'history');
-    url.hash = 'v=bsgt';
+    url.hash = portalHash;
     const opened = window.open(url.href, 'jahezImportPermitRecords');
     if(!opened) toast('اسمح للنوافذ المنبثقة لفتح سجل الفواتير في تبويب مستقل.', 'err');
     else try{ opened.focus(); }catch(error){}
   }
 
-  function closeRecordsPortal(){
-    if(standaloneRegister && window.opener && !window.opener.closed){
-      window.close();
-      return;
-    }
-    hidePortal('importPermitRecordsOverlay');
+  function closeRecordsPortal(event){
+    closePortal(event);
   }
 
   function portalIsReady(){
@@ -783,7 +824,7 @@
 
   async function openRecordsPortal(){
     if(!portalIsReady()) return false;
-    if(byId('importPermitOverlay').classList.contains('open') && formDirty && !confirm('توجد تعديلات غير محفوظة. هل تريد مغادرة شاشة الإدخال؟')) return false;
+    if(!confirmLeave())return false;
     hidePortal('importPermitOverlay');
     hidePortal('importPermitArchiveOverlay');
     byId('importPermitRouteLoader')?.classList.add('hidden');
@@ -804,6 +845,7 @@
 
   async function openArchivePortal(){
     if(!portalIsReady()) return;
+    if(!confirmLeave())return;
     hidePortal('importPermitOverlay');
     hidePortal('importPermitRecordsOverlay');
     showPortal('importPermitArchiveOverlay');
@@ -816,10 +858,10 @@
 
   byId('importPermitCloseX').addEventListener('click', closePortal);
   byId('importPermitRecordsCloseX').addEventListener('click', closeRecordsPortal);
-  byId('importPermitArchiveCloseX').addEventListener('click', () => hidePortal('importPermitArchiveOverlay'));
+  byId('importPermitArchiveCloseX').addEventListener('click', closePortal);
   byId('importPermitOpenArchiveBtn').addEventListener('click', openArchivePortal);
   byId('importPermitBackToRecordsBtn').addEventListener('click', openRecordsPortal);
-  byId('importPermitResetBtn').addEventListener('click', resetPortal);
+  byId('importPermitResetBtn').addEventListener('click', () => {if(confirmLeave())resetPortal();});
   byId('importPermitNewBtn').addEventListener('click', () => {
     openNewInvoicePortal(true);
   });
@@ -863,6 +905,11 @@
   byId('importPermitArchivedRecords').addEventListener('click', event => {
     const button = event.target.closest('[data-record-restore]');
     if(button) changeArchiveState(button.dataset.recordRestore, false);
+  });
+  byId('importPermitArchivePagination').addEventListener('click',event=>{
+    const button=event.target.closest('[data-archive-page]');if(!button||button.disabled)return;
+    archivePage=Number(button.dataset.archivePage);
+    loadArchivedRecords(true).catch(error=>toast(error.message,'err'));
   });
   function queueRecordLoad(delay = 0){
     clearTimeout(recordFilterTimer);
@@ -914,6 +961,7 @@
   });
   byId('importPermitAddItemBtn').addEventListener('click', () => { addItem(); markFormDirty(); });
   byId('permit_currency').addEventListener('change', updateAedConversionUi);
+  byId('permit_customCurrency').addEventListener('input',updateAedConversionUi);
   byId('permitAedToggle').addEventListener('click', () => {
     if(byId('permit_currency').value === 'AED') return;
     aedConversionEnabled = !aedConversionEnabled;
@@ -988,6 +1036,38 @@
   function scheduleStandaloneRegister(){
     setTimeout(()=>openStandaloneRegister().catch(error=>console.error('import permit initialization', error)), 0);
   }
+
+  const portalVisible=()=>['importPermitOverlay','importPermitRecordsOverlay','importPermitArchiveOverlay'].some(id=>byId(id).classList.contains('open'));
+  window.JahezImportPermitNavigation={restore(){
+    if(!portalVisible()||location.href===portalUrl)return true;
+    if(this.leave())return true;
+    history.replaceState(null,'',portalUrl);return false;
+  },leave(){
+    if(!portalVisible())return true;
+    if(!confirmLeave())return false;
+    ['importPermitOverlay','importPermitRecordsOverlay','importPermitArchiveOverlay'].forEach(hidePortal);
+    document.documentElement.classList.remove('import-permit-register-route');
+    const url=new URL(location.href);url.searchParams.delete('portal');url.searchParams.delete('permitView');
+    history.replaceState(null,'',url);return true;
+  }};
+  window.addEventListener('beforeunload',event=>{
+    if(portalVisible()&&hasUnsavedChanges()){event.preventDefault();event.returnValue='';}
+  });
+  function guardRouteChange(event){
+    if(!portalVisible()||location.href===portalUrl)return;
+    if(!window.JahezImportPermitNavigation.leave()){
+      event.stopImmediatePropagation();history.replaceState(null,'',portalUrl);
+    }
+  }
+  window.addEventListener('hashchange',guardRouteChange,true);
+  window.addEventListener('popstate',guardRouteChange,true);
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&portalVisible()){
+      event.stopImmediatePropagation();event.preventDefault();
+      const preview=document.querySelector('#pdfPreviewOverlay.open,#docLangOverlay.open');
+      if(preview)preview.querySelector('.close-x')?.click();else closePortal();
+    }
+  },true);
 
   window.addEventListener('jahez:access-ready', scheduleStandaloneRegister, {once:true});
   if(standaloneRegister){

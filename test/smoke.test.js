@@ -302,7 +302,7 @@ async function main() {
       assert.ok(appHtml.includes('id="importPermitRecordsOverlay"'));
       assert.ok(appHtml.includes('id="importPermitArchiveOverlay"'));
       assert.ok(appHtml.includes('id="permitAedToggle"'));
-      assert.ok(appHtml.includes('id="permit_aedRate" value="3.67"'));
+      assert.ok(appHtml.includes('id="permit_aedRate" value=""'));
       assert.ok(appHtml.includes('id="importPermitFilterClient"'));
       assert.ok(appHtml.includes('id="importPermitFilterSearch"'));
       assert.ok(appHtml.includes('id="importPermitFilterFrom"'));
@@ -334,7 +334,7 @@ async function main() {
       assert.ok(appHtml.includes('فاتورة مبدئية فقط، لا تنشئ شحنة ولا قيداً محاسبياً'));
       assert.ok(appHtml.includes('سجل فواتير إذن الاستيراد'));
       assert.ok(appHtml.includes('تحفظ بمرجع مستقل ولا تدخل ضمن الشحنات أو الحسابات'));
-      assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase()"));
+      assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED')"));
       assert.ok(appHtml.includes("record[firstItemKey('Unit')] || record.qtyUnit"));
       assert.ok(permitSource.includes('chooseDocLang(record, lang =>'));
       assert.ok(permitSource.includes("buildSheet(portalRecord(lang), 'proforma', lang)"));
@@ -355,7 +355,7 @@ async function main() {
       assert.ok(appHtml.includes('if(r.permitInvoice) return;'));
       assert.ok(permitSource.includes('permitInvoiceCurrency: currency'));
       assert.ok(permitSource.includes("const shouldConvert = data.convertToAed === true && sourceCurrency !== 'AED'"));
-      assert.ok(permitSource.includes('amount: amount * rate'));
+      assert.ok(permitSource.includes('amount: decimal.multiply(amount,rate)'));
       assert.ok(permitSource.includes("method:'PATCH'"));
       assert.ok(permitSource.includes('data-record-archive'));
       assert.ok(permitSource.includes('data-record-restore'));
@@ -373,7 +373,7 @@ async function main() {
       assert.ok(permitSource.includes("chooseDocLang({...record.data, permitInvoice:true}"));
       assert.ok(permitSource.includes("portalApi('/api/import-permit-invoices'"));
       assert.ok(permitSource.includes('saveCurrentRecord'));
-      assert.ok(permitSource.includes("byId('importPermitResetBtn').addEventListener('click', resetPortal)"));
+      assert.ok(permitSource.includes("if(confirmLeave())resetPortal()"));
       assert.ok(permitSource.includes("byId('importPermitSaveBtn').addEventListener('click', saveCurrentRecord)"));
       assert.ok(permitSource.includes("byId('importPermitPrintBtn').addEventListener('click', async () =>"));
       assert.ok(permitSource.includes('document.documentElement.appendChild(overlay)'));
@@ -647,7 +647,7 @@ async function main() {
         assert.strictEqual(first.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0001`);
         assert.strictEqual(first.body.record.data.items[0].descriptionEn, 'GOODS');
         assert.strictEqual(first.body.record.data.convertToAed, true);
-        assert.strictEqual(first.body.record.data.aedRate, 3.67);
+        assert.strictEqual(first.body.record.data.aedRate, '3.67');
         assert.strictEqual(second.body.record.reference, `BSGT-IP-${new Date().getFullYear()}-0002`);
         const updated = await call('POST', {id:first.body.record.id, data:{...data, proformaNo:'PI-001-A'}});
         assert.strictEqual(updated.body.record.reference, first.body.record.reference);

@@ -1,0 +1,54 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {test}=require('node:test');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const D=require('../import-permit-decimal');
+test('exact decimal calculations and currency validation',()=>{
+  for(const [input,expected] of [['123.456789','123.456789'],['0.000001','0.000001'],['18.170','18.17'],[0.000001,'0.000001'],[1e-7,'0.0000001']])assert.equal(D.decimal(input),expected);
+  assert.equal(D.add('123.456789','0.000001'),'123.45679');
+  assert.equal(D.add('9007199254740993','0.000001'),'9007199254740993.000001');
+  assert.equal(D.multiply('18.170','3.123456789'),'56.75320985613');
+  assert.equal(D.divide('0.000001','0.000001'),'1');
+  assert.equal(D.divide('1','8'),'0.125');assert.equal(D.divide('1','3'),'1 / 3');
+  assert.equal(D.currency('  Sudanese   Pound  '),'Sudanese Pound');
+  for(const value of ['','0','-1','Infinity','NaN','1e9999'])assert.equal(D.positive(value),false);
+  assert.throws(()=>D.currency('<script>'));assert.throws(()=>D.currency('A'.repeat(65)));
+});
+test('permit API preserves legacy records, decimals, references, authorization and archive pages',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'permit-api-'));
+  const oldEnv={dir:process.env.JAHEZ_DATA_DIR,key:process.env.SUPABASE_SERVICE_ROLE_KEY};
+  process.env.JAHEZ_DATA_DIR=dir;process.env.SUPABASE_SERVICE_ROLE_KEY='test-key';
+  const file=path.join(dir,'import-permit-invoices.json');
+  const data={proformaNo:'PI',proformaDate:'2026-09-16',consignee:'Buyer',consigneeAddress:'Address',portDischarge:'Port',countryOrigin:'China',currency:'USD',convertToAed:true,aedRate:3.67,items:[{commodityId:'1',description:'Goods',hsCode:'123456',unit:'PCE',quantity:18.17,amount:123.456789}]};
+  const legacy={id:'old',reference:'BSGT-IP-2026-0001',ownerId:'user',data,createdAt:'2026-09-01',updatedAt:'2026-09-01'};
+  const seed=[legacy,...Array.from({length:115},(_,i)=>({...legacy,id:'archive-'+i,reference:'ARCH-'+i,archivedAt:'2026-09-01'}))];
+  fs.writeFileSync(file,JSON.stringify(seed));const before=fs.readFileSync(file,'utf8');
+  const originalFetch=global.fetch;let role='admin';
+  global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:'user'}:String(url).includes('/profiles?')?[{id:'user',role,active:true,display_name:'Tester'}]:[]});
+  const modulePath=require.resolve('../api/import-permit-invoices');delete require.cache[modulePath];const handler=require(modulePath);
+  async function call(method,body,query={}){const res={setHeader(){},status(c){this.code=c;return this;},json(body){this.body=body;return this;}};await handler({method,body,query,headers:{authorization:'Bearer test'}},res);return res;}
+  try{
+    const list=await call('GET');assert.equal(list.body.records[0].data.items[0].quantity,18.17);
+    assert.equal(fs.readFileSync(file,'utf8'),before,'reads do not rewrite the legacy store');
+    for(const page of [1,2,12]){const r=await call('GET',null,{status:'archived',page,pageSize:10});assert.equal(r.body.pagination.total,115);assert.equal(r.body.records.length,page===12?5:10);assert.equal(r.body.pagination.page,page);}
+    assert.equal((await call('POST',{data:{...data,aedRate:''}})).code,400);
+    assert.equal((await call('POST',{data:{...data,aedRate:'0'}})).code,400);
+    assert.equal((await call('POST',{data:{...data,currency:'<bad>'}})).code,400);
+    const payload={...data,currency:'Sudanese Pound',aedRate:'0.000001',items:[{...data.items[0],quantity:'18.170',amount:'123.456789'},{...data.items[0],quantity:'0.000001',amount:'0.000001'}]};
+    const save=await call('POST',{data:payload});assert.equal(save.code,200);
+    assert.equal(save.body.record.data.currency,'Sudanese Pound');assert.equal(save.body.record.data.aedRate,'0.000001');
+    assert.deepEqual(save.body.record.data.items.map(i=>[i.quantity,i.amount]),[['18.17','123.456789'],['0.000001','0.000001']]);
+    assert.deepEqual(JSON.parse(fs.readFileSync(file)).find(r=>r.id==='old'),legacy,'unrelated old numeric values unchanged');
+    const id=save.body.record.id,ref=save.body.record.reference;
+    const edit=await call('POST',{id,data:{...payload,proformaNo:'EDIT'}});assert.equal(edit.body.record.reference,ref);
+    await call('PATCH',{id,archived:true});assert.equal((await call('POST',{id,data:payload})).code,409);
+    await call('PATCH',{id,archived:false});assert.equal((await call('GET')).body.records.find(r=>r.id===id).data.proformaNo,'EDIT');
+    const legacyEdit=await call('POST',{id:'old',data:{...data,proformaNo:'OLD-EDIT'}});assert.equal(legacyEdit.body.record.reference,legacy.reference);assert.equal(legacyEdit.body.record.data.items[0].amount,'123.456789');
+    const noConversion=await call('POST',{data:{...data,convertToAed:false,aedRate:''}});assert.equal(noConversion.code,200);assert.equal(noConversion.body.record.data.aedRate,'');
+    role='editor';assert.equal((await call('GET')).code,403);
+  }finally{
+    global.fetch=originalFetch;delete require.cache[modulePath];
+    for(const [key,value] of [['JAHEZ_DATA_DIR',oldEnv.dir],['SUPABASE_SERVICE_ROLE_KEY',oldEnv.key]])if(value===undefined)delete process.env[key];else process.env[key]=value;
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});

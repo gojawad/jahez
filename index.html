@@ -2515,6 +2515,9 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
 try{
   if(new URLSearchParams(location.search).get('portal') === 'import-permit-records'){
     document.documentElement.classList.add('import-permit-register-route');
+    const permitUrl=new URL(location.href);
+    permitUrl.hash='v=bsgtWorkspace&section=operations';
+    history.replaceState(null,'',permitUrl);
   }
 }catch(error){}
 </script>
@@ -5464,14 +5467,15 @@ SWIFT: NBEGEGCX"></textarea>
           <small>نفس القوائم الجاهزة المستخدمة في إدخال بحر سواكن.</small>
         </div>
         <div class="grid import-permit-grid">
-          <div class="field"><label>عملة الفاتورة *</label><select class="lookup-sel" id="permit_currency" dir="ltr"><option value="AED">AED - درهم إماراتي</option><option value="USD">USD - دولار أمريكي</option><option value="SAR">SAR - ريال سعودي</option><option value="EUR">EUR - يورو</option></select></div>
+          <div class="field"><label>عملة الفاتورة *</label><select class="lookup-sel" id="permit_currency" dir="ltr"><option value="AED">AED - درهم إماراتي</option><option value="USD">USD - دولار أمريكي</option><option value="SAR">SAR - ريال سعودي</option><option value="EUR">EUR - يورو</option><option value="__other__">عملة أخرى…</option></select></div>
+          <div class="field" id="permit_customCurrencyField" hidden><label for="permit_customCurrency">رمز أو اسم العملة *</label><input type="text" id="permit_customCurrency" maxlength="64" dir="auto"></div>
           <div class="field">
             <label>تحويل مبلغ الطباعة إلى AED</label>
             <div class="import-permit-conversion">
               <button type="button" class="btn btn-ghost btn-small active" id="permitAedToggle">التحويل مفعّل</button>
-              <input type="number" id="permit_aedRate" value="3.67" min="0.000001" max="1000" step="any" inputmode="decimal" dir="ltr" aria-label="سعر التحويل إلى الدرهم">
+              <input type="text" id="permit_aedRate" value="" inputmode="decimal" dir="ltr" aria-label="سعر التحويل إلى الدرهم">
             </div>
-            <small id="permitAedHint">سعر التحويل إلى الدرهم: 3.67</small>
+            <small id="permitAedHint">أدخل سعر التحويل عند تفعيله.</small>
           </div>
           <div class="field"><label>نوع التأمين (Incoterm) *</label><select class="lookup-sel" id="permit_incoterm"></select></div>
           <div class="field"><label>شروط الدفع *</label><select class="lookup-sel" id="permit_paymentTerm"></select></div>
@@ -5546,6 +5550,7 @@ SWIFT: NBEGEGCX"></textarea>
       <section class="import-permit-card">
         <div class="import-permit-card-heading"><div><span>00</span><h3>المحفوظات</h3></div><small>لا يوجد حذف نهائي من هذه البوابة.</small></div>
         <div class="import-permit-records import-permit-records-page" id="importPermitArchivedRecords"><div class="import-permit-records-empty">جاري تحميل الأرشيف...</div></div>
+        <div class="import-permit-pagination" id="importPermitArchivePagination" aria-label="صفحات أرشيف الفواتير" hidden></div>
       </section>
     </main>
   </div>
@@ -5854,7 +5859,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="permissions.js?v=20260912-authoritative-1"></script>
-<script src="portal-access.js?v=20260912-2"></script>
+<script src="portal-access.js?v=20260916-permit-route"></script>
 <script src="session-navigation.js?v=20260915-sending-master-1"></script>
   <script src="bsgt-workspace.js?v=20260915-trade-files-1"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
@@ -7277,6 +7282,7 @@ function applyPermissionsUi(){
 }
 
 async function lockApp(){
+  if(window.JahezImportPermitNavigation?.leave()===false)return;
   try{ await sb.auth.signOut(); }catch(e){}
   currentUser = null;
   currentPortal = null;
@@ -9286,6 +9292,7 @@ function parseHash(){
   return { v: p.get('v'), id: p.get('id'), doc: p.get('doc'), section: p.get('section'), returnTo: p.get('returnTo') };
 }
 function restoreFromHash(){
+  if(window.JahezImportPermitNavigation?.restore()===false)return;
   const {v, id, doc, section, returnTo} = parseHash();
   const fallback = 'dashboard';
   if(!v){ switchView(fallback); return; }
@@ -9310,7 +9317,7 @@ function restoreFromHash(){
     switchView(fallback);
     return;
   }
-  switchView(v, {section});
+  switchView(v, {section, preserveImportPermit:true});
   if(v === 'records' && id && records.find(x=>x.id===id)) openDetail(id, {returnTo, history:'replace'});
   if(v === 'clientProfiles' && id) setTimeout(()=>window.ClientCompanyProfiles?.openClient(id), 0);
 }
@@ -9318,7 +9325,9 @@ window.addEventListener('hashchange', restoreFromHash);
 window.addEventListener('popstate', restoreFromHash);
 
 function switchView(v, options){
-  closeAllOverlays();
+  const preserveImportPermit=options?.preserveImportPermit&&new URLSearchParams(location.search).get('portal')==='import-permit-records';
+  if(!preserveImportPermit&&window.JahezImportPermitNavigation?.leave()===false)return;
+  closeAllOverlays(preserveImportPermit);
   const requestedView = v;
   const requestedSection = options?.section || (v === 'bsgtWorkspace' ? parseHash().section : null);
   let accessDenied = false;
@@ -9369,7 +9378,9 @@ function switchView(v, options){
   if(v==='admin'){ renderUsers(); fillBrandForm(); renderDataStats(); renderLookupAdmin(); renderCompaniesAdmin(); }
   const activeRoute = parseHash();
   const preservedId = v === 'clientProfiles' && activeRoute.v === 'clientProfiles' ? activeRoute.id : null;
-  updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId, workspaceSection, options?.history);
+  if(preserveImportPermit){
+    const permitUrl=new URL(location.href);permitUrl.hash='v=bsgtWorkspace&section=operations';history.replaceState(null,'',permitUrl);
+  }else updateHash(navKey === 'bsgt' ? 'bsgt' : v, preservedId, workspaceSection, options?.history);
   syncEmployeeNavigationState();
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
@@ -16865,8 +16876,8 @@ document.getElementById('searchInput').addEventListener('input', ()=>{ currentPa
 const overlay = document.getElementById('overlay');
 
 // ===== إغلاق موثوق لكل النوافذ =====
-function closeAllOverlays(){
-  document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));
+function closeAllOverlays(preserveImportPermit=false){
+  document.querySelectorAll('.overlay.open').forEach(o=>{if(!preserveImportPermit||!o.classList.contains('import-permit-overlay'))o.classList.remove('open');});
   overlay.classList.remove('bsgt-workspace-overlay');
   const tpl = document.getElementById('tplEditorOverlay');
   if(tpl) tpl.classList.remove('open');
@@ -18588,7 +18599,7 @@ function baharSwakenInvoiceSheet(r, kind, lang){
   const settings = baharInvoiceRuntimeSettings(r);
   const isProforma = kind === 'proforma';
   const title = isProforma ? 'PROFORMA INVOICE' : 'COMMERCIAL INVOICE';
-  const amountCurrency = String(r.permitInvoiceCurrency || 'AED').toUpperCase();
+  const amountCurrency = String(r.permitInvoiceCurrency || 'AED');
   const number = isProforma ? r.proformaNo : r.invoiceNo;
   const date = fmtDateByLang(isProforma ? r.proformaDate : r.invoiceDate, 'en');
   const items = Array.from({length:15}, (_, index) => {
@@ -22016,7 +22027,8 @@ initializeAuthentication();
 </script>
 <script src="baldna-commodities.js?v=20260908-1"></script>
 <script src="baldna-commodity-translations.js?v=20260908-1"></script>
-<script src="import-permit.js?v=20260908-7"></script>
+<script src="import-permit-decimal.js?v=20260916-1"></script>
+<script src="import-permit.js?v=20260916-safe-1"></script>
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260915-merge-routing-1"></script>
 <script src="shipment-detail.js"></script>
