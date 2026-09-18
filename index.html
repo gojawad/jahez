@@ -2499,6 +2499,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
+  <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-1">
 </head>
 <body class="landing-active">
 
@@ -17055,10 +17056,10 @@ function renderDocActionsGrid(r){
           <span class="t">${icon(m.icon)} ${m.label}</span>
           <span class="s">${status}</span>
           ${canManageFiles ? '<span class="doc-drop-hint">اسحب ملف PDF أو صورة وأسقطها هنا</span>' : ''}
-          <div style="display:flex;gap:6px;margin-top:6px">
-            ${uploaded ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Open" title="معاينة الملف المرفق">${icon('eye',13)} معاينة</button>` : ''}
-            ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small" id="${m.btnId}Upload">${icon('upload',13)} ${uploaded? 'استبدال' : 'رفع الملف'}</button>` : ''}
-            ${uploaded && canDeleteFiles ? `<button type="button" class="btn btn-danger btn-small" id="${m.btnId}Delete" title="حذف ${m.label}">${icon('trash',13)} حذف الملف</button>` : ''}
+          <div class="doc-action-tools" style="display:flex;gap:6px;margin-top:6px">
+            ${uploaded ? `<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" id="${m.btnId}Open" title="معاينة الملف المرفق" aria-label="معاينة ${m.label}" data-tip="معاينة">${icon('eye',15)} <span class="bsgt-icon-label">معاينة</span></button>` : ''}
+            ${canManageFiles ? `<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" id="${m.btnId}Upload" title="${uploaded? 'استبدال الملف' : 'رفع الملف'}" aria-label="${uploaded? 'استبدال' : 'رفع'} ${m.label}" data-tip="${uploaded? 'استبدال' : 'رفع الملف'}">${icon('upload',15)} <span class="bsgt-icon-label">${uploaded? 'استبدال' : 'رفع الملف'}</span></button>` : ''}
+            ${uploaded && canDeleteFiles ? `<button type="button" class="btn btn-danger btn-small bsgt-icon-btn is-danger" id="${m.btnId}Delete" title="حذف ${m.label}" aria-label="حذف ${m.label}" data-tip="حذف الملف">${icon('trash',15)} <span class="bsgt-icon-label">حذف الملف</span></button>` : ''}
           </div>
         </div>`;
     }
@@ -17162,7 +17163,7 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-icon">${icon(docIcon,15)}</span>
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${ready?'جاهز للمعاينة والطباعة':'يحتاج استكمال بيانات الشحنة'}</small></span>
       <span class="bsgt-operation-doc-status${ready?' is-ready':''}">${ready?'جاهز':'غير مكتمل'}</span>
-      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-generated="${key}">${icon('eye',12)} فتح</button>${key==='contract'&&canEditContract?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-contract-edit>${icon('edit',12)} تعديل</button>`:''}</span>`:''}
+      ${ready?`<span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-generated="${key}" title="فتح ${label}" aria-label="فتح ${label}" data-tip="فتح">${icon('eye',15)} <span class="bsgt-icon-label">فتح</span></button>${key==='contract'&&canEditContract?`<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-contract-edit title="تعديل العقد" aria-label="تعديل العقد" data-tip="تعديل">${icon('edit',15)} <span class="bsgt-icon-label">تعديل</span></button>`:''}</span>`:''}
     </div>`;
   }).join('');
   const uploadedCards = uploadedMeta.map(([key,docIcon,label])=>{
@@ -17172,9 +17173,9 @@ function renderBsgtOperationsDocuments(r){
       <span class="bsgt-operation-doc-info"><b>${label}</b><small>${file?escapeHtml(file.name):'لم يُرفع بعد'}</small></span>
       <span class="bsgt-operation-doc-status${file?' is-ready':''}">${file?'مرفوع':'غير مرفوع'}</span>
       <span class="bsgt-operation-doc-actions">
-        ${file?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>`:''}
-        ${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="${key}">${icon('upload',12)} ${file?'استبدال':'رفع'}</button>`:''}
-        ${file&&canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}
+        ${file?`<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-file-open="${escapeHtml(file.id)}" title="معاينة ${label}" aria-label="معاينة ${label}" data-tip="معاينة">${icon('eye',15)} <span class="bsgt-icon-label">معاينة</span></button>`:''}
+        ${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-upload="${key}" title="${file?'استبدال':'رفع'} ${label}" aria-label="${file?'استبدال':'رفع'} ${label}" data-tip="${file?'استبدال':'رفع'}">${icon('upload',15)} <span class="bsgt-icon-label">${file?'استبدال':'رفع'}</span></button>`:''}
+        ${file&&canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete bsgt-icon-btn is-danger" data-bsgt-file-delete="${escapeHtml(file.id)}" title="حذف ${label}" aria-label="حذف ${label}" data-tip="حذف">${icon('trash',15)} <span class="bsgt-icon-label">حذف</span></button>`:''}
       </span>
     </div>`;
   }).join('');
@@ -17182,7 +17183,7 @@ function renderBsgtOperationsDocuments(r){
   const optionalCards = optionalFiles.map(file=>`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="uploaded" data-bsgt-file-id="${escapeHtml(file.id)}">
     <span class="bsgt-operation-doc-icon">${icon('folder',15)}</span>
     <span class="bsgt-operation-doc-info"><b>ملف اختياري</b><small>${escapeHtml(file.name)}</small></span>
-    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-file-open="${escapeHtml(file.id)}">${icon('eye',12)} معاينة</button>${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} استبدال</button>`:''}${canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete" data-bsgt-file-delete="${escapeHtml(file.id)}">${icon('trash',12)} حذف</button>`:''}</span>
+    <span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-file-open="${escapeHtml(file.id)}" title="معاينة ${escapeHtml(file.name)}" aria-label="معاينة ${escapeHtml(file.name)}" data-tip="معاينة">${icon('eye',15)} <span class="bsgt-icon-label">معاينة</span></button>${canEditDocuments?`<button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-upload="optionalAttachment" title="استبدال الملف الاختياري" aria-label="استبدال ${escapeHtml(file.name)}" data-tip="استبدال">${icon('upload',15)} <span class="bsgt-icon-label">استبدال</span></button>`:''}${canDeleteDocuments&&api.canDeleteUploadedDocument(r,file,canEditOperations)?`<button type="button" class="btn btn-small bsgt-operation-delete bsgt-icon-btn is-danger" data-bsgt-file-delete="${escapeHtml(file.id)}" title="حذف ${escapeHtml(file.name)}" aria-label="حذف ${escapeHtml(file.name)}" data-tip="حذف">${icon('trash',15)} <span class="bsgt-icon-label">حذف</span></button>`:''}</span>
   </div>`).join('');
   const leftOperations = r.bsgtStage !== 'operations_draft';
   return `<div class="bsgt-operations-docs">
@@ -17193,7 +17194,7 @@ function renderBsgtOperationsDocuments(r){
     </div>
     <div class="bsgt-operations-groups">
       <div class="bsgt-operations-group"><h4>المستندات المولدة تلقائياً</h4>${generatedCards}</div>
-      <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditDocuments?`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="upload-control"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-upload="optionalAttachment">${icon('upload',12)} رفع</button></span></div>`:''}</div>
+      <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditDocuments?`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="upload-control"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-upload="optionalAttachment" title="رفع ملف إضافي اختياري" aria-label="رفع ملف إضافي اختياري" data-tip="رفع">${icon('upload',15)} <span class="bsgt-icon-label">رفع</span></button></span></div>`:''}</div>
     </div>
     ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة الإلزامية.</div>':`<div class="bsgt-operations-missing"><b>ناقص:</b> ${evaluation.missing.map(escapeHtml).join('، ')}</div>`}
     <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage,r)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${canSendToFinance?'':`disabled title="${escapeHtml(leftOperations?'المستندات للقراءة فقط بعد مغادرة مرحلة العمليات.':'أكمل المتطلبات السبعة أولاً.')}"`}>${icon('arrow',14)} ${leftOperations?'تم إرسالها من العمليات':'إرسال للمالية'}</button>`:''}</div>
@@ -17453,8 +17454,10 @@ function renderBsgtDetail(r){
         </section>
 
         <section class="bsgt-detail-section bsgt-workflow-section" id="bsgtWorkflow">
-          <h3>مراحل الشحنة</h3>
-          ${renderShipmentWorkflowProgress(r)}
+          <details class="bsgt-detail-collapse" open>
+            <summary class="bsgt-detail-collapse-head"><h3>مراحل الشحنة</h3><span class="bsgt-detail-collapse-meta">${renderShipmentWorkflowBadge(r)}</span><span class="bsgt-detail-collapse-toggle" aria-hidden="true">${icon('arrowUp',15)}</span></summary>
+            <div class="bsgt-detail-collapse-body">${renderShipmentWorkflowProgress(r)}</div>
+          </details>
         </section>
 
         <section class="bsgt-detail-section" id="bsgtDocuments">
@@ -17479,13 +17482,17 @@ function renderBsgtDetail(r){
         </section>
 
         <section class="bsgt-detail-section" id="bsgtShipmentData">
-          <h3>بيانات الشحنة</h3>
-          <div class="bsgt-data-grid">${dataCards.map(([i,l,v])=>`<div class="bsgt-data-card"><div class="sum-top">${icon(i,14)} ${l}</div><span class="sum-value">${escapeHtml(String(v))}</span></div>`).join('')}</div>
+          <details class="bsgt-detail-collapse">
+            <summary class="bsgt-detail-collapse-head"><h3>بيانات الشحنة</h3><span class="bsgt-detail-collapse-meta bsgt-detail-collapse-preview">${dataCards.map(([i,l,v])=>`<span>${icon(i,12)} ${l}: <b>${escapeHtml(String(v))}</b></span>`).join('')}</span><span class="bsgt-detail-collapse-toggle" aria-hidden="true">${icon('arrowUp',15)}</span></summary>
+            <div class="bsgt-detail-collapse-body"><div class="bsgt-data-grid">${dataCards.map(([i,l,v])=>`<div class="bsgt-data-card"><div class="sum-top">${icon(i,14)} ${l}</div><span class="sum-value">${escapeHtml(String(v))}</span></div>`).join('')}</div></div>
+          </details>
         </section>
 
         <section class="bsgt-detail-section" id="bsgtActions">
-          <h3>سجل العملية</h3>
-          <div class="bsgt-timeline"><div class="stl-section"><div class="stl-head">${icon('list',15)} ما حدث في العملية</div><div id="stlList" class="stl-list"><div class="sf-loading">جاري التحميل…</div></div></div></div>
+          <details class="bsgt-detail-collapse">
+            <summary class="bsgt-detail-collapse-head"><h3>سجل العملية</h3><span class="bsgt-detail-collapse-toggle" aria-hidden="true">${icon('arrowUp',15)}</span></summary>
+            <div class="bsgt-detail-collapse-body"><div class="bsgt-timeline"><div class="stl-section"><div class="stl-head">${icon('list',15)} ما حدث في العملية</div><div id="stlList" class="stl-list"><div class="sf-loading">جاري التحميل…</div></div></div></div></div>
+          </details>
         </section>
 
         <div class="bsgt-hidden-content">
@@ -17499,10 +17506,10 @@ function renderBsgtDetail(r){
           ${fullActions.canMergePackage?`<button class="btn btn-gold${mergeLocked ? ' workflow-merge-locked' : ''}" id="packageBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'printer')} ${r.qrPackagePath ? 'تحديث الحزمة الكاملة PDF' : 'تجميع الحزمة الكاملة PDF'}</button>
           <button class="btn btn-ghost${mergeLocked ? ' workflow-merge-locked' : ''}" id="mergeAllBtn" ${mergeLocked ? `aria-disabled="true" title="${escapeHtml(mergeLockReason)}"` : ''}>${icon(mergeLocked ? 'lock' : 'doc')} دمج الحزمة في ملف واحد</button>`:''}
           ${reviewButtonsHtml(r)}
-          ${r.consignee ? `<button class="btn btn-ghost btn-small" id="lgBtn">${icon('bank',15)} حساب العميل</button>` : ''}
-          ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
-          ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>`:''}
-          ${bsgtOperationsPermission(true)?`<button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>`:''}
+          ${r.consignee ? `<button class="btn btn-ghost btn-small bsgt-icon-btn" id="lgBtn" title="حساب العميل" aria-label="حساب العميل" data-tip="حساب العميل">${icon('bank',16)} <span class="bsgt-icon-label">حساب العميل</span></button>` : ''}
+          ${r.consignee ? `<button class="btn btn-ghost btn-small bsgt-icon-btn" id="shipCostBtn" title="تكلفة الشحن" aria-label="تكلفة الشحن" data-tip="تكلفة الشحن">${icon('truck',16)} <span class="bsgt-icon-label">تكلفة الشحن</span></button>` : ''}
+          ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="dupBtn" title="نسخة جديدة منها" aria-label="نسخة جديدة منها" data-tip="نسخة جديدة منها">${icon('folder',16)} <span class="bsgt-icon-label">نسخة جديدة منها</span></button>`:''}
+          ${bsgtOperationsPermission(true)?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="editBtn" title="تعديل" aria-label="تعديل" data-tip="تعديل">${icon('edit',16)} <span class="bsgt-icon-label">تعديل</span></button>`:''}
           ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
         </footer>
       </main>
