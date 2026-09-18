@@ -58,13 +58,16 @@ async function buildPackage(input, generated, download, store, revisionId) {
   const folder = `${input.shipment.id}/${revisionId}`;
   const merged = await PDFDocument.create();
   const documents = [];
+  // Individual documents upload in the background while the next one is merged;
+  // every upload must still succeed before the package is stored and approved.
+  const pendingStores = [];
   async function append(kind, bytes, sourceId = null) {
     const pdf = await asPdf(bytes);
     const source = await PDFDocument.load(pdf);
     const pages = await merged.copyPages(source, source.getPageIndices());
     pages.forEach(page => merged.addPage(page));
     const path = `${folder}/${kind}.pdf`;
-    await store(path, pdf);
+    pendingStores.push(store(path, pdf));
     documents.push({ kind, sourceId, path, name: `${kind}.pdf`, source: 'operations' });
   }
   const allowedUploads = new Set(['import_permit', 'certificate_of_origin', 'bill_of_lading']);
@@ -79,11 +82,14 @@ async function buildPackage(input, generated, download, store, revisionId) {
   const savedOrder = input.shipment.data?.docOrder;
   const preferred = Array.isArray(savedOrder) ? savedOrder.filter(kind => LEGACY_ORDER.includes(kind)) : [];
   const sequence = ['contract', 'import_permit', ...new Set([...preferred, ...LEGACY_ORDER])];
+  // Fetch the three uploaded attachments together instead of one at a time.
+  const downloaded = new Map();
+  await Promise.all([...uploads.values()].map(async file => downloaded.set(file.kind, await download(file.path))));
   for (const key of sequence) {
     const kind = UPLOAD_ALIASES.get(key) || key;
     const file = uploads.get(kind);
     if (file) {
-      await append(kind, await download(file.path), file.id);
+      await append(kind, downloaded.get(kind), file.id);
     } else {
       const encoded = generated[kind];
       if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Invalid generated PDF');
@@ -93,6 +99,7 @@ async function buildPackage(input, generated, download, store, revisionId) {
     }
   }
   const packagePath = `${folder}/package.pdf`;
+  await Promise.all(pendingStores);
   await store(packagePath, Buffer.from(await merged.save()));
   return { documents, packagePath };
 }

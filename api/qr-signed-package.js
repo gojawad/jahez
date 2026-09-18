@@ -58,6 +58,33 @@ module.exports = { buildSignedOperationsPackage, pickSignedRows, CONFIDENTIAL_KI
 // new review revision, so their older signatures stay out until re-signed.
 const SIGNED_FILE_STATUSES = ['under_management_review', 'final_accepted', 'sent_to_collecting'];
 
+// Small in-memory cache of rebuilt packages. Entries are keyed by the exact set
+// of signed document rows, so a new signature or a new revision produces a new
+// key and the old entry simply ages out. Nothing is persisted.
+const CACHE_MAX_ENTRIES = 40;
+const CACHE_MAX_BYTES = 96 * 1024 * 1024;
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const packageCache = new Map();
+let packageCacheBytes = 0;
+function cacheGet(key) {
+  const entry = packageCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.at > CACHE_TTL_MS) { packageCache.delete(key); packageCacheBytes -= entry.value.bytes.length; return null; }
+  packageCache.delete(key); packageCache.set(key, entry); // refresh LRU order
+  return entry.value;
+}
+function cacheSet(key, value) {
+  if (!value || !value.bytes || value.bytes.length > CACHE_MAX_BYTES / 4) return value;
+  if (packageCache.has(key)) packageCacheBytes -= packageCache.get(key).value.bytes.length;
+  packageCache.set(key, { value, at: Date.now() }); packageCacheBytes += value.bytes.length;
+  while (packageCache.size > CACHE_MAX_ENTRIES || packageCacheBytes > CACHE_MAX_BYTES) {
+    const [oldest, entry] = packageCache.entries().next().value;
+    packageCache.delete(oldest); packageCacheBytes -= entry.value.bytes.length;
+  }
+  return value;
+}
+function clearPackageCache() { packageCache.clear(); packageCacheBytes = 0; }
+
 // Shared resolver: finds the newest active administration signatures for the
 // shipment's approved revision and returns the rebuilt package, or null.
 // restRows(pathAndQuery) -> rows (service role); download(bucket, path) -> Buffer.
@@ -81,8 +108,12 @@ async function resolveSignedOperationsPackage({ shipmentId, revision, restRows, 
   })}`);
   const signedRows = pickSignedRows(rows, { shipmentId, revisionId: revision.id, revisionNo: file.revision_no });
   if (!signedRows.length) return null;
-  return buildSignedOperationsPackage({ documents: revision.documents, signedRows, download });
+  const key = `${shipmentId}|${revision.id}|${file.id}|${file.revision_no}|${signedRows.map(row => `${row.id}:${row.storage_path}`).sort().join(',')}`;
+  const cached = cacheGet(key);
+  if (cached) return { ...cached, cached: true };
+  return cacheSet(key, await buildSignedOperationsPackage({ documents: revision.documents, signedRows, download }));
 }
 
 module.exports.resolveSignedOperationsPackage = resolveSignedOperationsPackage;
+module.exports.clearPackageCache = clearPackageCache;
 module.exports.SIGNED_FILE_STATUSES = SIGNED_FILE_STATUSES;
