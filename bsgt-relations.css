@@ -24,3 +24,59 @@
 @media(max-width:1100px){.bsgt-relations-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:800px){.bsgt-relations-board,.bsgt-relations-shipments{grid-template-columns:1fr}.bsgt-relations-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.bsgt-relations-doc{grid-template-columns:1fr}.bsgt-relations-detail-head{align-items:flex-start}}
 @media(max-width:520px){.bsgt-relations-summary{grid-template-columns:1fr}.bsgt-relations-modal-actions>*{flex:1}.bsgt-relations-attachment{align-items:flex-start}}
+
+/* Ready-to-send panel: one full-width panel, horizontal enterprise cards, real workflow track. */
+.bsgt-relations-ready-panel>header{padding:12px 16px}
+.bsgt-relations-lane-title{display:flex;align-items:center;gap:12px;min-width:0}
+.bsgt-relations-lane-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid rgba(234,27,35,.16);border-radius:10px;color:#d01119;background:#fff1f2}
+.bsgt-relations-lane-icon .ic{width:18px;height:18px}
+.bsgt-relations-ready-panel h3{font-size:17px;font-weight:800}
+.bsgt-relations-ready-panel p{font-size:12px}
+.bsgt-relations-count{display:inline-flex;align-items:center;padding:4px 10px;border:1px solid #dfe7f1;border-radius:999px;color:#132c50;background:#fff;font-size:12px;font-weight:700;white-space:nowrap}
+.bsgt-relations-count[hidden]{display:none}
+.bsgt-relations-ready-panel .bsgt-relations-list{gap:8px;padding:8px}
+.bsgt-relations-card-ready{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(200px,1.3fr) minmax(280px,2fr) auto;align-items:center;gap:0;padding:0;border-radius:12px;box-shadow:0 1px 2px rgba(20,43,76,.04)}
+.bsgt-relations-card-ready>div{min-width:0;padding:12px 16px}
+.bsgt-relations-card-ready>div+div{border-inline-start:1px solid #edf1f6}
+.bsgt-relations-card-id{display:grid;gap:6px;justify-items:start}
+.bsgt-relations-card-id h4{display:flex;align-items:center;gap:6px;font:700 15px 'IBM Plex Mono',monospace;color:#132c50}
+.bsgt-relations-card-id h4 .ic{width:16px;height:16px;color:#d01119}
+.bsgt-relations-card-count{font-size:12px;font-weight:700;color:#657a95}
+.bsgt-relations-card-facts{display:grid;gap:6px}
+.bsgt-relations-card-facts>div{display:flex;align-items:center;gap:8px;min-width:0;color:#657a95}
+.bsgt-relations-card-facts .ic{flex:0 0 15px;width:15px;height:15px}
+.bsgt-relations-card-facts span{display:flex;align-items:baseline;gap:6px;min-width:0}
+.bsgt-relations-card-facts small{flex:0 0 auto;font-size:11px;color:#7a8da5}.bsgt-relations-card-facts small::after{content:':'}
+.bsgt-relations-card-facts b{font-size:12.5px;color:#132c50;overflow-wrap:anywhere}
+.bsgt-relations-card-track{padding-block:10px}
+.bsgt-relations-track.bsgt-operations-stage-track{grid-template-columns:repeat(4,minmax(0,1fr));min-width:0}
+.bsgt-relations-track li{gap:6px}
+.bsgt-relations-track li>span{width:28px;height:28px;font-size:11px}
+.bsgt-relations-track li:not(:last-child):after{top:13px}
+.bsgt-relations-track li>b{font-size:11.5px}
+.bsgt-relations-track li.is-upcoming{color:#98a2b3}
+.bsgt-relations-card-side{display:grid;gap:8px;justify-items:end;min-width:200px}
+.bsgt-relations-badge.is-ready{background:#e5f7ee;color:#147a4b;border-color:#bce8d2}
+.bsgt-relations-badge.is-ready::before{content:"";width:7px;height:7px;margin-inline-end:6px;border-radius:50%;background:#16a36a}
+.bsgt-relations-card-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.bsgt-relations-card-actions .btn{display:inline-flex;align-items:center;gap:5px}
+.bsgt-relations-card-actions .btn:disabled{opacity:.5;cursor:not-allowed}
+.bsgt-relations-send{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-weight:800;font-size:13px;white-space:nowrap}
+.bsgt-relations-send:disabled{opacity:.7;cursor:progress}
+.bsgt-relations-confirm-bank{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #e5ebf3;border-radius:9px;background:#f7f9fc;color:#132c50;font-size:13px}
+.bsgt-relations-modal-card .bsgt-relations-primary{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:1200px){
+  .bsgt-relations-card-ready{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+  .bsgt-relations-card-ready>.bsgt-relations-card-track{order:1;grid-column:1/-1;border-inline-start:0;border-top:1px solid #edf1f6}
+}
+@media(max-width:760px){
+  .bsgt-relations-card-ready{grid-template-columns:1fr}
+  .bsgt-relations-card-ready>div+div{border-inline-start:0;border-top:1px solid #edf1f6}
+  .bsgt-relations-card-ready>div{padding:10px 12px}
+  .bsgt-relations-card-side{justify-items:stretch;min-width:0}
+  .bsgt-relations-card-actions{justify-content:stretch}
+  .bsgt-relations-card-actions .btn{flex:1;justify-content:center}
+  .bsgt-relations-send{justify-content:center}
+  .bsgt-relations-ready-panel>header{flex-direction:column;align-items:flex-start;gap:8px}
+}
+.bsgt-relations-pager:empty{display:none}

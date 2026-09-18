@@ -49,7 +49,7 @@ check(relations.validateAttachmentFile({type:'image/png',size:100}).valid,'PNG a
 check(relations.validateAttachmentFile({type:'image/jpeg',size:100}).valid,'JPEG accepted');
 check(!relations.validateAttachmentFile({type:'application/javascript',size:100}).valid,'executable rejected');
 check(!relations.validateAttachmentFile({type:'application/pdf',size:relations.MAX_FILE_SIZE+1}).valid,'oversized file rejected');
-check(relations.statusLabel('sent_to_collecting')==='تم الإرسال للبنك المحصل','sent label');
+check(relations.statusLabel('sent_to_collecting')==='تم الإرسال للبنك المعني','sent label');
 
 check(sql.includes('add column if not exists sent_to_collecting_by uuid references public.profiles(id)'),'send actor column');
 check(sql.includes('create table if not exists public.trade_collection_relations_attachments'),'relations attachment table');

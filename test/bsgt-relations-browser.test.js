@@ -14,7 +14,7 @@ const company={id:'bsgt-company',name_ar:'بحر سواكن للتجارة ال�
 const tradeId='10000000-0000-4000-8000-000000000005';
 const shipmentId='20000000-0000-4000-8000-000000000005';
 const secondShipmentId='20000000-0000-4000-8000-000000000006';
-function executable(){return ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync);}
+function executable(){return [process.env.CHROMIUM_PATH,'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync);}
 function jwt(){const enc=value=>Buffer.from(JSON.stringify(value)).toString('base64url');return `${enc({alg:'HS256'})}.${enc({sub:profile.id,exp:Math.floor(Date.now()/1000)+3600,aud:'authenticated'})}.x`;}
 async function waitServer(proc){for(let i=0;i<50;i++){if(proc.exitCode!==null)throw Error('server exited');try{if((await fetch(`${BASE}/healthz`)).ok)return;}catch{}await new Promise(resolve=>setTimeout(resolve,200));}throw Error('server timeout');}
 
@@ -49,6 +49,20 @@ async function main(){
     });
     const page=await context.newPage();await page.goto(`${APP}/#v=bsgtWorkspace&section=relations`,{waitUntil:'domcontentloaded'});
     await page.locator('#bsgtRelationsReady [data-bsgt-relations-open]').waitFor({timeout:20000});
+    // Ready panel: one horizontal card with the real workflow track (relations current) and the three actions; no "sent" panel on this page.
+    assert.strictEqual(await page.locator('#bsgtRelationsRoot .bsgt-relations-lane').count(),1,'only the ready panel is shown');
+    assert.strictEqual(await page.locator('#bsgtRelationsSent').isVisible(),false);
+    assert.match(await page.locator('#bsgtRelationsReadyTitle').innerText(),/للبنك المعني/);
+    assert.strictEqual(await page.locator('#bsgtRelationsReady .bsgt-relations-track li').count(),4);
+    assert.strictEqual(await page.locator('#bsgtRelationsReady .bsgt-relations-track li.is-done').count(),3);
+    assert.strictEqual(await page.locator('#bsgtRelationsReady .bsgt-relations-track li.is-current b').innerText(),'العلاقات التجارية');
+    assert.strictEqual(await page.locator('#bsgtRelationsReady [data-bsgt-relations-print]').count(),1);
+    assert.strictEqual(await page.locator('#bsgtRelationsReady [data-bsgt-relations-send]').count(),1);
+    // The saved bank is not a collection-bank profile, so the card button opens the file to pick one instead of sending.
+    await page.locator('#bsgtRelationsReady [data-bsgt-relations-send]').click();
+    await page.locator('#bsgtRelationsSend').waitFor();
+    assert.strictEqual(sendCalls,0);
+    assert.strictEqual(await page.locator('#bsgtRelationsConfirm').isVisible(),false);
     await page.locator('#bsgtRelationsReady [data-bsgt-relations-open]').click();
     await page.locator('#bsgtRelationsSend').waitFor();
     assert.match(await page.locator('.bsgt-relations-warning').innerText(),/2/);
@@ -71,6 +85,7 @@ async function main(){
     attachments.push({id:'legacy',trade_file_id:tradeId,shipment_id:secondShipmentId,attachment_type:'company_letter',revision_no:1,is_active:true,original_name:'legacy-letter.pdf',storage_path:'relations/legacy/file.pdf'});
     canEditPermission=false;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#bsgtRelationsReady [data-bsgt-relations-open]').click();await page.locator('.bsgt-relations-detail').waitFor();
     assert.strictEqual(await page.locator('#bsgtRelationsSend').count(),0);
+    assert.strictEqual(await page.locator('#bsgtRelationsReady [data-bsgt-relations-send]').count(),0,'view-only users get no send button on the card');
     assert.strictEqual(await page.locator('[data-bsgt-relations-upload]').count(),0);
     canEditPermission=true;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#bsgtRelationsReady [data-bsgt-relations-open]').click();await page.locator('#bsgtRelationsSend').waitFor();
     assert.strictEqual(await page.locator('[data-bsgt-relations-preview="relations/legacy/file.pdf"]').count(),1,'old file still accessible without reparenting');
@@ -80,8 +95,10 @@ async function main(){
     await page.locator('#bsgtRelationsSend').click();
     assert.match(await page.locator('#bsgtRelationsConfirmMessage').innerText(),/اختيارية/);
     await page.locator('#bsgtRelationsConfirmSubmit').click();
-    await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').waitFor({timeout:10000});
+    await page.locator('#bsgtRelationsReady .bsgt-relations-empty').waitFor({timeout:10000});
     assert.strictEqual(sendCalls,1);
+    assert.strictEqual(await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').count(),1,'sent record still loaded, just not shown as a panel');
+    assert.strictEqual(await page.locator('#bsgtRelationsConfirm').isVisible(),false);
     assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true);
     await context.close();console.log('BSGT relations browser workflow: passed');
   }finally{if(browser)await browser.close();server.kill('SIGTERM');}

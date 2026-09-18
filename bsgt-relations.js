@@ -11,7 +11,7 @@
   });
   const STATUS_LABELS = Object.freeze({
     final_accepted: 'مقبول نهائياً — جاهز للعلاقات التجارية',
-    sent_to_collecting: 'تم الإرسال للبنك المحصل'
+    sent_to_collecting: 'تم الإرسال للبنك المعني'
   });
   const ALLOWED_MIME_TYPES = Object.freeze(['application/pdf', 'image/png', 'image/jpeg']);
   const MAX_FILE_SIZE = 15 * 1024 * 1024;
