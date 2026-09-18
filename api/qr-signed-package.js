@@ -53,3 +53,36 @@ async function buildSignedOperationsPackage({ documents, signedRows, download })
 }
 
 module.exports = { buildSignedOperationsPackage, pickSignedRows, CONFIDENTIAL_KINDS };
+
+// Trade-file states whose signatures are current. Draft/returned files start a
+// new review revision, so their older signatures stay out until re-signed.
+const SIGNED_FILE_STATUSES = ['under_management_review', 'final_accepted', 'sent_to_collecting'];
+
+// Shared resolver: finds the newest active administration signatures for the
+// shipment's approved revision and returns the rebuilt package, or null.
+// restRows(pathAndQuery) -> rows (service role); download(bucket, path) -> Buffer.
+async function resolveSignedOperationsPackage({ shipmentId, revision, restRows, download }) {
+  if (!revision || !Array.isArray(revision.documents) || !revision.documents.length) return null;
+  const links = await restRows(`trade_collection_file_shipments?${new URLSearchParams({
+    select: 'trade_file_id', shipment_id: `eq.${shipmentId}`, operations_revision_id: `eq.${revision.id}`
+  })}`);
+  const fileIds = [...new Set(links.map(link => link.trade_file_id).filter(Boolean))];
+  if (!fileIds.length) return null;
+  const files = await restRows(`trade_collection_files?${new URLSearchParams({
+    select: 'id,revision_no,status,created_at', id: `in.(${fileIds.join(',')})`,
+    status: `in.(${SIGNED_FILE_STATUSES.join(',')})`, order: 'created_at.desc', limit: '1'
+  })}`);
+  const file = files[0];
+  if (!file) return null;
+  const rows = await restRows(`trade_collection_file_documents?${new URLSearchParams({
+    select: 'id,document_type,document_variant,storage_path,source_document_path,shipment_id,operations_revision_id,revision_no,is_active,created_at',
+    trade_file_id: `eq.${file.id}`, revision_no: `eq.${file.revision_no}`, document_variant: 'eq.administration_signed',
+    shipment_id: `eq.${shipmentId}`, is_active: 'eq.true'
+  })}`);
+  const signedRows = pickSignedRows(rows, { shipmentId, revisionId: revision.id, revisionNo: file.revision_no });
+  if (!signedRows.length) return null;
+  return buildSignedOperationsPackage({ documents: revision.documents, signedRows, download });
+}
+
+module.exports.resolveSignedOperationsPackage = resolveSignedOperationsPackage;
+module.exports.SIGNED_FILE_STATUSES = SIGNED_FILE_STATUSES;

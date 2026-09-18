@@ -47,10 +47,14 @@
       try{
         const {revision}=await revisionFor(shipmentId);
         if(!revision.package_path)throw new Error('لا يوجد ملف مدموج لهذه المراجعة.');
-        const {data,error}=await sb.storage.from('bsgt-operations-packages').createSignedUrl(revision.package_path,300);if(error)throw error;
-        if(tab&&!tab.closed){tab.location.replace(data.signedUrl);try{tab.focus();}catch(e){}}
-        else{toast('اسمح للنوافذ المنبثقة لفتح الملف المدموج في تبويب مستقل.','err');openPdfPreview(data.signedUrl,'الحزمة الكاملة المدموجة');}
-        addLog('edit',JSON.stringify({action:'finance_package_opened',shipment:shipmentId,revision:revision.revision_no}));
+        // The preview API returns the approved package with any administration
+        // signatures already in place, so the tab always shows the current state.
+        const result=await post('/api/bsgt-operations-package',{action:'preview',shipmentId});
+        const bytes=Uint8Array.from(atob(result.pdfBase64),char=>char.charCodeAt(0));
+        const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));setTimeout(()=>URL.revokeObjectURL(url),10*60*1000);
+        if(tab&&!tab.closed){tab.location.replace(url);try{tab.focus();}catch(e){}}
+        else{toast('اسمح للنوافذ المنبثقة لفتح الملف المدموج في تبويب مستقل.','err');openPdfPreview(url,'الحزمة الكاملة المدموجة');}
+        addLog('edit',JSON.stringify({action:'finance_package_opened',shipment:shipmentId,revision:revision.revision_no,signed:result.signedKinds||[]}));
       }catch(error){if(tab&&!tab.closed)tab.close();throw error;}
     });
   }

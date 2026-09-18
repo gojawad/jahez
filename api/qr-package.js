@@ -9,10 +9,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vthcmqqiexaedukduquv.s
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'shipment-files';
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,64}$/;
-const { buildSignedOperationsPackage, pickSignedRows } = require('./qr-signed-package');
-// Trade-file states in which the administration has finished signing. Before
-// that, the QR keeps opening the untouched approved operations package.
-const SIGNED_FILE_STATUSES = ['final_accepted', 'sent_to_collecting'];
+const { resolveSignedOperationsPackage } = require('./qr-signed-package');
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -50,26 +47,8 @@ async function downloadObject(bucket, storagePath) {
 
 // Returns the signed operations package for the shipment's approved revision,
 // or null when no administration-signed operations document exists yet.
-async function signedPackageFor(row, revision) {
-  const links = await restRows(`trade_collection_file_shipments?${new URLSearchParams({
-    select: 'trade_file_id', shipment_id: `eq.${row.id}`, operations_revision_id: `eq.${revision.id}`
-  })}`);
-  const fileIds = [...new Set(links.map(link => link.trade_file_id).filter(Boolean))];
-  if (!fileIds.length) return null;
-  const files = await restRows(`trade_collection_files?${new URLSearchParams({
-    select: 'id,revision_no,status,final_accepted_at,created_at', id: `in.(${fileIds.join(',')})`,
-    status: `in.(${SIGNED_FILE_STATUSES.join(',')})`, order: 'created_at.desc', limit: '1'
-  })}`);
-  const file = files[0];
-  if (!file) return null;
-  const rows = await restRows(`trade_collection_file_documents?${new URLSearchParams({
-    select: 'id,document_type,document_variant,storage_path,source_document_path,shipment_id,operations_revision_id,revision_no,is_active,created_at',
-    trade_file_id: `eq.${file.id}`, revision_no: `eq.${file.revision_no}`, document_variant: 'eq.administration_signed',
-    shipment_id: `eq.${row.id}`, is_active: 'eq.true'
-  })}`);
-  const signedRows = pickSignedRows(rows, { shipmentId: row.id, revisionId: revision.id, revisionNo: file.revision_no });
-  if (!signedRows.length) return null;
-  return buildSignedOperationsPackage({ documents: revision.documents, signedRows, download: downloadObject });
+function signedPackageFor(row, revision) {
+  return resolveSignedOperationsPackage({ shipmentId: row.id, revision, restRows, download: downloadObject });
 }
 
 module.exports = async (req, res) => {
@@ -118,8 +97,8 @@ module.exports = async (req, res) => {
       }
       packagePath = revision.package_path;
       bucket = 'bsgt-operations-packages';
-      // Once the administration has accepted the trade file, serve the same
-      // package with its signed operations documents. Any problem here falls
+      // As soon as the administration signs an operations document, serve the
+      // same package with the signed versions in place. Any problem here falls
       // back to the plain approved package so the public link never breaks.
       try {
         const signed = await signedPackageFor(row, revision);

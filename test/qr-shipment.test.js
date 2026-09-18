@@ -118,8 +118,8 @@ function startFakeSupabase() {
       return json(res, [{ trade_file_id: 'file-1' }]);
     }
     if (url.pathname === '/rest/v1/trade_collection_files') {
-      assert.equal(url.searchParams.get('status'), 'in.(final_accepted,sent_to_collecting)');
-      const accepted = ['final_accepted', 'sent_to_collecting'].includes(signedScenario.fileStatus);
+      assert.equal(url.searchParams.get('status'), 'in.(under_management_review,final_accepted,sent_to_collecting)');
+      const accepted = ['under_management_review', 'final_accepted', 'sent_to_collecting'].includes(signedScenario.fileStatus);
       return json(res, accepted ? [{ id: 'file-1', revision_no: 2, status: signedScenario.fileStatus, created_at: '2026-09-17T10:00:00Z' }] : []);
     }
     if (url.pathname === '/rest/v1/trade_collection_file_documents') {
@@ -219,21 +219,20 @@ async function main() {
     shipment.operations_revision_id='revision-2';
     assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-2');
 
-    // Administration signatures: only after the trade file is accepted, only operations documents, finance stays out.
-    signedScenario.active = true; signedScenario.fileStatus = 'under_management_review';
+    // Administration signatures appear as soon as they are saved (review, accepted, sent); returned files show the plain package.
+    signedScenario.active = true; signedScenario.fileStatus = 'returned_to_finance';
     let response = await fetch(packageUrl);
-    assert.strictEqual(response.headers.get('x-jahez-package'), null, 'no signed package before management acceptance');
+    assert.strictEqual(response.headers.get('x-jahez-package'), null, 'a returned file shows no stale signatures');
     assert.strictEqual(await response.text(), '%PDF-operations-revision-2');
-    signedScenario.fileStatus = 'final_accepted';
+    signedScenario.fileStatus = 'under_management_review';
     response = await fetch(packageUrl);
     assert.strictEqual(response.status, 200);
     assert.strictEqual(response.headers.get('x-jahez-package'), 'signed:contract');
     const signedPdf = await PDFDocument.load(Buffer.from(await response.arrayBuffer()));
     assert.strictEqual(signedPdf.getPageCount(), 3, 'signed contract (2 pages) + original invoice (1 page); confidential letter excluded');
-    signedScenario.fileStatus = 'sent_to_collecting';
-    assert.strictEqual((await fetch(packageUrl)).headers.get('x-jahez-package'), 'signed:contract');
+    for (const status of ['final_accepted', 'sent_to_collecting']) { signedScenario.fileStatus = status; assert.strictEqual((await fetch(packageUrl)).headers.get('x-jahez-package'), 'signed:contract', status); }
     signedScenario.active = false;
-    console.log('✔ QR serves administration-signed operations documents after acceptance and never finance documents');
+    console.log('✔ QR serves administration-signed operations documents immediately and never finance documents');
 
     const appHtml = await fs.promises.readFile(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(appHtml.includes('if(!rec.qrToken) rec.qrToken = newQrToken();'));

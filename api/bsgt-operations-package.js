@@ -97,6 +97,9 @@ async function buildPackage(input, generated, download, store, revisionId) {
   return { documents, packagePath };
 }
 
+const { resolveSignedOperationsPackage } = require('./qr-signed-package');
+const encodeStoragePath = value => value.split('/').map(encodeURIComponent).join('/');
+
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
@@ -123,9 +126,24 @@ async function handler(req, res) {
       const rows = await jsonRequest(`/rest/v1/shipments?id=eq.${shipmentId}&select=id,operations_revision_id`, { headers });
       const revisionId = rows[0]?.operations_revision_id;
       if (!UUID.test(revisionId || '')) throw new Error('No accessible approved package');
-      const revisions = await jsonRequest(`/rest/v1/bsgt_operations_revisions?id=eq.${revisionId}&shipment_id=eq.${shipmentId}&approved_at=not.is.null&select=package_path`, { headers });
+      const revisions = await jsonRequest(`/rest/v1/bsgt_operations_revisions?id=eq.${revisionId}&shipment_id=eq.${shipmentId}&approved_at=not.is.null&select=id,package_path,documents`, { headers });
       const path = revisions[0]?.package_path;
       if (path !== `${shipmentId}/${revisionId}/package.pdf`) throw new Error('Invalid approved package path');
+      // Administration signatures replace the originals in every preview of the
+      // approved package. The stored package itself is never modified.
+      try {
+        const signed = await resolveSignedOperationsPackage({
+          shipmentId, revision: revisions[0],
+          restRows: async query => jsonRequest(`/rest/v1/${query}`, { headers: service }),
+          download: async (bucket, storagePath) => {
+            if (!storagePath || storagePath.includes('..')) throw new Error('Invalid signed source path');
+            const response = await fetch(`${base}/storage/v1/object/${bucket}/${encodeStoragePath(storagePath)}`, { headers: service, signal: AbortSignal.timeout(60000) });
+            if (!response.ok) throw new Error(`Signed source unavailable (${response.status})`);
+            return Buffer.from(await response.arrayBuffer());
+          }
+        });
+        if (signed) return res.status(200).json({ pdfBase64: signed.bytes.toString('base64'), signedKinds: signed.signedKinds });
+      } catch (error) { console.error('Signed package preview failed:', error.message); }
       const response = await fetch(`${base}/storage/v1/object/${BUCKET}/${path}`, { headers: service, signal: AbortSignal.timeout(60000) });
       if (!response.ok) throw new Error('Approved package unavailable');
       const bytes = Buffer.from(await response.arrayBuffer());
