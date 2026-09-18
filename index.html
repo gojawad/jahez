@@ -2499,7 +2499,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
-  <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-2">
+  <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-3">
 </head>
 <body class="landing-active">
 
@@ -17455,10 +17455,9 @@ function renderBsgtDetail(r){
 
         <section class="bsgt-detail-section bsgt-workflow-section" id="bsgtWorkflow">
           <details class="bsgt-detail-collapse" open>
-            <summary class="bsgt-detail-collapse-head"><h3>مراحل الشحنة</h3><span class="bsgt-detail-collapse-meta">${bsgtOperationsStageBadge(r.bsgtStage, r)}${renderShipmentWorkflowBadge(r)}</span><span class="bsgt-detail-collapse-toggle" aria-hidden="true">${icon('arrowUp',15)}</span></summary>
+            <summary class="bsgt-detail-collapse-head"><h3>مراحل الشحنة</h3><span class="bsgt-detail-collapse-meta">${bsgtOperationsStageBadge(r.bsgtStage, r)}</span><span class="bsgt-detail-collapse-toggle" aria-hidden="true">${icon('arrowUp',15)}</span></summary>
             <div class="bsgt-detail-collapse-body">
               <div class="bsgt-detail-stage-block">${renderBsgtOperationsStageTrack(r, bsgtOperationsListState?.tradeContextByShipment?.[r.id])}</div>
-              <div class="bsgt-detail-stage-block"><div class="bsgt-operations-stage-heading"><h5>مسار المستندات والبنك</h5></div>${renderShipmentWorkflowProgress(r)}</div>
             </div>
           </details>
         </section>
