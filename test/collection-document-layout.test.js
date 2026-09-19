@@ -125,7 +125,8 @@ async function main() {
       dark:getComputedStyle(document.documentElement).getPropertyValue('--brand-dark').trim(),
       header:getComputedStyle(document.querySelector('.lab-header')).backgroundImage,
       selected:getComputedStyle(document.querySelector('.section-heading span')).color,
-      stageRects:[...document.querySelectorAll('.portal-step-card')].map(card=>card.getBoundingClientRect().toJSON()),
+      // Step 05 (collection log) is hidden on this portal; only the visible step cards are measured.
+      stageRects:[...document.querySelectorAll('.portal-step-card')].filter(card=>card.getClientRects().length).map(card=>card.getBoundingClientRect().toJSON()),
       stageTitleSize:parseFloat(getComputedStyle(document.querySelector('.portal-step-card strong')).fontSize),
       activeStageBackground:getComputedStyle(document.querySelector('.portal-step-card.is-active')).backgroundImage,
       searchHeight:document.querySelector('.filters label').getBoundingClientRect().height,
@@ -136,7 +137,7 @@ async function main() {
     assert.strictEqual(theme.dark.toUpperCase(), '#D01119');
     assert.ok(theme.header.includes('rgb(25, 27, 32)'));
     assert.strictEqual(theme.selected, 'rgb(208, 17, 25)');
-    assert.strictEqual(theme.stageRects.length,5);
+    assert.strictEqual(theme.stageRects.length,4,'four visible stage cards (the collection log step is hidden)');
     assert.ok(theme.stageRects.every(rect=>Math.abs(rect.top-theme.stageRects[0].top)<1),'desktop stages stay in one row');
     assert.ok(theme.stageRects.every(rect=>Math.abs(rect.height-theme.stageRects[0].height)<1),'desktop stage cards have equal height');
     assert.ok(theme.stageTitleSize>=13);

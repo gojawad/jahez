@@ -149,8 +149,10 @@ window.CollectionHtmlTemplates = (()=>{
     const artwork={background,header,footer,stamp:stampData(kind),left,right,top:mm('top'),bottom:mm('bottom'),headerSize:mm('headerSize'),footerSize:mm('footerSize')};
     const assets=`${background?`<img class="template-background" src="${esc(background)}" alt="">`:''}${header?`<header class="template-header"><img src="${esc(header)}" alt=""></header>`:''}${footer?`<footer class="template-footer"><img src="${esc(footer)}" alt=""></footer>`:''}`;
     const exchangeFonts=kind==='exchange'?window.CollectionExchangeWordTemplate?.fonts(location.origin)||'':'';
-    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: ${location.origin} ${SB_URL}; font-src ${kind==='exchange'?`data: ${location.origin}`:"'none'"}; base-uri 'none'; form-action 'none'"><title>${esc(title(kind))}</title>
-      <meta name="collection-page-art" content="${esc(JSON.stringify(artwork))}"><style>${exchangeFonts}${content.css}</style><style>
+    // "Confidential" marker: Calibri 11 red (Carlito carries Calibri metrics where Calibri is not installed).
+    const confidentialFont=`@font-face{font-family:'Jahez Confidential Sans';font-style:normal;font-weight:400;src:url('${location.origin}/experiments/bs-collection/assets/Carlito-Regular.ttf') format('truetype');}`;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: ${location.origin} ${SB_URL}; font-src data: ${location.origin}; base-uri 'none'; form-action 'none'"><title>${esc(title(kind))}</title>
+      <meta name="collection-page-art" content="${esc(JSON.stringify(artwork))}"><style data-template-screen>${confidentialFont}</style><style>${exchangeFonts}${content.css}</style><style>
       @page{size:A4;margin:${top}mm ${right}mm ${bottom}mm ${left}mm}
       html{background:#fff}body{margin:0!important;color:#111;font-family:Arial,Tahoma,sans-serif;font-size:11pt;line-height:1.45}
       .template-sheet{position:relative;box-sizing:border-box;width:210mm;min-height:297mm;padding:${top}mm ${right}mm ${bottom}mm ${left}mm;background:transparent;isolation:isolate}
@@ -164,10 +166,12 @@ window.CollectionHtmlTemplates = (()=>{
       .template-header img,.template-footer img{width:100%;height:100%;object-fit:contain}
       .template-stamp{position:absolute;z-index:3;touch-action:none;cursor:grab}.template-stamp img{width:100%;pointer-events:none}
       .template-signature img{max-width:48mm;max-height:25mm}
+      .template-confidential{position:absolute;left:${left}mm;bottom:${CONFIDENTIAL_BOTTOM_MM}mm;z-index:2;margin:0;font:400 ${CONFIDENTIAL_SIZE_PT}pt/1 Calibri,'Jahez Confidential Sans',Carlito,sans-serif;color:${CONFIDENTIAL_COLOR};direction:ltr;pointer-events:none}
+      @media print{.template-confidential{display:none!important}}
       @media screen{.template-stamp{margin-left:${left}mm;margin-top:${top}mm}}
       @media print{html,body{background:transparent!important}.template-sheet{width:auto;min-height:0;padding:0;background:transparent}.template-background,.template-header,.template-footer{display:none!important}.template-stamp{outline:none!important}}
       ${kind==='undertaking'?'@media print{.bank-undertaking .undertaking-footnote-rule{margin-top:8mm}}':''}
-      </style></head><body dir="${content.dir==='rtl'?'rtl':'ltr'}">${assets}<article class="template-sheet"><div class="template-content">${content.html}</div>${stampMarkup(kind,top,left)}</article></body></html>`;
+      </style></head><body dir="${content.dir==='rtl'?'rtl':'ltr'}">${assets}<article class="template-sheet"><div class="template-content">${content.html}</div>${stampMarkup(kind,top,left)}<p class="template-confidential" aria-label="Confidential">${CONFIDENTIAL_TEXT}</p></article></body></html>`;
   }
 
   function legacyHtml(kind){
@@ -184,7 +188,10 @@ window.CollectionHtmlTemplates = (()=>{
     const doc=new DOMParser().parseFromString(html,'text/html');
     const artMeta=doc.querySelector('meta[name="collection-page-art"]');
     const artwork=artMeta?JSON.parse(artMeta.content):null;
-    if(artMeta){artMeta.remove();doc.querySelectorAll('.template-background,.template-header,.template-footer,.template-stamp').forEach(node=>node.remove());html='<!doctype html>'+doc.documentElement.outerHTML;}
+    // Screen-only pieces (the Confidential marker and its font) never reach the renderer; the marker is drawn into the PDF below.
+    doc.querySelectorAll('style[data-template-screen],.template-confidential').forEach(node=>node.remove());
+    if(artMeta){artMeta.remove();doc.querySelectorAll('.template-background,.template-header,.template-footer,.template-stamp').forEach(node=>node.remove());}
+    html='<!doctype html>'+doc.documentElement.outerHTML;
     // Chromium's PDF document has an opaque origin. Embed only our two bundled fonts
     // so cross-origin font restrictions cannot silently substitute a different typeface.
     if(doc.querySelector('.bank-exchange')){
@@ -194,10 +201,11 @@ window.CollectionHtmlTemplates = (()=>{
     const response=await fetch('/api/render-bsgt-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})});
     if(!response.ok) throw new Error('تعذّر إنشاء معاينة PDF. حاول مرة أخرى.');
     const bytes=await response.arrayBuffer();
-    if(!artwork||![artwork.background,artwork.header,artwork.footer,artwork.stamp?.source].some(Boolean)) return bytes;
+    if(!artwork) return bytes;
     await loadPdfLibrary();
     const result=await PDFLib.PDFDocument.create();
     const source=await PDFLib.PDFDocument.load(bytes);
+    const confidentialFont=await embedConfidentialFont(result);
     const image=async url=>{
       if(!url)return null;
       const img=new Image();img.crossOrigin='anonymous';img.src=url;await img.decode();
@@ -222,6 +230,7 @@ window.CollectionHtmlTemplates = (()=>{
       };
       fit(header,height-(artwork.top+artwork.headerSize)*pt,artwork.headerSize);
       fit(footer,artwork.bottom*pt,artwork.footerSize);
+      page.drawText(CONFIDENTIAL_TEXT,{x:artwork.left*pt,y:CONFIDENTIAL_BOTTOM_MM*pt,size:CONFIDENTIAL_SIZE_PT,font:confidentialFont,color:PDFLib.rgb(0.89,0.02,0.07)});
       if(stamp&&index===0){
         const w=artwork.stamp.width*pt,h=w*stamp.height/stamp.width;
         const angle=-artwork.stamp.rotate*Math.PI/180,cx=artwork.stamp.x*pt+w/2,cy=height-artwork.stamp.y*pt-h/2;
@@ -231,6 +240,25 @@ window.CollectionHtmlTemplates = (()=>{
     return result.save();
   }
   let exchangeFontPromise;
+  // Confidential marker: bottom-left of every page, below the footer artwork, Calibri 11 red.
+  const CONFIDENTIAL_TEXT='Confidential',CONFIDENTIAL_SIZE_PT=11,CONFIDENTIAL_BOTTOM_MM=8,CONFIDENTIAL_COLOR='#e30613';
+  let confidentialFontPromise,fontkitPromise;
+  function loadFontkit(){
+    if(window.fontkit)return Promise.resolve(window.fontkit);
+    if(!fontkitPromise)fontkitPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';script.onload=()=>resolve(window.fontkit);script.onerror=()=>{fontkitPromise=null;script.remove();reject(new Error('fontkit unavailable'));};document.head.append(script);});
+    return fontkitPromise;
+  }
+  async function embedConfidentialFont(pdfDocument){
+    try{
+      const fontkit=await loadFontkit();
+      if(!confidentialFontPromise)confidentialFontPromise=fetch(`${location.origin}/experiments/bs-collection/assets/Carlito-Regular.ttf`).then(response=>{if(!response.ok)throw new Error('font');return response.arrayBuffer();}).catch(error=>{confidentialFontPromise=null;throw error;});
+      pdfDocument.registerFontkit(fontkit);
+      return await pdfDocument.embedFont(await confidentialFontPromise,{subset:true});
+    }catch(error){
+      console.warn('confidential marker: falling back to Helvetica',error);
+      return pdfDocument.embedFont(PDFLib.StandardFonts.Helvetica);
+    }
+  }
   function exchangePdfFonts(){
     if(!exchangeFontPromise)exchangeFontPromise=(async()=>{
       const fonts=[];
