@@ -2491,14 +2491,12 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-enterprise-2">
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
-  <link rel="stylesheet" href="company-profile.css?v=20260919-placement-2">
   <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
-  <link rel="stylesheet" href="bsgt-workspace.css?v=20260918-compact-shell-2">
-  <link rel="stylesheet" href="bsgt-finance.css?v=20260919-cad-1">
+  <link rel="stylesheet" href="bsgt-workspace.css?v=20260912-four-stage-workflow-1">
+  <link rel="stylesheet" href="bsgt-finance.css?v=20260918-icon-actions-1">
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
-  <link rel="stylesheet" href="bsgt-management.css?v=20260919-cad-1">
-  <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
-  <link rel="stylesheet" href="archive.css?v=20260918-archive-1">
+  <link rel="stylesheet" href="bsgt-management.css?v=20260918-full-bundle-1">
+  <link rel="stylesheet" href="bsgt-relations.css?v=20260912-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
   <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-3">
@@ -2772,7 +2770,6 @@ try{
   </div>
   <div class="o-cp-actions" id="cpActions">
     <button class="btn btn-primary" id="newBtn" style="display:none;" data-ic="plus">جديد</button>
-    <button type="button" class="btn btn-ghost btn-small" id="archiveBtn" style="display:none;" data-ic="archive" aria-controls="jahezArchiveModal">الأرشيف</button>
     <button class="btn btn-ghost btn-small" id="bsgtCollectionLabBtn" style="display:none;" data-ic="clipboard">بوابة التحصيل التجاري</button>
     <button type="button" class="btn btn-ghost" id="bsgtImportPermitBtn" style="display:none;" data-ic="invoice" onclick="openImportPermitInvoice()" aria-controls="importPermitOverlay">فاتورة إذن الاستيراد</button>
     <button type="button" class="bsgt-new-btn" id="bsgtNewBtn" style="display:none;" data-ic="plus" onclick="openBsgtShipForm(null)" aria-controls="bsgtShipOverlay">إنشاء شحنة BSGT</button>
@@ -2971,8 +2968,6 @@ try{
   <div class="view" id="viewOperationCenter"></div>
 
   <!-- ===== الشحنات ===== -->
-  <div class="jahez-archive-modal" id="jahezArchiveModal" hidden><div class="jahez-archive-card" role="dialog" aria-modal="true" aria-labelledby="jahezArchiveTitle"><header><div><h3 id="jahezArchiveTitle">الأرشيف — الشحنات المؤرشفة</h3><p>شحنات تجريبية أو غير تشغيلية أُخرجت من القوائم والحسابات دون حذف. يمكن استعادتها في أي وقت.</p></div><button type="button" class="btn btn-ghost btn-small" id="jahezArchiveClose">إغلاق</button></header><div class="jahez-archive-list" id="jahezArchiveList"></div></div></div>
-
   <div class="view" id="viewRecords">
 
   <div class="ship-tabs">
@@ -3921,7 +3916,6 @@ try{
       <button class="admin-tab" data-atab="commodities" data-ic="award">دليل السلع</button>
       <button class="admin-tab" data-atab="clients" data-ic="users">العملاء</button>
       <button class="admin-tab" data-atab="companies" data-ic="building">الشركات</button>
-      <button class="admin-tab" data-atab="companyProfile" data-ic="briefcase">بروفايل بحر سواكن</button>
       <button class="admin-tab" data-atab="templates" data-ic="doc">النماذج والمستندات</button>
       <button class="admin-tab" data-atab="data" data-ic="save">النسخ الاحتياطي</button>
     </div>
@@ -4106,11 +4100,6 @@ try{
           <div id="companiesList" class="comp-list"></div>
         </div>
       </div>
-    </div>
-
-    <!-- بروفايل بحر سواكن: مخزن الأختام والتوقيعات والمستندات (مصدر الاستجلاب التلقائي في التوقيع) -->
-    <div class="admin-pane" id="apaneCompanyProfile">
-      <div id="companyProfileRoot"></div>
     </div>
 
     <!-- النماذج والمستندات -->
@@ -5876,13 +5865,12 @@ SWIFT: NBEGEGCX"></textarea>
   <script src="bsgt-workspace.js?v=20260915-trade-files-1"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
-<script src="bsgt-finance.js?v=20260919-cad-1"></script>
-<script src="bsgt-management.js?v=20260919-cad-1"></script>
+<script src="bsgt-finance.js?v=20260912-1"></script>
+<script src="bsgt-management.js?v=20260914-internal-revisions-1"></script>
 <script src="collection-bank-profiles.js?v=20260914-1"></script>
 <script src="sending-data.js?v=20260915-1"></script>
 <script src="bsgt-operations-display.js?v=20260915-2"></script>
-<script src="bsgt-relations.js?v=20260918-bank-wording-1"></script>
-<script src="archive.js?v=20260918-archive-1"></script>
+<script src="bsgt-relations.js?v=20260914-case"></script>
 <script src="shipment-workflow.js?v=20260911-workflow-4"></script>
 <script src="consignee-client-resolver.js?v=20260912-1"></script>
 <script src="contract-client-assets.js?v=20260912-1"></script>
@@ -6080,7 +6068,6 @@ function rowToRecord(row){
   const r = Object.assign({}, row.data || {}, JahezShipmentWorkflow.fromRow(row));
   r.id = row.id;
   r.status = row.status;
-  r.archivedAt = row.archived_at || null;
   r.ownerId = row.owner_id;
   r.reviewNote = row.review_note || '';
   r.dueDate = row.due_date || '';
@@ -6121,9 +6108,8 @@ function recordToRow(r){
 async function loadRecords(){
   netStart();
   try{
-    await window.JahezArchive.ready();
-    const {data, error} = await window.JahezArchive.active(sb.from('shipments').select('*'))
-      .order('updated_at', {ascending:false});
+    const {data, error} = await sb.from('shipments')
+      .select('*').order('updated_at', {ascending:false});
     if(error) throw error;
     records = (data||[]).map(r=>{ const x = rowToRecord(r); x.__saved = true; return x; });
     console.log('loadRecords: تم تحميل ' + records.length + ' شحنة');
@@ -7230,7 +7216,7 @@ async function bootData(){
   try{ subscribeRealtime(); }catch(e){ console.error(e); }
   // تحقق ذاتي: هل المحمّل مطابق لما على الخادم؟
   try{
-    const {count} = await window.JahezArchive.active(sb.from('shipments').select('id', {count:'exact', head:true}));
+    const {count} = await sb.from('shipments').select('id', {count:'exact', head:true});
     if(typeof count === 'number' && count !== records.length){
       console.warn('عدم تطابق: الخادم='+count+' المحمّل='+records.length+' — إعادة محاولة');
       await new Promise(r=>setTimeout(r, 600));
@@ -7285,8 +7271,6 @@ function applyPermissionsUi(){
       el.style.display = allowed ? '' : 'none';
     }
   });
-  const archiveBtn = document.getElementById('archiveBtn');
-  if(archiveBtn) archiveBtn.style.display = (document.getElementById('viewRecords')?.classList.contains('active') && window.JahezArchive?.canArchive()) ? 'inline-flex' : 'none';
   document.body.classList.toggle('role-viewer', !ed);
   document.body.classList.toggle('no-shipment-write', !window.JahezPermissions?.canAny(['shipments.create','shipments.edit']));
   document.body.classList.toggle('role-admin', isAdmin());
@@ -7800,12 +7784,11 @@ function applyBranding(){
 document.querySelectorAll('.admin-tab').forEach(t=>{
   t.addEventListener('click', ()=>{
     document.querySelectorAll('.admin-tab').forEach(x=>x.classList.toggle('active', x===t));
-    const map = {users:'apaneUsers', brand:'apaneBrand', lists:'apaneLists', commodities:'apaneCommodities', clients:'apaneClients', companies:'apaneCompanies', companyProfile:'apaneCompanyProfile', templates:'apaneTemplates', data:'apaneData'};
+    const map = {users:'apaneUsers', brand:'apaneBrand', lists:'apaneLists', commodities:'apaneCommodities', clients:'apaneClients', companies:'apaneCompanies', templates:'apaneTemplates', data:'apaneData'};
     Object.entries(map).forEach(([k,id])=>{
       document.getElementById(id).classList.toggle('active', k===t.dataset.atab);
     });
     if(t.dataset.atab==='data') renderDataStats();
-    if(t.dataset.atab==='companyProfile') window.JahezCompanyProfile?.open();
     if(t.dataset.atab==='brand') fillBrandForm();
     if(t.dataset.atab==='lists') renderLookupAdmin();
     if(t.dataset.atab==='commodities') renderCommodityAdmin();
@@ -9376,7 +9359,6 @@ function switchView(v, options){
   document.getElementById('bsgtCollectionLabBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('commercial_collection')) ? 'inline-flex' : 'none';
   document.getElementById('bsgtImportPermitBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && canAccessCurrentPortal('import_permit')) ? 'inline-flex' : 'none';
   document.getElementById('bsgtNewBtn').style.display = (v==='records' && currentCompanyScope==='bsgt' && bsgtOperationsPermission(true)) ? 'inline-flex' : 'none';
-  document.getElementById('archiveBtn').style.display = (v==='records' && window.JahezArchive?.canArchive()) ? 'inline-flex' : 'none';
   if(v==='dashboard'){ renderDashboard(); renderReport(); }
   if(v==='operationCenter') renderOperationCenter();
   if(v==='records'){
@@ -9823,9 +9805,9 @@ async function loadBsgtOperationsPage(){
   const from = (bsgtOperationsListState.page - 1) * bsgtOperationsListState.pageSize;
   const to = from + bsgtOperationsListState.pageSize - 1;
   try{
-    let pageQuery = window.JahezArchive.active(sb.from('shipments')
+    let pageQuery = sb.from('shipments')
       .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,workflow_stage,workflow_updated_at,bank_sent_at,signed_at,accepted_at,accepted_by,bsgt_stage,bsgt_stage_updated_at,operations_completed_at,operations_completed_by,operations_revision_id,created_at,updated_at,data', {count:'exact'})
-      .eq('company_id', companyId));
+      .eq('company_id', companyId);
     const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
     if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);
     if(bsgtOperationsListState.consignee) pageQuery=pageQuery.eq('data->>consignee',bsgtOperationsListState.consignee);
@@ -9835,8 +9817,8 @@ async function loadBsgtOperationsPage(){
       : sb.from('shipments').select('data').eq('company_id',companyId).limit(1000);
     const [pageResult,draftResult,readyResult,consigneeOptionsResult] = await Promise.all([
       pageQuery,
-      window.JahezArchive.active(sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft')),
-      window.JahezArchive.active(sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')),
+      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','operations_draft'),
+      sb.from('shipments').select('id',{count:'exact',head:true}).eq('company_id',companyId).eq('bsgt_stage','ready_for_finance'),
       consigneeOptionsRequest
     ]);
     const {data,count,error}=pageResult;
@@ -9926,13 +9908,10 @@ function bsgtFinanceAllRows(){
 function renderBsgtFinanceReady(){
   const host=document.getElementById('bsgtFinanceReady'); if(!host) return;
   const linked=bsgtFinanceLinkedSet(), rows=bsgtFinanceState.readyRows;
-  // A shipment already inside a trade file is shown with that file and its status, and cannot be selected again.
-  const fileByShipment=new Map(bsgtFinanceState.links.map(link=>[link.shipment_id,bsgtFinanceState.files.find(file=>file.id===link.trade_file_id)]).filter(([,file])=>file));
-  const linkedLabel=row=>{const file=fileByShipment.get(row.id);return file?`ضمن الملف ${file.operation_no} · ${window.JahezBsgtFinance.fileStatusLabel(file.status)}`:'مرتبطة بملف';};
   if(!rows.length){ host.innerHTML='<div class="bsgt-finance-empty">لا توجد شحنات جاهزة للمالية حالياً.</div>'; return; }
   host.innerHTML=`<div class="bsgt-finance-row is-head"><span></span><span>رقم العملية</span><span>المرسل إليه</span><span>الصنف</span><span>العملة</span><span>القيمة</span><span>اكتمال العمليات</span><span>الحالة</span></div>${rows.map(row=>{
     const money=window.JahezBsgtFinance.shipmentMoney(row), isLinked=linked.has(row.id);
-    return `<div class="bsgt-finance-row"><input class="bsgt-finance-check" type="checkbox" data-bsgt-finance-select="${escapeHtml(row.id)}" ${bsgtFinanceState.selected.has(row.id)?'checked':''} ${isLinked?'disabled':''}><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.invoiceNo||'')}</small></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div><span class="bsgt-finance-status ${isLinked?'is-linked':''}" ${isLinked?`title="${escapeHtml(linkedLabel(row))}"`:''}>${isLinked?escapeHtml(linkedLabel(row)):'جاهزة للمالية'}</span><span class="bsgt-finance-mode is-${window.JahezBsgtFinance.collectionMode(row)}" title="${escapeHtml(row.paymentTerm||'شروط الدفع غير محددة')}">${escapeHtml(window.JahezBsgtFinance.collectionModeLabel(window.JahezBsgtFinance.collectionMode(row)))}</span></div></div>`;
+    return `<div class="bsgt-finance-row"><input class="bsgt-finance-check" type="checkbox" data-bsgt-finance-select="${escapeHtml(row.id)}" ${bsgtFinanceState.selected.has(row.id)?'checked':''} ${isLinked?'disabled':''}><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.invoiceNo||'')}</small></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div><span class="bsgt-finance-status">${isLinked?'مرتبطة بملف':'جاهزة للمالية'}</span></div></div>`;
   }).join('')}`;
   host.querySelectorAll('[data-bsgt-finance-select]').forEach(input=>input.addEventListener('change',()=>{
     if(input.checked) bsgtFinanceState.selected.add(input.dataset.bsgtFinanceSelect); else bsgtFinanceState.selected.delete(input.dataset.bsgtFinanceSelect);
@@ -9941,16 +9920,10 @@ function renderBsgtFinanceReady(){
   window.JahezRevisionWorkflow?.decorateFinance();
 }
 
-function bsgtFinanceSelectionMixed(){
-  return window.JahezBsgtFinance.collectionModes(selectedBsgtFinanceRows()).length>1;
-}
 function updateBsgtFinanceSelection(){
   const count=document.getElementById('bsgtFinanceSelectedCount'), button=document.getElementById('bsgtFinanceCreateBtn');
   if(count) count.textContent=bsgtFinanceState.selected.size;
-  const mixed=bsgtFinanceSelectionMixed();
-  if(button){ button.disabled=!bsgtFinanceState.selected.size||mixed; button.title=mixed?'لا يمكن دمج شحنات CAD (بدون تحصيل) مع شحنات التحصيل في ملف واحد':''; }
-  const bar=document.querySelector('.bsgt-finance-selection');
-  if(bar){ let note=bar.querySelector('.bsgt-finance-mode-warning'); if(mixed){ if(!note){ note=document.createElement('span'); note.className='bsgt-finance-mode-warning'; bar.append(note); } note.textContent='لا يمكن دمج CAD مع التحصيل في ملف واحد'; } else note?.remove(); }
+  if(button) button.disabled=!bsgtFinanceState.selected.size;
   window.JahezRevisionWorkflow?.updateFinanceSelection();
 }
 
@@ -9962,7 +9935,7 @@ function renderBsgtFinanceFiles(){
     const ids=bsgtFinanceState.links.filter(link=>link.trade_file_id===file.id).map(link=>link.shipment_id);
     const shipments=ids.map(id=>rowsById.get(id)).filter(Boolean), summary=window.JahezBsgtFinance.summarizeShipments(shipments);
     const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
-    return `<article class="bsgt-finance-file"><div class="bsgt-finance-file-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-finance-file-status${file.status==='sent_to_remitting'?' is-sent':''}">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>${window.JahezBsgtFinance.fileCollectionMode(file,shipments)==='cad'?'<span class="bsgt-finance-mode is-cad">CAD · بدون تحصيل</span>':''}</div><p>${escapeHtml(formatShipmentAuditDate(file.created_at))}</p><div class="bsgt-finance-file-meta"><span>${ids.length} شحنة</span><span>${escapeHtml(total)}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-trade-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
+    return `<article class="bsgt-finance-file"><div class="bsgt-finance-file-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-finance-file-status${file.status==='sent_to_remitting'?' is-sent':''}">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span></div><p>${escapeHtml(formatShipmentAuditDate(file.created_at))}</p><div class="bsgt-finance-file-meta"><span>${ids.length} شحنة</span><span>${escapeHtml(total)}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-trade-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
   }).join('');
   host.querySelectorAll('[data-bsgt-trade-open]').forEach(button=>button.addEventListener('click',()=>openBsgtTradeFile(button.dataset.bsgtTradeOpen)));
 }
@@ -9970,10 +9943,8 @@ function renderBsgtFinanceFiles(){
 function selectedBsgtFinanceRows(){ return bsgtFinanceState.readyRows.filter(row=>bsgtFinanceState.selected.has(row.id)); }
 function openBsgtFinanceConfirmation(){
   const rows=selectedBsgtFinanceRows(); if(!rows.length) return;
-  if(bsgtFinanceSelectionMixed()) return toast('لا يمكن دمج شحنات CAD (بدون تحصيل) مع شحنات التحصيل في ملف واحد.','err');
-  const mode=window.JahezBsgtFinance.collectionModes(rows)[0]||'collection';
   const summary=window.JahezBsgtFinance.summarizeShipments(rows), totals=Object.entries(summary.totals).map(([currency,amount])=>window.JahezBsgtFinance.formatMoney(currency,amount)).join('، ');
-  document.getElementById('bsgtFinanceConfirmBody').innerHTML=`<p><b>${rows.length}</b> شحنة: ${rows.map(row=>escapeHtml(row.operationNo||'—')).join('، ')}</p><p>الإجمالي: <b>${escapeHtml(totals||'—')}</b></p><p>نوع الملف: <b>${escapeHtml(window.JahezBsgtFinance.collectionModeLabel(mode))}</b>${mode==='cad'?' — بدون خطاب تحصيل أو تعهد أو كمبيالة':''}</p>${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. يمكن إنشاء المسودة، لكن لن يمكن إرسالها للبنك قبل توحيد العملة.</div>':''}`;
+  document.getElementById('bsgtFinanceConfirmBody').innerHTML=`<p><b>${rows.length}</b> شحنة: ${rows.map(row=>escapeHtml(row.operationNo||'—')).join('، ')}</p><p>الإجمالي: <b>${escapeHtml(totals||'—')}</b></p>${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. يمكن إنشاء المسودة، لكن لن يمكن إرسالها للبنك قبل توحيد العملة.</div>':''}`;
   document.getElementById('bsgtFinanceConfirm').hidden=false;
 }
 
@@ -10001,27 +9972,25 @@ function renderBsgtTradeFileDetail(){
   const links=bsgtFinanceState.links.filter(link=>link.trade_file_id===file.id), shipments=links.map(link=>rowMap.get(link.shipment_id)).filter(Boolean);
   const summary=window.JahezBsgtFinance.summarizeShipments(shipments), isDraft=file.status==='draft', canEdit=bsgtFinancePermission(true);
   const canResend=['returned_to_operations','returned_to_finance'].includes(file.status), canSend=isDraft||canResend;
-  const collectionMode=window.JahezBsgtFinance.fileCollectionMode(file,shipments), isCad=collectionMode==='cad';
   const allReady=shipments.length>0&&shipments.every(row=>row.bsgtStage==='ready_for_finance');
   const returnEvent=bsgtFinanceState.events.find(event=>event.trade_file_id===file.id&&['returned_to_operations','returned_to_finance'].includes(event.event_type));
   const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):(summary.currencies.length?'عملات متعددة':'—');
   const profile=currentAccessProfile(), creator=file.created_by===profile?.id?(profile.display_name||profile.email||'الحساب الحالي'):String(file.created_by||'—').slice(0,8);
   const collectionUrl=window.JahezSessionNavigation.buildPortalUrl(window.JahezBsgtFinance.collectionPortalUrl(file.id),location.pathname+location.search+location.hash,location.origin);
-  host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}${isCad?' · <span class="bsgt-finance-mode is-cad">CAD · بدون تحصيل</span>':''}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(collectionUrl)}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
+  host.innerHTML=`<section class="bsgt-finance-detail"><header class="bsgt-finance-detail-header"><div><h3>ملف العملية التجاري ${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))} · أنشأ بواسطة ${escapeHtml(creator)}</p></div><div class="bsgt-finance-detail-actions"><button type="button" class="btn btn-ghost" id="bsgtTradeClose">إغلاق</button>${canEdit?`<a class="btn btn-ghost" href="${escapeHtml(collectionUrl)}" target="_blank" rel="noopener">${icon('doc',14)} فتح مستندات التحصيل</a>`:''}</div></header>
     <div class="bsgt-finance-summary"><div class="bsgt-finance-stat"><span>رقم الملف</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-finance-stat"><span>عدد الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-finance-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-finance-stat"><span>تاريخ الإنشاء</span><b>${escapeHtml(formatShipmentAuditDate(file.created_at))}</b></div></div>
     ${summary.currencies.length>1?'<div class="bsgt-finance-warning">الشحنات المختارة تحتوي على أكثر من عملة. لا يمكن إرسال الملف للبنك المرسل.</div>':''}
     ${returnEvent?`<div class="bsgt-finance-warning"><b>${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}:</b> ${escapeHtml(returnEvent.note||'راجع ملاحظات الإدارة.')}</div>`:''}
     <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>الشحنات المرتبطة</h3><p>أرقام الشحنات الأصلية لا تتغير داخل الملف التجاري.</p></div>${canEdit&&isDraft&&bsgtFinanceState.selected.size?`<button type="button" class="btn btn-ghost" id="bsgtTradeAddSelected">إضافة المحدد (${bsgtFinanceState.selected.size})</button>`:''}</header><div class="bsgt-finance-table">${shipments.map(row=>{const money=window.JahezBsgtFinance.shipmentMoney(row);return `<div class="bsgt-finance-row"><span></span><div><b>${escapeHtml(row.operationNo||'—')}</b></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div>${canEdit&&isDraft?`<button type="button" class="btn btn-danger btn-small" data-bsgt-trade-remove="${escapeHtml(row.id)}">إزالة</button>`:'<span class="bsgt-finance-status">مرتبط</span>'}</div></div>`;}).join('')||'<div class="bsgt-finance-empty">لا توجد شحنات مرتبطة.</div>'}</div></section>
-    <section class="bsgt-finance-bank"><label>البنك المرسل<input id="bsgtTradeRemittingBank" value="${escapeHtml(file.remitting_bank||'Abu Dhabi Islamic Bank')}" ${(!canEdit||!canSend)?'readonly':''}></label>${canEdit&&canSend?`<button type="button" class="btn bsgt-finance-send" id="bsgtTradeSend" ${(!allReady||!summary.sameCurrency)?'disabled':''}>${icon('arrow',14)} ${canResend?'إعادة إرسال الملف':isCad?'إرسال للإدارة':'إرسال للبنك المرسل'}</button>`:'<span class="bsgt-finance-file-status is-sent">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>'}</section>
-    ${isCad?'<section class="bsgt-finance-section bsgt-finance-cad-note"><header class="bsgt-finance-head"><div><h3>مستندات التحصيل</h3><p>لا تنطبق — الدفع CAD / مقدماً. الملف يُرسل للإدارة بمستندات العمليات فقط، ويكمل مساره للعلاقات التجارية كالمعتاد.</p></div></header></section>':'<section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>مستندات التحصيل</h3><p>خطاب التحصيل · خطاب التعهد · الكمبيالة، وجميعها مستبعدة من QR.</p></div></header></section>'}
+    <section class="bsgt-finance-bank"><label>البنك المرسل<input id="bsgtTradeRemittingBank" value="${escapeHtml(file.remitting_bank||'Abu Dhabi Islamic Bank')}" ${(!canEdit||!canSend)?'readonly':''}></label>${canEdit&&canSend?`<button type="button" class="btn bsgt-finance-send" id="bsgtTradeSend" ${(!allReady||!summary.sameCurrency)?'disabled':''}>${icon('arrow',14)} ${canResend?'إعادة إرسال الملف':'إرسال للبنك المرسل'}</button>`:'<span class="bsgt-finance-file-status is-sent">${escapeHtml(window.JahezBsgtFinance.fileStatusLabel(file.status))}</span>'}</section>
+    <section class="bsgt-finance-section"><header class="bsgt-finance-head"><div><h3>مستندات التحصيل</h3><p>خطاب التحصيل · خطاب التعهد · الكمبيالة، وجميعها مستبعدة من QR.</p></div></header></section>
     <section class="bsgt-finance-timeline"><div class="bsgt-finance-event"><b>تم إنشاء الملف</b><small>${escapeHtml(formatShipmentAuditDate(file.created_at))}</small></div><div class="bsgt-finance-event"><b>تم ربط ${shipments.length} شحنات</b><small>داخل ${escapeHtml(file.operation_no)}</small></div>${file.sent_to_remitting_at?`<div class="bsgt-finance-event"><b>تم الإرسال للبنك المرسل</b><small>${escapeHtml(formatShipmentAuditDate(file.sent_to_remitting_at))}</small></div>`:''}</section>
   </section>`;
   document.getElementById('bsgtTradeClose')?.addEventListener('click',()=>{bsgtFinanceState.detailId=null;host.replaceChildren();});
   document.getElementById('bsgtTradeAddSelected')?.addEventListener('click',()=>addSelectedToBsgtTradeFile(file.id));
   host.querySelectorAll('[data-bsgt-trade-remove]').forEach(button=>button.addEventListener('click',()=>removeFromBsgtTradeFile(file.id,button.dataset.bsgtTradeRemove)));
   document.getElementById('bsgtTradeSend')?.addEventListener('click',()=>sendBsgtTradeFile(file,shipments,summary));
-  if(isCad){ host.querySelectorAll('a[href*="tradeFileId"]').forEach(link=>link.remove()); }
-  else window.JahezRevisionWorkflow?.decorateTradeFile(host,file,shipments);
+  window.JahezRevisionWorkflow?.decorateTradeFile(host,file,shipments);
 }
 
 async function addSelectedToBsgtTradeFile(tradeFileId){
@@ -10041,9 +10010,8 @@ async function sendBsgtTradeFile(file,shipments,summary){
   if(!bsgtFinancePermission(true)||!summary.sameCurrency) return;
   if(!shipments.length||shipments.some(row=>row.bsgtStage!=='ready_for_finance')) return toast('يجب أن تكون كل الشحنات المرتبطة جاهزة للمالية قبل الإرسال.','err');
   const bank=document.getElementById('bsgtTradeRemittingBank')?.value.trim(); if(!bank) return toast('أدخل اسم البنك المرسل.','err');
-  if(!confirm(`إرسال ${shipments.length} شحنة ضمن ${file.operation_no} إلى ${bank}؟${window.JahezBsgtFinance.fileCollectionMode(file,shipments)==='cad'?'\n\nملف CAD — بدون مستندات تحصيل، يذهب للإدارة مباشرة.':''}`)) return;
-  const isCad=window.JahezBsgtFinance.fileCollectionMode(file,shipments)==='cad';
-  const metadata={documentSettings:{remittingBank:bank},documentKinds:isCad?[]:['letter','undertaking','exchange'],collectionMode:isCad?'cad':'collection',amountSnapshot:summary.amount,currency:summary.currency,shipmentNumbers:shipments.map(row=>row.operationNo),qrIncluded:false};
+  if(!confirm(`إرسال ${shipments.length} شحنة ضمن ${file.operation_no} إلى ${bank}؟`)) return;
+  const metadata={documentSettings:{remittingBank:bank},documentKinds:['letter','undertaking','exchange'],amountSnapshot:summary.amount,currency:summary.currency,shipmentNumbers:shipments.map(row=>row.operationNo),qrIncluded:false};
   try{ netStart(); const {error}=await sb.rpc('send_bsgt_trade_file_to_remitting',{p_trade_file_id:file.id,p_remitting_bank:bank,p_metadata:metadata}); if(error) throw error; toast('تم إرسال ملف العملية للبنك المرسل.'); await loadBsgtFinance(); openBsgtTradeFile(file.id); }
   catch(error){ toast(error.message||'تعذر إرسال الملف للبنك المرسل.','err'); } finally{ netEnd(); }
 }
@@ -10055,8 +10023,8 @@ async function loadBsgtFinance(){
   const requestId=++bsgtFinanceState.requestId;
   try{
     const [readyResult,fileResult]=await Promise.all([
-      window.JahezArchive.active(sb.from('shipments').select('*').eq('company_id',companyId).eq('bsgt_stage','ready_for_finance')).order('operations_completed_at',{ascending:false}).limit(200),
-      window.JahezArchive.active(sb.from('trade_collection_files').select('*').eq('company_id',companyId)).order('created_at',{ascending:false}).limit(200)
+      sb.from('shipments').select('*').eq('company_id',companyId).eq('bsgt_stage','ready_for_finance').order('operations_completed_at',{ascending:false}).limit(200),
+      sb.from('trade_collection_files').select('*').eq('company_id',companyId).order('created_at',{ascending:false}).limit(200)
     ]);
     if(readyResult.error) throw readyResult.error; if(fileResult.error) throw fileResult.error;
     const files=fileResult.data||[], fileIds=files.map(file=>file.id);
@@ -10110,7 +10078,7 @@ function renderBsgtManagementCards(status,hostId){
     const shipments=bsgtManagementShipments(file.id);
     const summary=window.JahezBsgtFinance.summarizeShipments(shipments);
     const total=summary.sameCurrency?window.JahezBsgtFinance.formatMoney(summary.currency,summary.amount):'—';
-    return `<article class="bsgt-management-card"><div class="bsgt-management-card-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-management-badge ${status==='under_management_review'?'is-review':''}">${escapeHtml(window.JahezBsgtManagement.statusLabel(status))}</span>${file.metadata?.collectionMode==='cad'?'<span class="bsgt-management-badge is-cad">CAD · بدون تحصيل</span>':''}</div><div class="bsgt-management-card-meta"><span>${shipments.length} شحنة</span><span>${escapeHtml(total)}</span><span>المراجعة ${Number(file.revision_no)||1}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-management-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
+    return `<article class="bsgt-management-card"><div class="bsgt-management-card-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-management-badge ${status==='under_management_review'?'is-review':''}">${escapeHtml(window.JahezBsgtManagement.statusLabel(status))}</span></div><div class="bsgt-management-card-meta"><span>${shipments.length} شحنة</span><span>${escapeHtml(total)}</span><span>المراجعة ${Number(file.revision_no)||1}</span></div><button type="button" class="btn btn-ghost btn-small" data-bsgt-management-open="${escapeHtml(file.id)}">فتح الملف</button></article>`;
   }).join('');
   host.querySelectorAll('[data-bsgt-management-open]').forEach(button=>button.addEventListener('click',()=>openBsgtManagementFile(button.dataset.bsgtManagementOpen)));
 }
@@ -10143,7 +10111,7 @@ function renderBsgtManagementDetail(){
     <div class="bsgt-management-summary"><div class="bsgt-management-stat"><span>رقم العملية</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-management-stat"><span>الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-management-stat"><span>القيمة</span><b>${escapeHtml(total)}</b></div><div class="bsgt-management-stat"><span>البنك المرسل</span><b>${escapeHtml(file.remitting_bank||'—')}</b></div><div class="bsgt-management-stat"><span>اكتمال الموقع</span><b>${escapeHtml(readiness.progress)}</b></div></div>
     <section class="bsgt-management-section"><header><h4>الشحنات المرتبطة</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${shipments.map(row=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.consignee||'—')}</small></div><span>${escapeHtml(row.itemDesc||'—')}</span><div>${escapeHtml(row.invoiceNo||row.proformaNo||'—')}</div></div>`).join('')}</div></section>
     <section class="bsgt-management-section"><header><h4>مستندات العمليات</h4><small>قراءة فقط</small></header><div class="bsgt-management-docs">${operationRows||'<div class="bsgt-management-empty">لا توجد مستندات.</div>'}</div></section>
-    <section class="bsgt-management-section"><header><h4>مستندات التحصيل</h4><small>${file.metadata?.collectionMode==='cad'?'لا تنطبق — CAD / دفع مقدم':'قراءة فقط ومستبعدة من QR'}</small></header><div class="bsgt-management-docs">${file.metadata?.collectionMode==='cad'?'<div class="bsgt-management-empty">ملف بدون تحصيل: لا خطاب تحصيل ولا تعهد ولا كمبيالة. راجع مستندات العمليات ووقّع ما يلزم ثم اقبل نهائياً.</div>':collectionRows}</div></section>
+    <section class="bsgt-management-section"><header><h4>مستندات التحصيل</h4><small>قراءة فقط ومستبعدة من QR</small></header><div class="bsgt-management-docs">${collectionRows}</div></section>
     <section class="bsgt-management-section"><header><div><h4>المستندات الموقعة</h4><small>يُحتسب فقط المستند النشط في المراجعة الحالية</small></div><b>${escapeHtml(readiness.progress)}</b></header><div class="bsgt-management-progress"><span style="width:${readiness.requiredTypes.length?Math.round(readiness.signedTypes.length/readiness.requiredTypes.length*100):0}%"></span></div><div class="bsgt-management-docs">${signedRows}</div></section>
     <section class="bsgt-management-section"><header><h4>ملاحظة الإدارة</h4><small>${canEdit&&reviewing?'تُحفظ في سجل الملف':'قراءة فقط'}</small></header>${canEdit&&reviewing?'<div class="bsgt-management-note"><textarea id="bsgtManagementNote" placeholder="أضف ملاحظة للمراجعة"></textarea><button type="button" class="btn btn-ghost" id="bsgtManagementNoteSave">حفظ الملاحظة</button></div>':''}<div class="bsgt-management-docs">${events.filter(event=>event.event_type==='management_note').map(event=>`<div class="bsgt-management-doc"><div><b>${escapeHtml(bsgtManagementActor(event.actor_id))}</b><small>${escapeHtml(formatShipmentAuditDate(event.created_at))}</small></div><span>${escapeHtml(event.note||'')}</span><div>مراجعة ${event.revision_no}</div></div>`).join('')||'<div class="bsgt-management-empty">لا توجد ملاحظات.</div>'}</div></section>
     <section class="bsgt-management-section"><header><h4>التسلسل الزمني</h4><small>${events.length} حدث</small></header><div class="bsgt-management-timeline">${events.map(event=>`<div class="bsgt-management-event"><b>${escapeHtml(bsgtManagementEventLabel(event))}</b><span>${escapeHtml(event.note||`${event.from_status||''}${event.to_status?` ← ${event.to_status}`:''}`)}</span><small>${escapeHtml(bsgtManagementActor(event.actor_id))} · ${escapeHtml(formatShipmentAuditDate(event.created_at))} · م${event.revision_no}</small></div>`).join('')||'<div class="bsgt-management-empty">لا توجد أحداث بعد.</div>'}</div></section>
@@ -10246,7 +10214,7 @@ async function loadBsgtManagement(){
   const companyId=resolveBsgtCompanyId();if(!companyId){waiting.innerHTML='<div class="bsgt-management-error">تعذر تحديد شركة بحر سواكن.</div>';return;}
   const requestId=++bsgtManagementState.requestId;
   try{
-    const fileResult=await window.JahezArchive.active(sb.from('trade_collection_files').select('*').eq('company_id',companyId).in('status',['sent_to_remitting','under_management_review'])).order('updated_at',{ascending:false});if(fileResult.error)throw fileResult.error;
+    const fileResult=await sb.from('trade_collection_files').select('*').eq('company_id',companyId).in('status',['sent_to_remitting','under_management_review']).order('updated_at',{ascending:false});if(fileResult.error)throw fileResult.error;
     const files=fileResult.data||[],fileIds=files.map(file=>file.id);let links=[],shipments=[],documents=[],events=[],operationDocuments=[],profiles=[];
     if(fileIds.length){const [linkResult,documentResult,eventResult]=await Promise.all([sb.from('trade_collection_file_shipments').select('*').in('trade_file_id',fileIds),sb.from('trade_collection_file_documents').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false}),sb.from('trade_collection_file_events').select('*').in('trade_file_id',fileIds).order('created_at',{ascending:false})]);if(linkResult.error)throw linkResult.error;if(documentResult.error)throw documentResult.error;if(eventResult.error)throw eventResult.error;links=linkResult.data||[];documents=documentResult.data||[];events=eventResult.data||[];}
     const shipmentIds=[...new Set(links.map(link=>link.shipment_id))];if(shipmentIds.length){const [shipmentResult,operationDocumentResult]=await Promise.all([sb.from('shipments').select('*').in('id',shipmentIds),sb.from('shipment_files').select('id,shipment_id,document_type,label,name,path').in('shipment_id',shipmentIds)]);if(shipmentResult.error)throw shipmentResult.error;if(operationDocumentResult.error)throw operationDocumentResult.error;shipments=(shipmentResult.data||[]).map(rowToRecord);operationDocuments=operationDocumentResult.data||[];}
@@ -10256,7 +10224,7 @@ async function loadBsgtManagement(){
   }catch(error){console.error('load BSGT management',error);waiting.innerHTML=`<div class="bsgt-management-error">تعذر تحميل مراجعة الإدارة: ${escapeHtml(error.message||'خطأ غير معروف')}</div>`;review.innerHTML='<div class="bsgt-management-error">تعذر تحميل الملفات.</div>';}
 }
 
-const bsgtRelationsState={page:1,pageSize:25,total:0,requestId:0,files:[],detailId:null,detail:null,busy:false,pendingSend:null};
+const bsgtRelationsState={page:1,pageSize:25,total:0,requestId:0,files:[],detailId:null,detail:null,busy:false};
 
 function bsgtRelationsPermission(requireEdit=false){
   return Boolean(window.JahezPermissions?.can(`bsgt.relations.${requireEdit ? 'edit' : 'view'}`));
@@ -10264,80 +10232,26 @@ function bsgtRelationsPermission(requireEdit=false){
 
 function renderBsgtRelationsShell(){
   return `<div class="bsgt-relations" id="bsgtRelationsRoot">
-    <section class="bsgt-relations-lane bsgt-relations-ready-panel" aria-labelledby="bsgtRelationsReadyTitle"><header><div class="bsgt-relations-lane-title"><span class="bsgt-relations-lane-icon" aria-hidden="true">${icon('plane',18)}</span><div><h3 id="bsgtRelationsReadyTitle">جاهزة للإرسال للبنك المعني</h3><p>ملفات مقبولة نهائياً من الإدارة وجميع شحناتها جاهزة للإرسال.</p></div></div><span class="bsgt-relations-count" id="bsgtRelationsReadyCount" hidden></span></header><div class="bsgt-relations-list" id="bsgtRelationsReady"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>
-    <div id="bsgtRelationsSent" hidden aria-hidden="true"></div>
+    <div class="bsgt-relations-board">
+      <section class="bsgt-relations-lane"><header><div><h3>جاهزة للإرسال للبنك المحصل</h3><p>ملفات مقبولة نهائياً وجميع شحناتها جاهزة.</p></div></header><div class="bsgt-relations-list" id="bsgtRelationsReady"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>
+      <section class="bsgt-relations-lane"><header><div><h3>تم الإرسال للبنك المحصل</h3><p>سجل الملفات التي أرسلتها العلاقات التجارية.</p></div></header><div class="bsgt-relations-list" id="bsgtRelationsSent"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>
+    </div>
     <div class="bsgt-relations-pager" id="bsgtRelationsPager"></div>
     <div id="bsgtRelationsDetail"></div>
-    <div class="bsgt-relations-modal" id="bsgtRelationsConfirm" hidden><div class="bsgt-relations-modal-card" role="dialog" aria-modal="true" aria-labelledby="bsgtRelationsConfirmTitle"><h3 id="bsgtRelationsConfirmTitle">تأكيد الإرسال للبنك المعني؟</h3><div id="bsgtRelationsConfirmMessage"></div><div class="bsgt-relations-modal-actions"><button type="button" class="btn btn-ghost" id="bsgtRelationsConfirmCancel">إلغاء</button><button type="button" class="btn bsgt-relations-primary" id="bsgtRelationsConfirmSubmit">${icon('plane',14)} تأكيد الإرسال</button></div></div></div>
+    <div class="bsgt-relations-modal" id="bsgtRelationsConfirm" hidden><div class="bsgt-relations-modal-card" role="dialog" aria-modal="true" aria-labelledby="bsgtRelationsConfirmTitle"><h3 id="bsgtRelationsConfirmTitle">تأكيد الإرسال للبنك المحصل</h3><div id="bsgtRelationsConfirmMessage"></div><div class="bsgt-relations-modal-actions"><button type="button" class="btn btn-ghost" id="bsgtRelationsConfirmCancel">إلغاء</button><button type="button" class="btn bsgt-relations-primary" id="bsgtRelationsConfirmSubmit">متابعة الإرسال</button></div></div></div>
   </div>`;
-}
-
-function bsgtRelationsResolveBank(file){
-  // Same resolution as the detail select: the bank saved on the file must match a collection-bank profile.
-  const banks=bsgtSendingDataStore.values('collectingBankProfile');
-  const current=String(file.collecting_bank||file.metadata?.documentSettings?.collectingBank||'').trim();
-  const address=file.metadata?.collectingBankAddress||file.metadata?.documentSettings?.collectingBankAddress||'';
-  return banks.find(bank=>bank.bank===current&&bank.address===address)||null;
-}
-
-function renderBsgtRelationsTrack(file){
-  // Generated from the file's real workflow status through the shared BSGT presentation (same stages as the operations track).
-  const api=window.JahezBsgtOperations;if(!api)return '';
-  const presentation=api.workflowPresentation(file.status);
-  const stages=api.BUSINESS_STAGES;
-  return `<ol class="bsgt-operations-stage-track bsgt-relations-track" aria-label="مراحل الملف">${stages.map((stage,i)=>{
-    const done=presentation.allCompleted||i<presentation.currentIndex;
-    const current=!presentation.allCompleted&&i===presentation.currentIndex;
-    const stateClass=done?'is-done':current?'is-current':'is-upcoming';
-    const stateLabel=done?'مكتملة':current?'المرحلة الحالية':'قادمة';
-    return `<li class="${stateClass}" data-stage="${stage.key}" aria-label="${escapeHtml(stage.label+'، '+stateLabel)}" ${current?'aria-current="step"':''}><span aria-hidden="true">${done?icon('check',13):i+1}</span><b>${escapeHtml(stage.label)}</b></li>`;
-  }).join('')}</ol>`;
 }
 
 function renderBsgtRelationsCards(status,hostId){
   const host=document.getElementById(hostId);if(!host)return;
   const rows=bsgtRelationsState.files.filter(file=>file.status===status);
-  const counter=status==='final_accepted'?document.getElementById('bsgtRelationsReadyCount'):null;
-  if(counter){counter.textContent=`${rows.length} ملف`;counter.hidden=!rows.length;}
-  if(!rows.length){host.innerHTML=`<div class="bsgt-relations-empty">${status==='final_accepted'?'لا توجد ملفات جاهزة للإرسال للبنك المعني حالياً.':'لا توجد ملفات في هذه المرحلة.'}</div>`;return;}
-  const canEdit=bsgtRelationsPermission(true);
+  if(!rows.length){host.innerHTML='<div class="bsgt-relations-empty">لا توجد ملفات في هذه المرحلة.</div>';return;}
   host.innerHTML=rows.map(file=>{
     const missing=Number(file.missing_optional_count)||0;
     const sent=status==='sent_to_collecting';
-    if(sent)return `<article class="bsgt-relations-card"><div class="bsgt-relations-card-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-relations-badge is-sent">${escapeHtml(window.JahezBsgtRelations.statusLabel(status))}</span></div><div class="bsgt-relations-card-meta"><span>${Number(file.shipment_count)||0} شحنة</span><span>المراجعة ${Number(file.revision_no)||1}</span><span>${escapeHtml(file.collecting_bank||'البنك غير محدد')}</span><span>${escapeHtml(formatShipmentAuditDate(file.final_accepted_at))}</span></div><div class="bsgt-relations-card-top"><span class="bsgt-relations-optional ${missing?'':'is-complete'}">${missing?`${missing} مرفق اختياري ناقص`:'المرفقات الاختيارية مكتملة'}</span><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-open="${escapeHtml(file.id)}">فتح الملف</button></div></article>`;
-    const printable=Boolean(file.metadata?.operationsRevisionWorkflow);
-    return `<article class="bsgt-relations-card bsgt-relations-card-ready" data-bsgt-relations-file="${escapeHtml(file.id)}">
-      <div class="bsgt-relations-card-id"><h4>${icon('briefcase',16)}<span>${escapeHtml(file.operation_no)}</span></h4><span class="bsgt-relations-card-count">${Number(file.shipment_count)||0} شحنة${file.metadata?.collectionMode==='cad'?' · CAD بدون تحصيل':''}</span><span class="bsgt-relations-optional ${missing?'':'is-complete'}">${missing?`${missing} مرفق اختياري ناقص`:'المرفقات الاختيارية مكتملة'}</span></div>
-      <div class="bsgt-relations-card-facts"><div>${icon('doc',15)}<span><small>المراجعة</small><b>${Number(file.revision_no)||1}</b></span></div><div>${icon('bank',15)}<span><small>البنك المعني</small><b dir="auto">${escapeHtml(file.collecting_bank||'غير محدد')}</b></span></div><div>${icon('calendarIcon',15)}<span><small>القبول النهائي</small><b>${escapeHtml(formatShipmentAuditDate(file.final_accepted_at))}</b></span></div></div>
-      <div class="bsgt-relations-card-track">${renderBsgtRelationsTrack(file)}</div>
-      <div class="bsgt-relations-card-side"><span class="bsgt-relations-badge is-ready">جاهزة للإرسال</span><div class="bsgt-relations-card-actions"><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-open="${escapeHtml(file.id)}" title="فتح الملف ومرفقاته">${icon('eye',14)} معاينة</button><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-print="${escapeHtml(file.id)}" ${printable?'':'disabled title="الطباعة الكاملة متاحة للملفات المدموجة بسير العمل الحالي"'}>${icon('printer',14)} طباعة</button></div>${canEdit?`<button type="button" class="btn bsgt-relations-primary bsgt-relations-send" data-bsgt-relations-send="${escapeHtml(file.id)}">${icon('plane',14)} تم الإرسال للبنك المعني</button>`:''}</div>
-    </article>`;
+    return `<article class="bsgt-relations-card"><div class="bsgt-relations-card-top"><h4>${escapeHtml(file.operation_no)}</h4><span class="bsgt-relations-badge ${sent?'is-sent':''}">${escapeHtml(window.JahezBsgtRelations.statusLabel(status))}</span></div><div class="bsgt-relations-card-meta"><span>${Number(file.shipment_count)||0} شحنة</span><span>المراجعة ${Number(file.revision_no)||1}</span><span>${escapeHtml(file.collecting_bank||'البنك غير محدد')}</span><span>${escapeHtml(formatShipmentAuditDate(file.final_accepted_at))}</span></div><div class="bsgt-relations-card-top"><span class="bsgt-relations-optional ${missing?'':'is-complete'}">${missing?`${missing} مرفق اختياري ناقص`:'المرفقات الاختيارية مكتملة'}</span><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-open="${escapeHtml(file.id)}">فتح الملف</button></div></article>`;
   }).join('');
   host.querySelectorAll('[data-bsgt-relations-open]').forEach(button=>button.addEventListener('click',()=>openBsgtRelationsFile(button.dataset.bsgtRelationsOpen)));
-  host.querySelectorAll('[data-bsgt-relations-print]').forEach(button=>button.addEventListener('click',()=>printBsgtRelationsFile(button.dataset.bsgtRelationsPrint,button)));
-  host.querySelectorAll('[data-bsgt-relations-send]').forEach(button=>button.addEventListener('click',()=>requestBsgtRelationsSend(button.dataset.bsgtRelationsSend,button)));
-}
-
-async function printBsgtRelationsFile(fileId,button){
-  // Same full-bundle preview/print as the file detail; the linked shipments are read from the existing tables.
-  const file=bsgtRelationsState.files.find(row=>row.id===fileId);if(!file||!button||button.dataset.busy==='true')return;
-  let shipments=[];
-  try{
-    const linkResult=await sb.from('trade_collection_file_shipments').select('shipment_id').eq('trade_file_id',fileId);if(linkResult.error)throw linkResult.error;
-    const ids=(linkResult.data||[]).map(link=>link.shipment_id);
-    if(ids.length){const shipmentResult=await sb.from('shipments').select('*').in('id',ids);if(shipmentResult.error)throw shipmentResult.error;shipments=(shipmentResult.data||[]).map(rowToRecord);}
-  }catch(error){console.error('load relations shipments for print',error);return toast(error.message||'تعذر تحميل شحنات الملف.','err');}
-  if(!shipments.length)return toast('لا توجد شحنات مرتبطة بهذا الملف.','err');
-  await previewBsgtFullBundle(file,shipments,{button,print:true,title:'الملف الكامل للطباعة',logAction:'relations_full_bundle_previewed'});
-}
-
-async function requestBsgtRelationsSend(fileId,button){
-  const file=bsgtRelationsState.files.find(row=>row.id===fileId);
-  if(!file||!bsgtRelationsPermission(true)||bsgtRelationsState.busy)return;
-  try{await bsgtSendingDataStore.load();}catch(error){console.error('load sending data',error);}
-  const bank=bsgtRelationsResolveBank(file);
-  if(!bank){toast('اختر البنك المعني من بيانات الملف أولاً.','err');return openBsgtRelationsFile(file.id);}
-  openBsgtRelationsSendConfirmation({file,bank,missingOptionalCount:Number(file.missing_optional_count)||0,button});
 }
 
 function renderBsgtRelationsPager(){
@@ -10349,7 +10263,7 @@ function renderBsgtRelationsPager(){
 }
 
 function bsgtRelationsEventLabel(event){
-  return ({sent_to_remitting:'إرسال للبنك المرسل',management_review_started:'بدء مراجعة الإدارة',signed_document_uploaded:'رفع مستند موقع',signed_document_archived:'أرشفة مستند موقع',management_note:'ملاحظة إدارية',returned_to_operations:'إرجاع إلى العمليات',returned_to_finance:'إرجاع إلى المالية',final_accepted:'قبول نهائي',sent_to_collecting:'إرسال للبنك المعني'})[event.event_type]||event.event_type;
+  return ({sent_to_remitting:'إرسال للبنك المرسل',management_review_started:'بدء مراجعة الإدارة',signed_document_uploaded:'رفع مستند موقع',signed_document_archived:'أرشفة مستند موقع',management_note:'ملاحظة إدارية',returned_to_operations:'إرجاع إلى العمليات',returned_to_finance:'إرجاع إلى المالية',final_accepted:'قبول نهائي',sent_to_collecting:'إرسال للبنك المحصل'})[event.event_type]||event.event_type;
 }
 
 function bsgtRelationsActor(actorId){
@@ -10364,7 +10278,7 @@ function bsgtRelationsBankOptions(file){
   const address=file.metadata?.collectingBankAddress||file.metadata?.documentSettings?.collectingBankAddress||'';
   const selected=banks.find(bank=>bank.bank===current&&bank.address===address);
   const legacy=current&&!selected?`<option value="" selected disabled>${escapeHtml(current)} — محفوظ سابقاً، اختر من قائمة التحصيل</option>`:'';
-  return `<option value="">— اختر البنك المعني —</option>${legacy}${banks.map(bank=>`<option value="${escapeHtml(window.JahezCollectionBanks.key(bank))}" ${bank===selected?'selected':''}>${escapeHtml(bank.bank)}${banks.filter(row=>row.bank===bank.bank).length>1?` — ${escapeHtml(bank.address)}`:''}</option>`).join('')}`;
+  return `<option value="">— اختر البنك المحصل —</option>${legacy}${banks.map(bank=>`<option value="${escapeHtml(window.JahezCollectionBanks.key(bank))}" ${bank===selected?'selected':''}>${escapeHtml(bank.bank)}${banks.filter(row=>row.bank===bank.bank).length>1?` — ${escapeHtml(bank.address)}`:''}</option>`).join('')}`;
 }
 
 function bsgtRelationsSelectedBank(){
@@ -10406,10 +10320,10 @@ function renderBsgtRelationsDetail(){
   const uploadedRows=operationDocuments.map(document=>`<div class="bsgt-relations-doc"><div><b>${escapeHtml(document.label||document.document_type||document.name||'مرفق')}</b><small>${escapeHtml(shipments.find(shipment=>shipment.id===document.shipment_id)?.operationNo||document.shipment_id||'—')} · مستند مرفوع</small></div><span>${escapeHtml(document.name||'')}</span><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-operation-file="${escapeHtml(document.path)}" data-file-name="${escapeHtml(document.name||document.label||'document')}">معاينة</button></div>`).join('');
   const collectionRows=window.JahezBsgtManagement.requiredDocumentTypes(file).map(type=>`<div class="bsgt-relations-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(type))}</b><small>مستند التحصيل</small></div><span>قراءة فقط</span><a class="btn btn-ghost btn-small" href="${escapeHtml(window.JahezBsgtFinance.collectionPortalUrl(file.id))}" target="_blank" rel="noopener">معاينة</a></div>`).join('');
   const signedRows=documents.filter(document=>document.is_active&&Number(document.revision_no)===(Number(file.revision_no)||1)).map(document=>`<div class="bsgt-relations-doc"><div><b>${escapeHtml(window.JahezBsgtManagement.documentLabel(document.document_type))}</b><small>موقع — مراجعة ${document.revision_no}</small></div><span>${escapeHtml(document.file_name)}</span><button type="button" class="btn btn-ghost btn-small" data-bsgt-relations-signed="${escapeHtml(document.storage_path)}">معاينة</button></div>`).join('');
-  host.innerHTML=`<section class="bsgt-relations-detail"><header class="bsgt-relations-detail-head"><div><h3>${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtRelations.statusLabel(file.status))} · المراجعة ${Number(file.revision_no)||1}</p></div><div class="bsgt-relations-actions">${shipments.length&&file.metadata?.operationsRevisionWorkflow?'<button type="button" class="btn btn-ghost" id="bsgtRelationsBundlePreview" title="كل مستندات الملف بأحدث النسخ الموقعة في PDF واحد للمعاينة والطباعة">'+icon('printer',14)+' معاينة وطباعة الملف الكامل</button>':''}<button type="button" class="btn btn-ghost" id="bsgtRelationsClose">إغلاق</button>${editable?'<button type="button" class="btn bsgt-relations-primary" id="bsgtRelationsSend">'+icon('plane',14)+' تم الإرسال للبنك المعني</button>':''}</div></header>
+  host.innerHTML=`<section class="bsgt-relations-detail"><header class="bsgt-relations-detail-head"><div><h3>${escapeHtml(file.operation_no)}</h3><p>${escapeHtml(window.JahezBsgtRelations.statusLabel(file.status))} · المراجعة ${Number(file.revision_no)||1}</p></div><div class="bsgt-relations-actions">${shipments.length&&file.metadata?.operationsRevisionWorkflow?'<button type="button" class="btn btn-ghost" id="bsgtRelationsBundlePreview" title="كل مستندات الملف بأحدث النسخ الموقعة في PDF واحد للمعاينة والطباعة">'+icon('printer',14)+' معاينة وطباعة الملف الكامل</button>':''}<button type="button" class="btn btn-ghost" id="bsgtRelationsClose">إغلاق</button>${editable?'<button type="button" class="btn bsgt-relations-primary" id="bsgtRelationsSend">إرسال للبنك المحصل</button>':''}</div></header>
     <div class="bsgt-relations-summary"><div class="bsgt-relations-stat"><span>رقم الملف</span><b>${escapeHtml(file.operation_no)}</b></div><div class="bsgt-relations-stat"><span>الحالة</span><b>${escapeHtml(window.JahezBsgtRelations.statusLabel(file.status))}</b></div><div class="bsgt-relations-stat"><span>Revision</span><b>${Number(file.revision_no)||1}</b></div><div class="bsgt-relations-stat"><span>الشحنات</span><b>${shipments.length}</b></div><div class="bsgt-relations-stat"><span>البنك المرسل</span><b>${escapeHtml(file.remitting_bank||'—')}</b></div><div class="bsgt-relations-stat"><span>القبول النهائي</span><b>${escapeHtml(formatShipmentAuditDate(file.final_accepted_at))}</b></div></div>
     <div class="bsgt-relations-warning ${evaluation.missingOptionalCount?'':'is-complete'}">${evaluation.missingOptionalCount?`تنبيه: توجد ${evaluation.missingOptionalCount} مرفقات اختيارية غير مضافة. لا يمنع ذلك الإرسال.`:'كل المرفقات الاختيارية متوفرة.'}</div>
-    <section class="bsgt-relations-section"><header><div><h4>البنك المعني</h4><small>${editable?'يمكن التأكيد أو التعديل قبل الإرسال':'بيانات الإرسال للقراءة فقط'}</small></div></header><div class="bsgt-relations-section-body bsgt-relations-bank-row"><label>اسم البنك<select id="bsgtRelationsBank" ${editable?'':'disabled'}>${bsgtRelationsBankOptions(file)}</select></label><label>عنوان البنك<textarea id="bsgtRelationsBankAddress" ${editable?'':'disabled'}>${escapeHtml(address)}</textarea></label></div></section>
+    <section class="bsgt-relations-section"><header><div><h4>البنك المحصل</h4><small>${editable?'يمكن التأكيد أو التعديل قبل الإرسال':'بيانات الإرسال للقراءة فقط'}</small></div></header><div class="bsgt-relations-section-body bsgt-relations-bank-row"><label>اسم البنك<select id="bsgtRelationsBank" ${editable?'':'disabled'}>${bsgtRelationsBankOptions(file)}</select></label><label>عنوان البنك<textarea id="bsgtRelationsBankAddress" ${editable?'':'disabled'}>${escapeHtml(address)}</textarea></label></div></section>
     <section class="bsgt-relations-section"><header><h4>الشحنات المشمولة (${shipments.length})</h4></header><div class="bsgt-relations-section-body bsgt-relations-shipments">${cards}</div></section>
     <section class="bsgt-relations-section" id="bsgtRelationsCaseAttachments"><header><div><h4>مرفقات العلاقات التجارية</h4><small>رقم الملف: ${escapeHtml(file.operation_no)} — رفع واحد يغطي جميع الشحنات المشمولة</small></div></header><div class="bsgt-relations-section-body bsgt-relations-attachments">${attachmentRows}${history?`<details><summary>المرفقات السابقة — محفوظة بأصلها</summary><div class="bsgt-relations-docs">${history}</div></details>`:''}</div></section>
     <section class="bsgt-relations-section"><header><div><h4>مستندات المراحل السابقة</h4><small>قراءة فقط، ولا تضاف مرفقات العلاقات إلى حزمة الدمج</small></div></header><div class="bsgt-relations-section-body bsgt-relations-docs">${generatedRows}${uploadedRows}${collectionRows}${signedRows}</div></section>
@@ -10421,7 +10335,7 @@ function renderBsgtRelationsDetail(){
   document.getElementById('bsgtRelationsBankAddress').readOnly=true;
   if(editable&&bsgtRelationsSelectedBank())fillBankAddress();
   document.getElementById('bsgtRelationsBank')?.addEventListener('change',fillBankAddress);
-  document.getElementById('bsgtRelationsSend')?.addEventListener('click',()=>openBsgtRelationsSendConfirmation());
+  document.getElementById('bsgtRelationsSend')?.addEventListener('click',openBsgtRelationsSendConfirmation);
   host.querySelectorAll('[data-bsgt-relations-upload]').forEach(button=>button.addEventListener('click',()=>uploadBsgtRelationsAttachment(file,null,button.dataset.bsgtRelationsUpload)));
   host.querySelectorAll('[data-bsgt-relations-preview]').forEach(button=>button.addEventListener('click',()=>openBsgtRelationsAttachment(button.dataset.bsgtRelationsPreview)));
   host.querySelectorAll('[data-bsgt-relations-archive]').forEach(button=>button.addEventListener('click',()=>archiveBsgtRelationsAttachment(button.dataset.bsgtRelationsArchive)));
@@ -10470,44 +10384,27 @@ async function uploadBsgtRelationsAttachment(file,shipmentId,type){
 async function openBsgtRelationsAttachment(path){const {data,error}=await sb.storage.from('trade-collection-documents').createSignedUrl(path,300);if(error)return toast(error.message,'err');window.open(data.signedUrl,'_blank','noopener');}
 async function archiveBsgtRelationsAttachment(id){if(!confirm('أرشفة هذا المرفق؟ سيبقى محفوظاً في سجل المراجعة.'))return;const fileId=bsgtRelationsState.detailId;bsgtRelationsState.busy=true;netStart();try{const {error}=await sb.rpc('archive_bsgt_relations_attachment',{p_attachment_id:id});if(error)throw error;toast('تمت أرشفة المرفق.');await loadBsgtRelationsDetail(fileId);await loadBsgtRelations();}catch(error){toast(error.message||'تعذر أرشفة المرفق.','err');}finally{bsgtRelationsState.busy=false;netEnd();}}
 
-function openBsgtRelationsSendConfirmation(context){
-  if(!bsgtRelationsPermission(true))return;
-  let pending=context;
-  if(!pending){
-    const detail=bsgtRelationsState.detail;if(!detail)return;
-    const bank=bsgtRelationsSelectedBank();if(!bank)return toast('اختر البنك المعني أولاً.','err');
-    const evaluation=window.JahezBsgtRelations.evaluateBsgtRelationsAttachments(detail.shipments,detail.attachments,detail.file.revision_no);
-    pending={file:detail.file,bank,missingOptionalCount:evaluation.missingOptionalCount,warnings:evaluation.warnings,button:document.getElementById('bsgtRelationsSend')};
-  }
+function openBsgtRelationsSendConfirmation(){
+  const detail=bsgtRelationsState.detail;if(!detail||!bsgtRelationsPermission(true))return;
+  const bank=bsgtRelationsSelectedBank();if(!bank)return toast('اختر البنك المحصل أولاً.','err');
+  const evaluation=window.JahezBsgtRelations.evaluateBsgtRelationsAttachments(detail.shipments,detail.attachments,detail.file.revision_no);
   const message=document.getElementById('bsgtRelationsConfirmMessage'),modal=document.getElementById('bsgtRelationsConfirm');if(!message||!modal)return;
-  const bankLine=`<p class="bsgt-relations-confirm-bank">${icon('bank',14)} البنك المعني: <b dir="auto">${escapeHtml(pending.bank.bank)}</b></p>`;
-  message.innerHTML=pending.missingOptionalCount?`<p>مرفقات اختيارية غير مضافة للملف <b>${escapeHtml(pending.file.operation_no)}</b>${pending.warnings?.length?':':` (${pending.missingOptionalCount}).`}</p>${pending.warnings?.length?`<ul>${pending.warnings.map(warning=>`<li>${escapeHtml(warning.label)}</li>`).join('')}</ul>`:''}<p>هذه المرفقات اختيارية ويمكنك المتابعة بدونها. هل تم إرسال الملف فعلياً للبنك المعني؟</p>${bankLine}`:`<p>سيتم تسجيل أن ملف العملية التجاري <b>${escapeHtml(pending.file.operation_no)}</b> تم إرساله فعلياً للبنك المعني.</p>${bankLine}<p>هل تريد المتابعة؟</p>`;
-  bsgtRelationsState.pendingSend=pending;
+  message.innerHTML=evaluation.missingOptionalCount?`<p>مرفقات اختيارية غير مضافة للملف ${escapeHtml(detail.file.operation_no)}:</p><ul>${evaluation.warnings.map(warning=>`<li>${escapeHtml(warning.label)}</li>`).join('')}</ul><p>هذه المرفقات اختيارية ويمكنك المتابعة بدونها. هل تريد إرسال الملف للبنك المحصل؟</p>`:`<p>سيتم إرسال ملف العملية التجاري <b>${escapeHtml(detail.file.operation_no)}</b> إلى البنك المحصل.</p><p>هل تريد المتابعة؟</p>`;
   modal.hidden=false;
 }
 
 async function sendBsgtRelationsFile(){
-  const pending=bsgtRelationsState.pendingSend;if(!pending||bsgtRelationsState.busy)return;
-  const bank=pending.bank?.bank,address=pending.bank?.address||'';
-  if(!bank)return toast('اختر البنك المعني أولاً.','err');
-  const modal=document.getElementById('bsgtRelationsConfirm'),submit=document.getElementById('bsgtRelationsConfirmSubmit'),button=pending.button;
-  const originalButton=button?.innerHTML;
-  bsgtRelationsState.busy=true;netStart();
-  if(submit)submit.disabled=true;
-  if(modal)modal.hidden=true;
-  if(button){button.disabled=true;button.innerHTML=`${icon('history',14)} جاري التسجيل…`;}
-  try{
-    const {error}=await sb.rpc('send_bsgt_trade_file_to_collecting',{p_trade_file_id:pending.file.id,p_collecting_bank:bank,p_collecting_bank_address:address});if(error)throw error;
-    toast('تم تسجيل إرسال الملف للبنك المعني.');
-    await loadBsgtRelations();
-    if(bsgtRelationsState.detailId===pending.file.id)await loadBsgtRelationsDetail(pending.file.id);
-  }
-  catch(error){console.error('send BSGT to collecting',error);toast(error.message||'تعذر تسجيل الإرسال.','err');if(button&&button.isConnected){button.disabled=false;button.innerHTML=originalButton;}}
-  finally{bsgtRelationsState.pendingSend=null;bsgtRelationsState.busy=false;netEnd();if(submit)submit.disabled=false;}
+  const detail=bsgtRelationsState.detail;if(!detail||bsgtRelationsState.busy)return;
+  const selectedBank=bsgtRelationsSelectedBank(),bank=selectedBank?.bank,address=selectedBank?.address||'';
+  if(!bank)return toast('اختر البنك المحصل أولاً.','err');
+  document.getElementById('bsgtRelationsConfirm').hidden=true;bsgtRelationsState.busy=true;netStart();
+  try{const {error}=await sb.rpc('send_bsgt_trade_file_to_collecting',{p_trade_file_id:detail.file.id,p_collecting_bank:bank,p_collecting_bank_address:address});if(error)throw error;toast('تم إرسال الملف للبنك المحصل.');await loadBsgtRelations();await loadBsgtRelationsDetail(detail.file.id);}
+  catch(error){console.error('send BSGT to collecting',error);toast(error.message||'تعذر إرسال الملف.','err');}
+  finally{bsgtRelationsState.busy=false;netEnd();}
 }
 
 function wireBsgtRelationsShell(){
-  document.getElementById('bsgtRelationsConfirmCancel')?.addEventListener('click',()=>{bsgtRelationsState.pendingSend=null;document.getElementById('bsgtRelationsConfirm').hidden=true;});
+  document.getElementById('bsgtRelationsConfirmCancel')?.addEventListener('click',()=>document.getElementById('bsgtRelationsConfirm').hidden=true);
   document.getElementById('bsgtRelationsConfirmSubmit')?.addEventListener('click',sendBsgtRelationsFile);
 }
 
@@ -10670,7 +10567,7 @@ async function loadBsgtOperationCenter(host){
   }
   const requestId = ++bsgtOperationCenterState.requestId;
   try{
-    const {data,error} = await window.JahezArchive.active(sb.from('shipments').select('*').eq('company_id',companyId)).order('updated_at',{ascending:false});
+    const {data,error} = await sb.from('shipments').select('*').eq('company_id',companyId).order('updated_at',{ascending:false});
     if(error) throw error;
     if(requestId !== bsgtOperationCenterState.requestId || !host.isConnected) return;
     bsgtOperationCenterState.rows = (data || []).map(rowToRecord);
@@ -17673,7 +17570,6 @@ function renderBsgtDetail(r){
           ${r.consignee ? `<button class="btn btn-ghost btn-small bsgt-icon-btn" id="shipCostBtn" title="تكلفة الشحن" aria-label="تكلفة الشحن" data-tip="تكلفة الشحن">${icon('truck',16)} <span class="bsgt-icon-label">تكلفة الشحن</span></button>` : ''}
           ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="dupBtn" title="نسخة جديدة منها" aria-label="نسخة جديدة منها" data-tip="نسخة جديدة منها">${icon('folder',16)} <span class="bsgt-icon-label">نسخة جديدة منها</span></button>`:''}
           ${bsgtOperationsPermission(true)?`<button class="btn btn-ghost btn-small bsgt-icon-btn" id="editBtn" title="تعديل" aria-label="تعديل" data-tip="تعديل">${icon('edit',16)} <span class="bsgt-icon-label">تعديل</span></button>`:''}
-          ${window.JahezArchive?.canArchive()?`<button type="button" class="btn btn-ghost btn-small jahez-archive-action" id="archiveShipmentBtn" title="إخراج الشحنة من القوائم والحسابات دون حذف">${icon('archive',15)} أرشفة</button>`:''}
           ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
         </footer>
       </main>
@@ -17785,7 +17681,6 @@ function openDetail(id, options = {}){
       ${r.consignee ? `<button class="btn btn-ghost btn-small" id="shipCostBtn">${icon('truck',15)} تكلفة الشحن</button>` : ''}
       ${window.JahezPermissions?.can('shipments.create')?`<button class="btn btn-ghost btn-small" id="dupBtn">${icon('folder',15)} نسخة جديدة منها</button>`:''}
       ${window.JahezPermissions?.can('shipments.edit')?`<button class="btn btn-ghost btn-small" id="editBtn">${icon('edit',15)} تعديل</button>`:''}
-      ${window.JahezArchive?.canArchive()?`<button type="button" class="btn btn-ghost btn-small jahez-archive-action" id="archiveShipmentBtn" title="إخراج الشحنة من القوائم والحسابات دون حذف">${icon('archive',15)} أرشفة</button>`:''}
       ${window.JahezPermissions?.can('shipments.delete')?`<button class="btn btn-danger btn-small" id="deleteBtn">${icon('trash',15)} حذف الشحنة</button>`:''}
     </div>
   `;
@@ -17876,14 +17771,6 @@ function openDetail(id, options = {}){
     addLog('edit', (toSent?'تحويل لصادرة: ':'إرجاع لمسودة: ') + (rec.itemDesc||'شحنة').slice(0,40));
     overlay.classList.remove('open');
     render(); renderDrafts(); renderIssued(); renderSea(); renderDashboard();
-  });
-
-  document.getElementById('archiveShipmentBtn')?.addEventListener('click', async (event)=>{
-    const ok = await window.JahezArchive.archiveShipmentFromDetail(id, event.currentTarget);
-    if(!ok) return;
-    overlay.classList.remove('open');
-    render(); renderDrafts(); renderIssued(); renderSea(); renderDashboard();
-    if(document.getElementById('viewBsgtWorkspace')?.classList.contains('active') && document.getElementById('bsgtOperationsList')) loadBsgtOperationsPage();
   });
 
   document.getElementById('deleteBtn')?.addEventListener('click', async ()=>{
@@ -22212,12 +22099,10 @@ initializeAuthentication();
 <script src="wizard.js"></script>
 <script src="company-wizard.js?v=20260915-merge-routing-1"></script>
 <script src="shipment-detail.js"></script>
-<script src="shipment-list.js?v=20260918-archive-1"></script>
-<script src="signature-placement.js?v=20260919-placement-2"></script>
-<script src="client-company-profiles.js?v=20260919-placement-1"></script>
-<script src="company-profile.js?v=20260919-placement-2"></script>
+<script src="shipment-list.js?v=20260911-workflow-4"></script>
+<script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260919-placement-3"></script>
-<script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260918-parallel-render-1"></script>
+<script src="bsgt-trade-files.js?v=20260915-print-download-1"></script>
 </body>
 </html>

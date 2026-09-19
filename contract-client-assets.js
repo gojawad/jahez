@@ -95,7 +95,7 @@
     return {
       async loadFiles(clientId){
         const {data,error} = await supabase.from('client_profile_files')
-          .select('id,client_id,file_type,title,original_name,storage_path,mime_type,is_active,signatory_id')
+          .select('id,client_id,file_type,title,original_name,storage_path,mime_type,is_active,signatory_id,metadata')
           .eq('client_id',clientId).eq('is_active',true).in('file_type',['stamp','signature'])
           .order('created_at',{ascending:false});
         if(error) throw error;

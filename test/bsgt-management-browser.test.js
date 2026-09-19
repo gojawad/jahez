@@ -34,9 +34,12 @@ async function main(){
       if(url.pathname.endsWith('/company-profile-files/asset.png'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'image/png'},body:stampPng});
       if(url.pathname.includes('/storage/v1/object/sign/company-profile-files/'))return route.fulfill({status:200,headers,body:JSON.stringify({signedURL:'/object/sign/company-profile-files/asset.png?token=t'})});
       if(url.pathname==='/rest/v1/company_profile_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'cp-stamp',company_id:company.id,file_type:'stamp',title:'الختم الرسمي',original_name:'stamp.png',storage_path:`${company.id}/stamp/stamp.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z',metadata:{placement:{x:.6,y:.7,width:.25}}},{id:'cp-sig-1',company_id:company.id,file_type:'signature',title:'المدير',signatory_name:'جواد المصري',original_name:'sig1.png',storage_path:`${company.id}/signature/sig1.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'},{id:'cp-sig-2',company_id:company.id,file_type:'signature',title:'مفوض',signatory_name:'مفوض ثانٍ',original_name:'sig2.png',storage_path:`${company.id}/signature/sig2.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'}])});
-      if(url.pathname==='/rest/v1/clients'||url.pathname==='/rest/v1/client_profile_files'||url.pathname==='/rest/v1/client_authorized_signatories')return route.fulfill({status:200,headers,body:'[]'});
+      if(url.pathname==='/rest/v1/clients')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'client-1',name:'BUYER CO',name_ar:'',name_en:'BUYER CO',active:true}])});
+      if(url.pathname.includes('/storage/v1/object/sign/client-profile-files/'))return route.fulfill({status:200,headers,body:JSON.stringify({signedURL:'/object/sign/company-profile-files/asset.png?token=c'})});
+      if(url.pathname==='/rest/v1/client_profile_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'cl-stamp',client_id:'client-1',file_type:'stamp',title:'ختم المشتري',original_name:'b.png',storage_path:'client-1/stamp/b.png',mime_type:'image/png',is_active:true,signatory_id:null,metadata:{placement:{x:.1,y:.8,width:.15}}}])});
+      if(url.pathname==='/rest/v1/client_authorized_signatories')return route.fulfill({status:200,headers,body:'[]'});
       if(url.pathname.includes('/storage/v1/object/'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:sourceBytes});
-      if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:{id:tradeId,status,revision_no:1},shipments:[{shipment:{id:shipmentId,data:{operationNo:'BSGTX-2026-0099'}},revision}],documents:[...originals,...(savedSignature?[savedSignature]:[])]})});
+      if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:{id:tradeId,status,revision_no:1},shipments:[{shipment:{id:shipmentId,data:{operationNo:'BSGTX-2026-0099',consignee:'BUYER CO'}},revision}],documents:[...originals,...(savedSignature?[savedSignature]:[])]})});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions')return route.fulfill({status:200,headers,body:JSON.stringify([{section:'management',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/start_bsgt_management_review'){startCalls++;status='under_management_review';return route.fulfill({status:200,headers,body:'{}'});}
@@ -45,7 +48,7 @@ async function main(){
       if(url.pathname==='/rest/v1/trade_collection_file_shipments')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'link',trade_file_id:tradeId,shipment_id:shipmentId}])});
       if(url.pathname==='/rest/v1/trade_collection_file_documents')return route.fulfill({status:200,headers,body:JSON.stringify(revisionMode?originals:[])});
       if(url.pathname==='/rest/v1/trade_collection_file_events'||url.pathname==='/rest/v1/shipment_files')return route.fulfill({status:200,headers,body:'[]'});
-      if(url.pathname==='/rest/v1/shipments')return route.fulfill({status:200,headers,body:JSON.stringify([{id:shipmentId,status:'sent',owner_id:profile.id,company_id:company.id,bsgt_stage:status==='sent_to_remitting'?'sent_to_remitting':'management_review',created_at:'2026-09-12T09:00:00Z',updated_at:'2026-09-12T09:00:00Z',data:{operationNo:'BSGTX-2026-0099',consignee:'TEST CLIENT',itemDesc:'FABRIC',totalAmount:'USD 100.00'}}])});
+      if(url.pathname==='/rest/v1/shipments')return route.fulfill({status:200,headers,body:JSON.stringify([{id:shipmentId,status:'sent',owner_id:profile.id,company_id:company.id,bsgt_stage:status==='sent_to_remitting'?'sent_to_remitting':'management_review',created_at:'2026-09-12T09:00:00Z',updated_at:'2026-09-12T09:00:00Z',data:{operationNo:'BSGTX-2026-0099',consignee:'BUYER CO',itemDesc:'FABRIC',totalAmount:'USD 100.00'}}])});
       if(req.method()==='HEAD')return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/0'},body:''});return route.fulfill({status:200,headers,body:'[]'});
     });
     const page=await context.newPage();page.on('pageerror',error=>console.error('browser',error.message));page.on('console',message=>{if(message.type()==='error')console.error(message.text());});await page.goto(`${APP}/#v=bsgtWorkspace&section=management`,{waitUntil:'domcontentloaded'});
@@ -79,8 +82,13 @@ async function main(){
     // Saved signatures are offered automatically: buyer buttons stay disabled (no client profile),
     // company stamp adds directly, company signature offers a choice between the two signatories.
     await page.waitForFunction(()=>!document.querySelector('dialog[open] [data-auto-pick="company-stamp"]').disabled,null,{timeout:10000});
-    assert.equal(await dialog.locator('[data-auto-pick="buyer-stamp"]').isDisabled(),true);
-    assert.equal(await dialog.locator('[data-auto-pick="buyer-signature"]').isDisabled(),true);
+    await page.waitForFunction(()=>!document.querySelector('dialog[open] [data-auto-pick="buyer-stamp"]').disabled,null,{timeout:10000});
+    assert.equal(await dialog.locator('[data-auto-pick="buyer-signature"]').isDisabled(),true,'no buyer signature uploaded');
+    await dialog.locator('[data-auto-pick="buyer-stamp"]').click();
+    await dialog.locator('[data-overlay] img').waitFor();
+    const buyerStyle=await page.evaluate(()=>{const s=document.querySelector('dialog[open] [data-overlay] img').style;return {left:s.left,top:s.top,width:s.width};});
+    assert.deepStrictEqual(buyerStyle,{left:'10%',top:'80%',width:'15%'},'buyer stamp uses the placement saved in the client profile');
+    await dialog.locator('[data-delete]').click();
     await dialog.locator('[data-auto-pick="company-stamp"]').click();
     await dialog.locator('[data-overlay] img').waitFor();
     assert.equal(await dialog.locator('[data-overlay] img').count(),1,'company stamp placed straight onto the page');
