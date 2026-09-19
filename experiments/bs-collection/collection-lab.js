@@ -47,6 +47,27 @@ let selectedTextStyle = null;
 let remittingBatches = [];
 let portalRole = '';
 let employeeStampMoveMode = false;
+// "Confidential" marker (Calibri 11, red) on the three collection documents: one shared position
+// in page millimetres, saved with the company document layouts by the administrator.
+const confidentialMarkerStorageKey = 'bsCollectionConfidentialMarkerV1';
+let confidentialMoveMode = false;
+function collectionConfidentialMarker(){
+  const saved=collectionStoredObject(confidentialMarkerStorageKey);
+  const x=Number(saved.xMm), y=Number(saved.yMm);
+  return {xMm:Number.isFinite(x)?Math.max(0,Math.min(200,x)):17, yMm:Number.isFinite(y)?Math.max(0,Math.min(293,y)):285};
+}
+window.collectionConfidentialMarker=collectionConfidentialMarker;
+async function persistConfidentialMarker(position){
+  const clean={xMm:Math.round(position.xMm*10)/10, yMm:Math.round(position.yMm*10)/10};
+  try { localStorage.setItem(confidentialMarkerStorageKey, JSON.stringify(clean)); } catch (_) {}
+  if(portalRole!=='admin'||!sharedCollectionCompany?.id) return clean;
+  const layouts=Object.assign({},sharedCollectionCompany.settings?.collectionDocumentLayouts||{},{confidential:clean});
+  const settings=Object.assign({},sharedCollectionCompany.settings||{},{collectionDocumentLayouts:layouts});
+  const {error}=await sb.from('companies').update({settings}).eq('id',sharedCollectionCompany.id);
+  if(error) throw error;
+  sharedCollectionCompany.settings=settings;
+  return clean;
+}
 // Employee placement belongs to this selection and document, never the shared template.
 const employeeStampPositions = new Map();
 let sharedCollectionBranding = {};
@@ -151,6 +172,7 @@ async function persistSharedCollectionDocumentLayouts(layouts){
 async function loadSharedCollectionDocumentLayouts(company){
   sharedCollectionCompany=company;
   const remote=company?.settings?.collectionDocumentLayouts;
+  if(remote?.confidential&&Number.isFinite(Number(remote.confidential.xMm))){ try { localStorage.setItem(confidentialMarkerStorageKey, JSON.stringify(remote.confidential)); } catch (_) {} }
   if(applySharedCollectionDocumentLayouts(remote)){
     sharedCollectionDocumentLayouts=remote;
     return;
@@ -1133,6 +1155,12 @@ window.addEventListener('focus',async()=>{
 $('previewTabs').addEventListener('click',event=>{const button=event.target.closest('[data-preview]');if(!button)return;state.preview=button.dataset.preview;selectedTextBlock=null;selectedTextStyle=null;textBlockEditMode=false;renderPreview();window.CollectionHtmlTemplates?.open(state.preview);});
 $('groupByConsignee').addEventListener('click',()=>{const groups={};selectedShipments().forEach(r=>(groups[r.consignee||'غير محدد']??=[]).push(r));$('consigneeGroups').hidden=false;$('consigneeGroups').innerHTML=Object.entries(groups).map(([name,rows])=>`<b>${esc(name)}</b>: ${rows.map(r=>esc(r.shipmentNo)).join('، ')}`).join('<br>');});
 $('resetBtn').addEventListener('click',()=>{state.selected.clear();state.activeOperationNo='';state.overrides={};$('settingsForm').reset();Object.assign(state.settings,{collectionDate:new Date().toISOString().slice(0,10),remittingBank:'Abu Dhabi Islamic Bank',remittingBankLetterAddress:'Abu Dhabi, UAE',remittingBankAddress:'BANIYAS BRANCH BUILDING, 2ND FLOOR, BANIYAS EAST, P.O.BOX 313, ABU DHABI, UAE.',remittingBankAccountNo:'19567664',collectingBank:'SAUDI SUDANESE BANK',collectingBankAddress:'MAIN BRANCH, FREE ZONE AREA, PORT SUDAN, SUDAN',billOfLadingType:'Copy of Original Bill of Lading',billBy:'KINDLY SEND SWIFT MESSAGE TO COLLECTING BANK FOR DOCS AND SHARE SWIFT COPY WITH US.',term:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.',drawer:'BAHAR SWAKEN GENERAL TRADING L.L.C',authorizedPerson:'JAWAD ELMASRI',title:'Manager',draweeAddress:''});applySendingDefaults();populateCollectionSelects();Object.entries(state.settings).forEach(([key,value])=>{const input=$('settingsForm').elements[key];if(input)input.value=value;});renderAll();});
+$('moveConfidentialBtn')?.addEventListener('click',()=>{
+  confidentialMoveMode=!confidentialMoveMode;
+  $('moveConfidentialBtn').setAttribute('aria-pressed',String(confidentialMoveMode));
+  $('moveConfidentialBtn').innerHTML=confidentialMoveMode?'<i class="bx bx-check"></i> تم تحديد موضع Confidential':'<i class="bx bx-move"></i> تحريك Confidential';
+  renderPreview();
+});
 $('printBtn').addEventListener('click',()=>window.CollectionHtmlTemplates?.hasTemplate(state.preview)?CollectionHtmlTemplates.printSaved():window.print());
 $('recordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('portalBackBtn').addEventListener('click',()=>{
@@ -1376,6 +1404,41 @@ function fitCollectionContent(content){
   content.dataset.fitScale='1';
 }
 
+function wireCollectionConfidentialDrag(paper){
+  const marker=paper.querySelector('.collection-confidential-overlay');
+  if(!marker) return;
+  const position=collectionConfidentialMarker();
+  // The preview may still be collapsed when it renders; scale lazily and follow the sheet's width.
+  const scale=()=>(paper.getBoundingClientRect().width||(210*96/25.4))/210;
+  let pxPerMm=scale();
+  const apply=()=>{ pxPerMm=scale(); marker.style.left=`${position.xMm*pxPerMm}px`; marker.style.top=`${position.yMm*pxPerMm}px`; marker.style.fontSize=`${3.881*pxPerMm}px`; };
+  apply();
+  if(typeof ResizeObserver==='function'){ const observer=new ResizeObserver(()=>{ if(!marker.isConnected){observer.disconnect();return;} apply(); }); observer.observe(paper); }
+  marker.classList.toggle('is-movable',confidentialMoveMode);
+  marker.title=confidentialMoveMode?'اسحب الكلمة إلى الموضع المطلوب':'اضغط «تحريك Confidential» لتغيير موضعها';
+  if(!confidentialMoveMode) return;
+  marker.addEventListener('pointerdown',event=>{
+    event.preventDefault();
+    const start={x:event.clientX,y:event.clientY,baseX:position.xMm,baseY:position.yMm};
+    marker.setPointerCapture(event.pointerId);
+    const move=point=>{
+      position.xMm=Math.max(0,Math.min(200,start.baseX+(point.clientX-start.x)/pxPerMm));
+      position.yMm=Math.max(0,Math.min(293,start.baseY+(point.clientY-start.y)/pxPerMm));
+      apply();
+    };
+    const finish=async()=>{
+      marker.removeEventListener('pointermove',move);marker.removeEventListener('pointerup',finish);marker.removeEventListener('pointercancel',finish);
+      const button=$('moveConfidentialBtn');
+      try{
+        await persistConfidentialMarker(position);
+        if(button){ button.innerHTML=`<i class="bx bx-check-double"></i> حُفظ الموضع (${position.xMm.toFixed(1)}، ${position.yMm.toFixed(1)} مم)${portalRole==='admin'?'':' — على هذا الجهاز فقط'}`; }
+      }
+      catch(error){ alert(`تعذّر حفظ موضع Confidential: ${error?.message||error}`); }
+    };
+    marker.addEventListener('pointermove',move);marker.addEventListener('pointerup',finish);marker.addEventListener('pointercancel',finish);
+  });
+}
+window.wireCollectionConfidentialDrag=wireCollectionConfidentialDrag;
 function wireCollectionStampDrag(paper){
   const stamp = paper.querySelector('.collection-stamp-overlay');
   if(!stamp || !portalRole) return;

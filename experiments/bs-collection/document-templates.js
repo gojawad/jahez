@@ -150,9 +150,10 @@ window.CollectionHtmlTemplates = (()=>{
     const assets=`${background?`<img class="template-background" src="${esc(background)}" alt="">`:''}${header?`<header class="template-header"><img src="${esc(header)}" alt=""></header>`:''}${footer?`<footer class="template-footer"><img src="${esc(footer)}" alt=""></footer>`:''}`;
     const exchangeFonts=kind==='exchange'?window.CollectionExchangeWordTemplate?.fonts(location.origin)||'':'';
     // "Confidential" marker: Calibri 11 red (Carlito carries Calibri metrics where Calibri is not installed).
+    const confidential=confidentialPosition();
     const confidentialFont=`@font-face{font-family:'Jahez Confidential Sans';font-style:normal;font-weight:400;src:url('${location.origin}/experiments/bs-collection/assets/Carlito-Regular.ttf') format('truetype');}`;
     return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: ${location.origin} ${SB_URL}; font-src data: ${location.origin}; base-uri 'none'; form-action 'none'"><title>${esc(title(kind))}</title>
-      <meta name="collection-page-art" content="${esc(JSON.stringify(artwork))}"><style data-template-screen>${confidentialFont}</style><style>${exchangeFonts}${content.css}</style><style>
+      <meta name="collection-page-art" content="${esc(JSON.stringify({...artwork,confidential}))}"><style data-template-screen>${confidentialFont}</style><style>${exchangeFonts}${content.css}</style><style>
       @page{size:A4;margin:${top}mm ${right}mm ${bottom}mm ${left}mm}
       html{background:#fff}body{margin:0!important;color:#111;font-family:Arial,Tahoma,sans-serif;font-size:11pt;line-height:1.45}
       .template-sheet{position:relative;box-sizing:border-box;width:210mm;min-height:297mm;padding:${top}mm ${right}mm ${bottom}mm ${left}mm;background:transparent;isolation:isolate}
@@ -166,7 +167,7 @@ window.CollectionHtmlTemplates = (()=>{
       .template-header img,.template-footer img{width:100%;height:100%;object-fit:contain}
       .template-stamp{position:absolute;z-index:3;touch-action:none;cursor:grab}.template-stamp img{width:100%;pointer-events:none}
       .template-signature img{max-width:48mm;max-height:25mm}
-      .template-confidential{position:absolute;left:${left}mm;bottom:${CONFIDENTIAL_BOTTOM_MM}mm;z-index:2;margin:0;font:400 ${CONFIDENTIAL_SIZE_PT}pt/1 Calibri,'Jahez Confidential Sans',Carlito,sans-serif;color:${CONFIDENTIAL_COLOR};direction:ltr;pointer-events:none}
+      .template-confidential{position:absolute;left:${confidential.xMm}mm;top:${confidential.yMm}mm;z-index:2;margin:0;font:400 ${CONFIDENTIAL_SIZE_PT}pt/1 Calibri,'Jahez Confidential Sans',Carlito,sans-serif;color:${CONFIDENTIAL_COLOR};direction:ltr;white-space:nowrap;pointer-events:none}
       @media print{.template-confidential{display:none!important}}
       @media screen{.template-stamp{margin-left:${left}mm;margin-top:${top}mm}}
       @media print{html,body{background:transparent!important}.template-sheet{width:auto;min-height:0;padding:0;background:transparent}.template-background,.template-header,.template-footer{display:none!important}.template-stamp{outline:none!important}}
@@ -205,7 +206,8 @@ window.CollectionHtmlTemplates = (()=>{
     await loadPdfLibrary();
     const result=await PDFLib.PDFDocument.create();
     const source=await PDFLib.PDFDocument.load(bytes);
-    const confidentialFont=await embedConfidentialFont(result);
+    const confidentialOutlines=await confidentialGlyphs();
+    const confidentialFallback=confidentialOutlines?null:await result.embedFont(PDFLib.StandardFonts.Helvetica);
     const image=async url=>{
       if(!url)return null;
       const img=new Image();img.crossOrigin='anonymous';img.src=url;await img.decode();
@@ -230,7 +232,8 @@ window.CollectionHtmlTemplates = (()=>{
       };
       fit(header,height-(artwork.top+artwork.headerSize)*pt,artwork.headerSize);
       fit(footer,artwork.bottom*pt,artwork.footerSize);
-      page.drawText(CONFIDENTIAL_TEXT,{x:artwork.left*pt,y:CONFIDENTIAL_BOTTOM_MM*pt,size:CONFIDENTIAL_SIZE_PT,font:confidentialFont,color:PDFLib.rgb(0.89,0.02,0.07)});
+      // Same box as the on-screen marker: top-left at (xMm, yMm).
+      drawConfidential(page,artwork.confidential||confidentialPosition(),confidentialOutlines,confidentialFallback);
       if(stamp&&index===0){
         const w=artwork.stamp.width*pt,h=w*stamp.height/stamp.width;
         const angle=-artwork.stamp.rotate*Math.PI/180,cx=artwork.stamp.x*pt+w/2,cy=height-artwork.stamp.y*pt-h/2;
@@ -241,23 +244,40 @@ window.CollectionHtmlTemplates = (()=>{
   }
   let exchangeFontPromise;
   // Confidential marker: bottom-left of every page, below the footer artwork, Calibri 11 red.
-  const CONFIDENTIAL_TEXT='Confidential',CONFIDENTIAL_SIZE_PT=11,CONFIDENTIAL_BOTTOM_MM=8,CONFIDENTIAL_COLOR='#e30613';
+  const CONFIDENTIAL_TEXT='Confidential',CONFIDENTIAL_SIZE_PT=11,CONFIDENTIAL_COLOR='#e30613';
+  function confidentialPosition(){ return window.collectionConfidentialMarker?.()||{xMm:17,yMm:285}; }
   let confidentialFontPromise,fontkitPromise;
   function loadFontkit(){
     if(window.fontkit)return Promise.resolve(window.fontkit);
-    if(!fontkitPromise)fontkitPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';script.onload=()=>resolve(window.fontkit);script.onerror=()=>{fontkitPromise=null;script.remove();reject(new Error('fontkit unavailable'));};document.head.append(script);});
+    if(!fontkitPromise)fontkitPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='collection-fontkit.js?v=1.1.1';script.onload=()=>resolve(window.fontkit);script.onerror=()=>{fontkitPromise=null;script.remove();reject(new Error('fontkit unavailable'));};document.head.append(script);});
     return fontkitPromise;
   }
-  async function embedConfidentialFont(pdfDocument){
+  // The marker is drawn as Carlito glyph outlines (vector paths), so it looks the same in every
+  // viewer and printer. Embedding Carlito as a PDF font through pdf-lib drops glyphs in some
+  // viewers, which is what made the printed word look broken.
+  async function confidentialGlyphs(){
     try{
       const fontkit=await loadFontkit();
       if(!confidentialFontPromise)confidentialFontPromise=fetch(`${location.origin}/experiments/bs-collection/assets/Carlito-Regular.ttf`).then(response=>{if(!response.ok)throw new Error('font');return response.arrayBuffer();}).catch(error=>{confidentialFontPromise=null;throw error;});
-      pdfDocument.registerFontkit(fontkit);
-      return await pdfDocument.embedFont(await confidentialFontPromise,{subset:true});
+      const font=fontkit.create(new Uint8Array(await confidentialFontPromise));
+      const scale=CONFIDENTIAL_SIZE_PT/font.unitsPerEm,run=font.layout(CONFIDENTIAL_TEXT);
+      const svg=path=>path.commands.map(({command,args:a})=>command==='moveTo'?`M${a[0]} ${-a[1]}`:command==='lineTo'?`L${a[0]} ${-a[1]}`:command==='quadraticCurveTo'?`Q${a[0]} ${-a[1]} ${a[2]} ${-a[3]}`:command==='bezierCurveTo'?`C${a[0]} ${-a[1]} ${a[2]} ${-a[3]} ${a[4]} ${-a[5]}`:command==='closePath'?'Z':'').join(' ');
+      let x=0;
+      const glyphs=run.glyphs.map((glyph,index)=>{const item={d:svg(glyph.path),dx:x+run.positions[index].xOffset*scale,dy:run.positions[index].yOffset*scale};x+=run.positions[index].xAdvance*scale;return item;});
+      // Baseline offset that matches the on-screen box (CSS line-height 1): half of the extra leading is trimmed from the top.
+      const ascent=font.ascent*scale,descent=Math.abs(font.descent)*scale;
+      return {glyphs,scale,ascent:ascent-Math.max(0,(ascent+descent-CONFIDENTIAL_SIZE_PT)/2)};
     }catch(error){
-      console.warn('confidential marker: falling back to Helvetica',error);
-      return pdfDocument.embedFont(PDFLib.StandardFonts.Helvetica);
+      console.warn('confidential marker: falling back to Helvetica text',error);
+      return null;
     }
+  }
+  function drawConfidential(page,marker,outlines,fallbackFont){
+    const pt=72/25.4,x=marker.xMm*pt,top=page.getHeight()-marker.yMm*pt,color=PDFLib.rgb(0.89,0.02,0.07);
+    if(outlines){
+      const baseline=top-outlines.ascent;
+      outlines.glyphs.forEach(glyph=>{if(glyph.d)page.drawSvgPath(glyph.d,{x:x+glyph.dx,y:baseline+glyph.dy,scale:outlines.scale,color,borderWidth:0});});
+    }else page.drawText(CONFIDENTIAL_TEXT,{x,y:top-CONFIDENTIAL_SIZE_PT*0.78,size:CONFIDENTIAL_SIZE_PT,font:fallbackFont,color});
   }
   function exchangePdfFonts(){
     if(!exchangeFontPromise)exchangeFontPromise=(async()=>{
@@ -383,7 +403,7 @@ window.CollectionHtmlTemplates = (()=>{
       const wrapper=document.createElement('div');wrapper.className='collection-html-page';
       const frame=document.createElement('iframe');frame.className='collection-html-frame';frame.title=title(kind);frame.setAttribute('sandbox','allow-same-origin');
       const doc=new DOMParser().parseFromString(documentHtml(kind,active(kind)),'text/html');
-      doc.querySelectorAll('.template-stamp').forEach(node=>node.remove());
+      doc.querySelectorAll('.template-stamp,.template-confidential').forEach(node=>node.remove());
       frame.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;
       frame.onload=()=>{
         const paper=frame.contentDocument?.querySelector('.template-sheet');
@@ -392,7 +412,9 @@ window.CollectionHtmlTemplates = (()=>{
       };
       wrapper.append(frame);
       wrapper.insertAdjacentHTML('beforeend',stampMarkup(kind,0,0));
+      wrapper.insertAdjacentHTML('beforeend',`<div class="template-confidential collection-confidential-overlay" aria-label="Confidential">${CONFIDENTIAL_TEXT}</div>`);
       byId('documentPreview').replaceChildren(wrapper);
+      window.wireCollectionConfidentialDrag?.(wrapper);
       const stampImage=wrapper.querySelector('.template-stamp img');
       if(stampImage){
         if(stampImage.complete)wireCollectionStampDrag(wrapper);

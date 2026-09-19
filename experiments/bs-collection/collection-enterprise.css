@@ -834,3 +834,9 @@ body.collection-enterprise-ui .summary-action.is-sent > i { background: #fff; co
 body.collection-enterprise-ui #compactRecordCollectionBtn { display: none !important; }
 body.collection-enterprise-ui .lab-section.collection-portal-section,
 body.collection-enterprise-ui .portal-step-card[data-step-section="collection-portal-section"] { display: none !important; }
+
+/* Movable "Confidential" marker over the document preview (position saved in page mm). */
+@font-face{font-family:'Jahez Confidential Sans';font-style:normal;font-weight:400;src:url('assets/Carlito-Regular.ttf') format('truetype');}
+.collection-confidential-overlay{position:absolute;z-index:4;margin:0;line-height:1;font-family:Calibri,'Jahez Confidential Sans',Carlito,sans-serif;font-weight:400;color:#e30613;direction:ltr;white-space:nowrap;pointer-events:none;user-select:none}
+.collection-confidential-overlay.is-movable{pointer-events:auto;cursor:grab;outline:1px dashed #e30613;outline-offset:3px;touch-action:none}
+.collection-confidential-overlay.is-movable:active{cursor:grabbing}
