@@ -208,7 +208,9 @@
     document.querySelectorAll('[data-bsgt-finance-select]').forEach(input=>{
       const row=bsgtFinanceState.readyRows.find(r=>r.id===input.dataset.bsgtFinanceSelect);
       if(!row?.operationsRevisionId)return;
-      input.disabled=false;
+      // Keep shipments that already belong to a trade file unselectable (the list marks them as linked).
+      input.disabled=(typeof bsgtFinanceLinkedSet==='function')&&bsgtFinanceLinkedSet().has(row.id);
+      if(input.disabled&&bsgtFinanceState.selected.has(row.id)){bsgtFinanceState.selected.delete(row.id);input.checked=false;}
       const cell=input.closest('.bsgt-finance-row')?.lastElementChild;
       if(cell&&!cell.querySelector('[data-revision-preview]')){
         const iconButton=(label,tip,iconName)=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-small bsgt-icon-btn';b.title=tip;b.setAttribute('aria-label',label);b.dataset.tip=label;b.innerHTML=`${icon(iconName,16)} <span class="bsgt-icon-label">${esc(label)}</span>`;return b;};

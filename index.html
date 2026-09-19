@@ -2493,7 +2493,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
   <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260918-compact-shell-2">
-  <link rel="stylesheet" href="bsgt-finance.css?v=20260918-icon-actions-1">
+  <link rel="stylesheet" href="bsgt-finance.css?v=20260918-linked-status-1">
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260918-full-bundle-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
@@ -9918,10 +9918,13 @@ function bsgtFinanceAllRows(){
 function renderBsgtFinanceReady(){
   const host=document.getElementById('bsgtFinanceReady'); if(!host) return;
   const linked=bsgtFinanceLinkedSet(), rows=bsgtFinanceState.readyRows;
+  // A shipment already inside a trade file is shown with that file and its status, and cannot be selected again.
+  const fileByShipment=new Map(bsgtFinanceState.links.map(link=>[link.shipment_id,bsgtFinanceState.files.find(file=>file.id===link.trade_file_id)]).filter(([,file])=>file));
+  const linkedLabel=row=>{const file=fileByShipment.get(row.id);return file?`ضمن الملف ${file.operation_no} · ${window.JahezBsgtFinance.fileStatusLabel(file.status)}`:'مرتبطة بملف';};
   if(!rows.length){ host.innerHTML='<div class="bsgt-finance-empty">لا توجد شحنات جاهزة للمالية حالياً.</div>'; return; }
   host.innerHTML=`<div class="bsgt-finance-row is-head"><span></span><span>رقم العملية</span><span>المرسل إليه</span><span>الصنف</span><span>العملة</span><span>القيمة</span><span>اكتمال العمليات</span><span>الحالة</span></div>${rows.map(row=>{
     const money=window.JahezBsgtFinance.shipmentMoney(row), isLinked=linked.has(row.id);
-    return `<div class="bsgt-finance-row"><input class="bsgt-finance-check" type="checkbox" data-bsgt-finance-select="${escapeHtml(row.id)}" ${bsgtFinanceState.selected.has(row.id)?'checked':''} ${isLinked?'disabled':''}><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.invoiceNo||'')}</small></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div><span class="bsgt-finance-status">${isLinked?'مرتبطة بملف':'جاهزة للمالية'}</span></div></div>`;
+    return `<div class="bsgt-finance-row"><input class="bsgt-finance-check" type="checkbox" data-bsgt-finance-select="${escapeHtml(row.id)}" ${bsgtFinanceState.selected.has(row.id)?'checked':''} ${isLinked?'disabled':''}><div><b>${escapeHtml(row.operationNo||'—')}</b><small>${escapeHtml(row.invoiceNo||'')}</small></div><div><b>${escapeHtml(row.consignee||'—')}</b></div><div><b>${escapeHtml(row.itemDesc||'—')}</b></div><div><b>${escapeHtml(money.currency)}</b></div><div><b>${escapeHtml(window.JahezBsgtFinance.formatMoney(money.currency,money.amount))}</b></div><div><b>${escapeHtml(formatShipmentAuditDate(row.operationsCompletedAt))}</b></div><div><span class="bsgt-finance-status ${isLinked?'is-linked':''}" ${isLinked?`title="${escapeHtml(linkedLabel(row))}"`:''}>${isLinked?escapeHtml(linkedLabel(row)):'جاهزة للمالية'}</span></div></div>`;
   }).join('')}`;
   host.querySelectorAll('[data-bsgt-finance-select]').forEach(input=>input.addEventListener('change',()=>{
     if(input.checked) bsgtFinanceState.selected.add(input.dataset.bsgtFinanceSelect); else bsgtFinanceState.selected.delete(input.dataset.bsgtFinanceSelect);
@@ -22193,7 +22196,7 @@ initializeAuthentication();
 <script src="shipment-list.js?v=20260918-archive-1"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260918-signed-preview-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260918-linked-status-1"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 </body>
 </html>

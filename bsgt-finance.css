@@ -27,3 +27,4 @@
 .bsgt-finance-row .bsgt-icon-btn:focus-visible{outline:2px solid rgba(234,27,35,.18);outline-offset:2px}
 .bsgt-finance-row .bsgt-icon-btn[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translate(-50%,3px);padding:5px 8px;border-radius:7px;background:#17243a;color:#fff;font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;z-index:20;transition:opacity .14s ease,transform .14s ease,visibility 0s linear .14s}
 .bsgt-finance-row .bsgt-icon-btn[data-tip]:hover::after,.bsgt-finance-row .bsgt-icon-btn[data-tip]:focus-visible::after{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:.15s,.15s,0s}
+.bsgt-finance-status.is-linked{color:#8a5a00;background:#fff6df;max-width:100%;white-space:normal;text-align:center}

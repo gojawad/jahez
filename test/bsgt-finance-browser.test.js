@@ -18,8 +18,9 @@ const tradeFileId = '55555555-5555-4555-8555-555555555555';
 function chromiumPath(){ return [process.env.CHROMIUM_PATH,'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].filter(Boolean).find(fs.existsSync); }
 async function waitForServer(process){ for(let attempt=0;attempt<50;attempt++){ if(process.exitCode!==null) throw new Error(`server exited early with code ${process.exitCode}`); try{if((await fetch(`${BASE}/healthz`)).ok)return;}catch{} await new Promise(resolve=>setTimeout(resolve,200)); } throw new Error('server did not start'); }
 function fakeJwt(exp){ const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url'); return `${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:userId,exp,aud:'authenticated'})}.signature`; }
+let revisionMode=false;
 function shipmentRow(id,index,stage='ready_for_finance'){
-  return {id,owner_id:userId,company_id:companyId,status:'sent',review_note:null,due_date:null,credit_days:null,due_from:null,bol_template_id:null,workflow_stage:'created',workflow_updated_at:'2026-09-12T06:00:00Z',bank_sent_at:null,signed_at:null,accepted_at:null,accepted_by:null,bsgt_stage:stage,bsgt_stage_updated_at:'2026-09-12T07:00:00Z',operations_completed_at:'2026-09-12T07:00:00Z',operations_completed_by:userId,created_at:'2026-09-12T06:00:00Z',updated_at:'2026-09-12T07:00:00Z',data:{operationNo:`BSGTX-2026-010${index}`,consignee:`BUYER ${index}`,itemDesc:`GOODS ${index}`,invoiceNo:`INV-${index}`,billNo:`BL-${index}`,currency:'USD',totalAmount:`USD ${index*1000}.00`}};
+  return {id,owner_id:userId,company_id:companyId,status:'sent',review_note:null,due_date:null,credit_days:null,due_from:null,bol_template_id:null,workflow_stage:'created',workflow_updated_at:'2026-09-12T06:00:00Z',bank_sent_at:null,signed_at:null,accepted_at:null,accepted_by:null,bsgt_stage:stage,bsgt_stage_updated_at:'2026-09-12T07:00:00Z',operations_revision_id:revisionMode?`77777777-7777-4777-8777-77777777777${index}`:null,operations_completed_at:'2026-09-12T07:00:00Z',operations_completed_by:userId,created_at:'2026-09-12T06:00:00Z',updated_at:'2026-09-12T07:00:00Z',data:{operationNo:`BSGTX-2026-010${index}`,consignee:`BUYER ${index}`,itemDesc:`GOODS ${index}`,invoiceNo:`INV-${index}`,billNo:`BL-${index}`,currency:'USD',totalAmount:`USD ${index*1000}.00`}};
 }
 
 async function main(){
@@ -66,6 +67,15 @@ async function main(){
     assert.ok((await page.locator('.bsgt-finance-detail-header').textContent()).includes('TC-2026-000123'));
     assert.ok((await page.locator('.bsgt-finance-detail').textContent()).includes('2'));
     assert.ok((await page.locator('.bsgt-finance-detail-actions a').getAttribute('href')).includes(`tradeFileId=${tradeFileId}`));
+    // While the file is still a draft, its shipments stay in the ready list but are marked with the file and cannot be selected again.
+    await page.waitForFunction(()=>document.querySelectorAll('.bsgt-finance-status.is-linked').length===2,null,{timeout:10000});
+    assert.ok((await page.locator('.bsgt-finance-status.is-linked').first().textContent()).includes('TC-2026-000123'));
+    // With approved operations revisions the row decoration adds preview tools; linked rows must stay disabled there too.
+    revisionMode=true; await page.evaluate(()=>loadBsgtFinance());
+    await page.waitForFunction(()=>document.querySelectorAll('[data-revision-preview]').length===2,null,{timeout:10000});
+    assert.strictEqual(await page.locator('[data-bsgt-finance-select]:disabled').count(),2,'linked shipments stay unselectable after decoration');
+    revisionMode=false; await page.evaluate(()=>loadBsgtFinance());
+    await page.waitForFunction(()=>document.querySelectorAll('[data-revision-preview]').length===0&&!document.getElementById('bsgtTradeSend')?.disabled,null,{timeout:10000});
     await page.locator('#bsgtTradeSend').click();
     await page.waitForFunction(()=>document.querySelector('.bsgt-finance-detail')?.textContent.includes('تم الإرسال للبنك المرسل'));
     assert.strictEqual(sendCalls,1); assert.strictEqual(sent,true);
