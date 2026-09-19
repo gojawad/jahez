@@ -56,5 +56,24 @@
     return FILE_STATUS_LABELS[status] || String(status || '—');
   }
 
-  return Object.freeze({FILE_STATUS_LABELS, moneyInfo, shipmentMoney, summarizeShipments, formatMoney, collectionPortalUrl, fileStatusLabel});
+  // Collection mode: CAD / paid-in-advance shipments need no bank collection documents.
+  // Mirrors public.bsgt_collection_mode(jsonb) in supabase/51_bsgt_cad_no_collection.sql.
+  const COLLECTION_MODE_LABELS = Object.freeze({collection:'تحصيل', cad:'CAD · بدون تحصيل'});
+  function collectionMode(shipment) {
+    const term = String(shipment?.paymentTerm || shipment?.data?.paymentTerm || '').toUpperCase();
+    return /(^|[^A-Z])CAD([^A-Z]|$)/.test(term) || /CASH\s+AGAINST/.test(term) || /ADVANCE/.test(term) ? 'cad' : 'collection';
+  }
+  function collectionModes(shipments) {
+    return [...new Set((Array.isArray(shipments) ? shipments : []).map(collectionMode))];
+  }
+  // A file's mode comes from its metadata once linked; drafts without it fall back to their shipments.
+  function fileCollectionMode(file, shipments) {
+    const stored = String(file?.metadata?.collectionMode || '');
+    if (stored === 'cad' || stored === 'collection') return stored;
+    const modes = collectionModes(shipments);
+    return modes.length === 1 ? modes[0] : 'collection';
+  }
+  function collectionModeLabel(mode) { return COLLECTION_MODE_LABELS[mode] || COLLECTION_MODE_LABELS.collection; }
+
+  return Object.freeze({FILE_STATUS_LABELS, COLLECTION_MODE_LABELS, moneyInfo, shipmentMoney, summarizeShipments, formatMoney, collectionPortalUrl, fileStatusLabel, collectionMode, collectionModes, fileCollectionMode, collectionModeLabel});
 });

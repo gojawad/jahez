@@ -19,6 +19,8 @@
   });
 
   function requiredDocumentTypes(tradeFile) {
+    // CAD / paid-in-advance files carry no collection documents at all.
+    if (String(tradeFile?.metadata?.collectionMode || '') === 'cad') return [];
     const kinds = tradeFile?.metadata?.documentKinds;
     const source = Array.isArray(kinds) && kinds.length ? kinds : Object.keys(DOCUMENTS);
     return [...new Set(source.map(value=>String(value || '').trim()).filter(value=>DOCUMENTS[value]))];

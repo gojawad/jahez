@@ -28,3 +28,7 @@
 .bsgt-finance-row .bsgt-icon-btn[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translate(-50%,3px);padding:5px 8px;border-radius:7px;background:#17243a;color:#fff;font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;z-index:20;transition:opacity .14s ease,transform .14s ease,visibility 0s linear .14s}
 .bsgt-finance-row .bsgt-icon-btn[data-tip]:hover::after,.bsgt-finance-row .bsgt-icon-btn[data-tip]:focus-visible::after{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:.15s,.15s,0s}
 .bsgt-finance-status.is-linked{color:#8a5a00;background:#fff6df;max-width:100%;white-space:normal;text-align:center}
+.bsgt-finance-mode{display:inline-flex;align-items:center;margin-inline-start:6px;padding:3px 8px;border:1px solid #d4deea;border-radius:999px;background:#f8fafc;color:#475569;font-size:10px;font-weight:800;white-space:nowrap}
+.bsgt-finance-mode.is-cad{color:#8a5a00;border-color:#f0d593;background:#fff6df}
+.bsgt-finance-mode-warning{display:inline-flex;align-items:center;padding:4px 9px;border:1px solid #ffc9cc;border-radius:999px;color:#a61b22;background:#fff5f5;font-size:11px;font-weight:700}
+.bsgt-finance-cad-note .bsgt-finance-head p{color:#8a5a00}
