@@ -176,7 +176,7 @@ body.collection-enterprise-ui .lab-shell {
 
 body.collection-enterprise-ui .portal-step-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -826,3 +826,11 @@ body.collection-enterprise-ui .summary-action.is-sent > i { background: #fff; co
 .remitting-send-result > i { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #16a36a; color: #fff; font-size: 20px; }
 .remitting-send-result.is-error { border-color: #f1b8bc; background: #fff4f4; color: #9f1017; box-shadow: 0 6px 16px rgba(208, 17, 25, .1); }
 .remitting-send-result.is-error > i { background: #d01119; }
+
+/* Portal trims (UI only; the elements and their handlers stay in place):
+   - the compact "إرسال" summary card is retired — the header "إرسال للبنك المُرسل" next to
+     "طباعة المستند الحالي" is the single send action,
+   - section 05 (سجل عمليات التحصيل التجاري) and its step card are not shown on this portal. */
+body.collection-enterprise-ui #compactRecordCollectionBtn { display: none !important; }
+body.collection-enterprise-ui .lab-section.collection-portal-section,
+body.collection-enterprise-ui .portal-step-card[data-step-section="collection-portal-section"] { display: none !important; }

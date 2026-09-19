@@ -831,7 +831,9 @@ function updateConversionControls(){
   const button=$('convertToAedBtn'), rate=$('collectionExchangeRate'), preview=$('collectionConversionPreview');
   if(!button||!rate||!preview)return;
   button.classList.toggle('is-active',state.convertToAed);
-  rate.disabled=!state.convertToAed; rate.value=state.exchangeRate||'';
+  rate.disabled=!state.convertToAed;
+  // Never rewrite the rate while the user is typing in it: re-rendering "3." as 3 or "0." as '' ate the decimals.
+  if(document.activeElement!==rate&&Number(rate.value)!==Number(state.exchangeRate)) rate.value=state.exchangeRate||'';
   const rows=selectedShipments();
   const currencyLabel=$('compactCollectionCurrency');
   if(!rows.length){ if(currencyLabel) currencyLabel.textContent='AED'; preview.textContent='اختر شحنة لعرض التحويل.'; return; }
@@ -1118,7 +1120,9 @@ $('settingsForm').addEventListener('change',event=>{
   renderPreview();renderDebug();
 });
 $('convertToAedBtn').addEventListener('click',()=>{state.convertToAed=!state.convertToAed;renderAll();});
-$('collectionExchangeRate').addEventListener('input',event=>{state.exchangeRate=Number(event.target.value)||0;renderAll();});
+const parseExchangeRate=value=>Number(String(value||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[،,٫]/g,'.').replace(/[^0-9.]/g,''))||0;
+$('collectionExchangeRate').addEventListener('input',event=>{state.exchangeRate=parseExchangeRate(event.target.value);renderAll();});
+$('collectionExchangeRate').addEventListener('blur',event=>{const rate=parseExchangeRate(event.target.value);state.exchangeRate=rate;event.target.value=rate||'';renderAll();});
 $('compactRecordCollectionBtn').addEventListener('click',sendToRemittingBank);
 $('collectionListField').addEventListener('change',renderCollectionListManager);
 window.addEventListener('focus',async()=>{
