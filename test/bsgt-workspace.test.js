@@ -17,12 +17,15 @@ const financeOnly = [{section:'finance', can_view:true, can_edit:true}];
 assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'financialCenter', 'finance', 'management', 'relations', 'tradeFiles', 'operationCenter']);
 assert.deepStrictEqual(workspace.LEGACY_SECTION_KEYS, ['operations', 'finance', 'management', 'relations']);
 assert.deepStrictEqual(workspace.allowedSections(admin, []).map(item=>item.key), workspace.SECTION_KEYS);
-assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['financialCenter', 'finance', 'tradeFiles']);
-// Phase 0: the financial center is an empty shell visible to anyone inside the workspace, never editable, never the default landing.
-assert.strictEqual(workspace.permissionFor('financialCenter', editor, financeOnly).canEdit, false);
-assert.strictEqual(workspace.permissionFor('financialCenter', admin, []).canEdit, false);
-assert.strictEqual(workspace.resolveSection(null, editor, financeOnly), 'finance');
-assert.strictEqual(workspace.resolveSection('financialCenter', editor, financeOnly), 'financialCenter');
+assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['finance', 'tradeFiles']);
+// Phase 1: the financial center has its own keys; legacy section rows never grant it, admin edits it, it is never the default landing.
+assert.strictEqual(workspace.permissionFor('financialCenter', editor, financeOnly), null);
+assert.strictEqual(workspace.permissionFor('financialCenter', admin, []).canEdit, true);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.financial_center.view']}).map(item=>item.key), ['financialCenter']);
+assert.strictEqual(workspace.permissionFor('financialCenter', editor, [], {featureKeys:['bsgt.financial_center.view']}).canEdit, false);
+assert.strictEqual(workspace.permissionFor('financialCenter', editor, [], {featureKeys:['bsgt.financial_center.view','bsgt.financial_center.edit']}).canEdit, true);
+assert.strictEqual(workspace.resolveSection(null, editor, [], {featureKeys:['bsgt.financial_center.view','bsgt.finance.view']}), 'finance');
+assert.strictEqual(workspace.resolveSection('financialCenter', editor, [], {featureKeys:['bsgt.financial_center.view','bsgt.finance.view']}), 'financialCenter');
 assert.strictEqual(workspace.permissionFor('financialCenter', editor, []), null);
 assert.strictEqual(workspace.permissionFor('tradeFiles',editor,financeOnly).canEdit,false);
 for(const section of ['finance','management','relations']){
@@ -35,11 +38,10 @@ assert.strictEqual(workspace.resolveSection('operations', editor, financeOnly), 
 assert.strictEqual(workspace.resolveSection('finance', editor, financeOnly), 'finance');
 assert.strictEqual(workspace.resolveSection('operations', editor, []), null);
 assert.strictEqual(workspace.normalizePermission({section:'operationCenter',can_view:true}), null);
-assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['financialCenter', 'operationCenter']);
-assert.strictEqual(workspace.resolveSection(null, editor, [], {featureKeys:['bsgt.operation_center.view']}), 'operationCenter');
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['operationCenter']);
 assert.strictEqual(workspace.SECTIONS.at(-1).permissionKey, 'bsgt.operation_center.view');
 assert.strictEqual(workspace.permissionFor('operationCenter', editor, [], {featureKeys:['bsgt.operation_center.view']}).canEdit, false);
-assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations', 'financialCenter']);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations']);
 assert.strictEqual(workspace.resolveBsgtCompanyId([
   {id:'other', name_ar:'شركة أخرى'},
   {id:'bsgt', name_en:'Bahar Swaken General Trading LLC'}

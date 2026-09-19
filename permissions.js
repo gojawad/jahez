@@ -38,7 +38,10 @@
         Object.freeze({key:'bsgt.management.view', label:'عرض الإدارة', description:'مشاهدة مرحلة الإدارة والاعتماد.'}),
         Object.freeze({key:'bsgt.management.edit', label:'تعديل واعتماد الإدارة', description:'تنفيذ إجراءات الإدارة والاعتماد.', dependsOn:Object.freeze(['bsgt.management.view'])}),
         Object.freeze({key:'bsgt.relations.view', label:'عرض العلاقات التجارية', description:'مشاهدة مرحلة العلاقات التجارية.'}),
-        Object.freeze({key:'bsgt.relations.edit', label:'تعديل العلاقات التجارية', description:'تنفيذ إجراءات العلاقات التجارية.', dependsOn:Object.freeze(['bsgt.relations.view'])})
+        Object.freeze({key:'bsgt.relations.edit', label:'تعديل العلاقات التجارية', description:'تنفيذ إجراءات العلاقات التجارية.', dependsOn:Object.freeze(['bsgt.relations.view'])}),
+        Object.freeze({key:'bsgt.financial_center.view', label:'عرض المركز المالي', description:'مشاهدة الملفات المالية للعمليات وتكاليفها وسجل أحداثها.'}),
+        Object.freeze({key:'bsgt.financial_center.edit', label:'إدخال وتعديل الملفات المالية', description:'إنشاء الملفات المالية وإدخال المبالغ والتعرفات وإذن الاستيراد قبل الاعتماد.', dependsOn:Object.freeze(['bsgt.financial_center.view'])}),
+        Object.freeze({key:'bsgt.financial_center.approve', label:'اعتماد وإقفال الملفات المالية', description:'اعتماد التكلفة وتأكيد التحويل ودفع البنك والإكمال والإخفاق والاسترداد والإقفال.', dependsOn:Object.freeze(['bsgt.financial_center.view','bsgt.financial_center.edit'])})
       ])
     }),
     Object.freeze({
@@ -60,6 +63,7 @@
     'client_profiles.edit',
     'bsgt.operations.edit', 'bsgt.finance.edit',
     'bsgt.management.edit', 'bsgt.relations.edit',
+    'bsgt.financial_center.edit', 'bsgt.financial_center.approve',
     'shipment_documents.delete', 'package.merge',
     'contracts.edit', 'client_assets.use'
   ]);
@@ -67,7 +71,9 @@
     operations: Object.freeze({label:'موظف العمليات', keys:Object.freeze(['bsgt.operations.view','bsgt.operations.edit','bsgt.operation_center.view','import_permit.view','client_profiles.view'])}),
     finance: Object.freeze({label:'موظف المالية', keys:Object.freeze(['bsgt.finance.view','bsgt.finance.edit','commercial_collection.view'])}),
     management: Object.freeze({label:'موظف الإدارة', keys:Object.freeze(['bsgt.management.view','bsgt.management.edit','package.merge'])}),
-    relations: Object.freeze({label:'موظف العلاقات التجارية', keys:Object.freeze(['bsgt.relations.view','bsgt.relations.edit'])})
+    relations: Object.freeze({label:'موظف العلاقات التجارية', keys:Object.freeze(['bsgt.relations.view','bsgt.relations.edit'])}),
+    accountant: Object.freeze({label:'محاسب', keys:Object.freeze(['bsgt.financial_center.view','bsgt.financial_center.edit'])}),
+    finance_manager: Object.freeze({label:'مدير المالية', keys:Object.freeze(['bsgt.financial_center.view','bsgt.financial_center.edit','bsgt.financial_center.approve'])})
   });
 
   function normalizeKeys(keys) {

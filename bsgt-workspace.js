@@ -18,9 +18,8 @@
       key: 'financialCenter',
       label: 'المركز المالي',
       icon: 'bank',
-      // Phase 0: an empty shell. Anyone who can enter the BSGT workspace sees it;
-      // dedicated financial-center permissions arrive with phase 1.
-      permissionKeys: ['bsgt.operations.view', 'bsgt.finance.view', 'bsgt.management.view', 'bsgt.relations.view', 'bsgt.operation_center.view'],
+      permissionKey: 'bsgt.financial_center.view',
+      editPermissionKey: 'bsgt.financial_center.edit',
       message: 'إدارة الحسابات والتكاليف والتحصيلات المرتبطة بالعمليات'
     }),
     Object.freeze({
@@ -108,9 +107,6 @@
     if (['finance','management','relations'].some(section => bySection.has(section))) {
       bySection.set('tradeFiles', Object.freeze({section:'tradeFiles',canView:true,canEdit:false}));
     }
-    if (LEGACY_SECTION_KEYS.some(section => bySection.has(section))) {
-      bySection.set('financialCenter', Object.freeze({section:'financialCenter',canView:true,canEdit:false}));
-    }
     return Object.freeze(SECTION_KEYS.map(section => bySection.get(section)).filter(Boolean));
   }
 
@@ -126,8 +122,8 @@
   function resolveSection(requested, profile, rows, featurePermissions) {
     const allowed = allowedSections(profile, rows, featurePermissions);
     if (!allowed.length) return null;
-    // The financial center never becomes the default landing section: users keep
-    // opening the same first section they had before it was added.
+    // The financial center never becomes the default landing section when another
+    // section is available: users keep opening the same first section as before.
     return allowed.find(section => section.key === requested)?.key
       || allowed.find(section => section.key !== 'financialCenter')?.key
       || allowed[0].key;

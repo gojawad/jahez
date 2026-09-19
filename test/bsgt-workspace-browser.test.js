@@ -209,8 +209,8 @@ async function main(){
     const financePage = await financeContext.newPage();
     await financePage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
     await financePage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
-    assert.strictEqual(await financePage.locator('.bsgt-workspace-tab').count(), 3);
-    assert.deepStrictEqual(await financePage.locator('.bsgt-workspace-tab').allTextContents(), ['المركز المالي','المالية','ملفات العمليات التجارية']);
+    assert.strictEqual(await financePage.locator('.bsgt-workspace-tab').count(), 2);
+    assert.deepStrictEqual(await financePage.locator('.bsgt-workspace-tab').allTextContents(), ['المالية','ملفات العمليات التجارية']);
     assert.ok(financePage.url().includes('section=finance'));
     assert.strictEqual(await financePage.locator('.bsgt-workspace-readonly').count(), 0);
     await financeContext.close();
@@ -219,7 +219,7 @@ async function main(){
     const viewerPage = await viewerContext.newPage();
     await viewerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=finance`, {waitUntil:'domcontentloaded'});
     await viewerPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-readonly').waitFor({timeout:20000});
-    assert.strictEqual(await viewerPage.locator('.bsgt-workspace-tab').count(), 3);
+    assert.strictEqual(await viewerPage.locator('.bsgt-workspace-tab').count(), 2);
     assert.strictEqual(await viewerPage.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     await viewerContext.close();
 
@@ -227,14 +227,14 @@ async function main(){
     const centerPage = await centerContext.newPage();
     await centerPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operationCenter`, {waitUntil:'domcontentloaded'});
     await centerPage.locator('[data-operation-center-root="bsgt"]').waitFor({timeout:20000});
-    assert.deepStrictEqual(await centerPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المركز المالي','مركز العمليات']);
+    assert.deepStrictEqual(await centerPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','مركز العمليات']);
     await centerContext.close();
 
     const operationsContext = await createContext(browser, 'staff', [{section:'operations',can_view:true,can_edit:true}], ['bsgt.operations.view']);
     const operationsPage = await operationsContext.newPage();
     await operationsPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`, {waitUntil:'domcontentloaded'});
     await operationsPage.locator('.bsgt-operations').waitFor({timeout:20000});
-    assert.deepStrictEqual(await operationsPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المركز المالي']);
+    assert.deepStrictEqual(await operationsPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات']);
     assert.strictEqual(await operationsPage.getByText('مركز عمليات BSGT غير مسند إلى حسابك').count(), 0);
     await operationsContext.close();
 

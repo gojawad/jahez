@@ -1,12 +1,85 @@
-/* «المركز المالي» — phase 0 shell. Fills the BSGT workspace content area,
-   RTL, IBM Plex Sans Arabic, same surfaces as the other workspace sections. */
-.bsgt-financial-center{display:grid;gap:18px;width:100%;min-height:calc(100vh - 260px);direction:rtl;text-align:right;color:#17243a;font-family:'IBM Plex Sans Arabic','IBM Plex Sans','Cairo',sans-serif}
-.bsgt-financial-center-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px;border:1px solid #e5e7eb;border-radius:16px;background:#fff}
+/* «المركز المالي» — phase 1. Fills the BSGT workspace content area, RTL, IBM Plex Sans Arabic,
+   same white panels / red brand accents as the other workspace sections. */
+.bsgt-financial-center{display:grid;gap:16px;width:100%;direction:rtl;text-align:right;color:#17243a;font-family:'IBM Plex Sans Arabic','IBM Plex Sans','Cairo',sans-serif}
+.bsgt-financial-center-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 22px;border:1px solid #e5e7eb;border-radius:16px;background:#fff}
 .bsgt-financial-center-head h3{margin:0 0 6px;font-size:21px;font-weight:700;line-height:1.3}
 .bsgt-financial-center-head p{margin:0;color:#667085;font-size:13px;line-height:1.7}
-.bsgt-financial-center-body{flex:1;min-height:320px;border:1px dashed #d8dde5;border-radius:16px;background:#fbfcfd}
+.bsgt-financial-center-body{display:grid;gap:16px;min-height:320px}
+.fc-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fc-panel{border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:16px 18px;min-width:0}
+.fc-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.fc-panel-head h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.fc-panel-head p{margin:0;color:#667085;font-size:12px;line-height:1.7}
+.fc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.fc-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.fc-field{display:grid;gap:4px;font-size:12px;color:#475569;min-width:0}
+.fc-field span{font-weight:700}
+.fc-field input,.fc-field select,.fc-field textarea{font:inherit;font-size:13px;padding:8px 10px;border:1px solid #d4deea;border-radius:9px;background:#fff;color:#17243a;min-width:0}
+.fc-field input:disabled,.fc-field select:disabled,.fc-field textarea:disabled{background:#f8fafc;color:#475569}
+.fc-field.fc-grow{flex:1}
+.fc-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fc-form .fc-span{grid-column:1/-1}
+.fc-form-actions{grid-column:1/-1;display:flex;justify-content:flex-start;gap:8px}
+.fc-table-wrap{overflow-x:auto}
+.fc-table{width:100%;border-collapse:collapse;font-size:13px}
+.fc-table th{text-align:right;padding:9px 10px;border-bottom:1px solid #e5e7eb;color:#667085;font-size:12px;font-weight:700;white-space:nowrap}
+.fc-table td{padding:10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.fc-table td small,.fc-eligible-row small,.fc-client-row small,.fc-summary-main small{display:block;color:#7b8798;font-size:11px;margin-top:2px}
+.fc-table tbody tr[data-open]{cursor:pointer}
+.fc-table tbody tr[data-open]:hover{background:#fff7f7}
+.fc-table tr.is-archived td{opacity:.7}
+.fc-table tr.is-detached td{color:#7b8798}
+.fc-inline{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d4deea;border-radius:8px;width:150px;max-width:100%;margin-top:4px;direction:ltr;text-align:left}
+.fc-money{font-variant-numeric:tabular-nums;font-weight:600;unicode-bidi:isolate}
+.fc-status{display:inline-flex;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#f1f5f9;color:#334155;white-space:nowrap}
+.fc-status.is-draft{background:#f1f5f9;color:#334155}
+.fc-status.is-pending_client_transfer{background:#fff6df;color:#9a5b00}
+.fc-status.is-client_transferred,.fc-status.is-bank_paid{background:#e8f1ff;color:#1d4ed8}
+.fc-status.is-completed,.fc-status.is-refunded{background:#e7f7ee;color:#147a47}
+.fc-status.is-failed,.fc-status.is-refund_in_progress{background:#fff1f2;color:#a61b22}
+.fc-status.is-closed{background:#17243a;color:#fff}
+.fc-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;color:#667085;font-size:12px}
+.fc-muted{color:#7b8798}
+.fc-error{color:#a61b22;background:#fff4f4;border-radius:10px;padding:10px 12px}
+.fc-empty{padding:40px;text-align:center;color:#7b8798;border:1px dashed #d8dde5;border-radius:16px;background:#fbfcfd}
+.fc-summary-main{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fc-summary-main>div{padding:12px;border:1px solid #edf0f4;border-radius:12px;background:#f8fafc;min-width:0}
+.fc-summary-main span{display:block;color:#667085;font-size:11px;margin-bottom:4px}
+.fc-summary-main b{display:block;font-size:14px;word-break:break-word}
+.fc-failure{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff1f2;color:#a61b22;font-size:13px}
+.fc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.fc-actions:empty{display:none}
+.fc-danger{color:#a61b22!important;border-color:#ffc9cc!important}
+.fc-costs{display:grid;gap:8px}
+.fc-costs>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+.fc-costs>div span{color:#667085}
+.fc-costs .fc-total{border-top:2px solid #17243a;border-bottom:0;padding-top:12px;font-size:15px}
+.fc-eligible,.fc-client-results{display:grid;gap:8px}
+.fc-eligible-row,.fc-client-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #edf0f4;border-radius:12px}
+.fc-detached{margin-top:10px;font-size:13px}
+.fc-detached summary{cursor:pointer;color:#667085}
+.fc-stamps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.fc-stamps>div{padding:10px 12px;border:1px solid #edf0f4;border-radius:12px;background:#fbfcfd}
+.fc-stamps span{display:block;color:#667085;font-size:11px}
+.fc-stamps b{display:block;font-size:13px;margin-top:3px}
+.fc-stamps small{display:block;color:#7b8798;font-size:11px}
+.fc-events{display:grid;gap:0}
+.fc-event{display:grid;grid-template-columns:1fr 170px;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+.fc-event:last-child{border-bottom:0}
+.fc-event small{display:block;color:#667085;font-size:11px;margin-top:2px;white-space:pre-wrap}
+.fc-event .fc-changes{direction:ltr;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.fc-event-meta{color:#7b8798;font-size:11px;text-align:left}
+@media (max-width:1100px){
+  .fc-summary-main,.fc-stamps{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (max-width:768px){
-  .bsgt-financial-center{min-height:auto}
-  .bsgt-financial-center-head{padding:16px}
+  .bsgt-financial-center-head{padding:14px 16px;flex-direction:column}
   .bsgt-financial-center-head h3{font-size:18px}
+  .fc-grid,.fc-form,.fc-summary-main,.fc-stamps{grid-template-columns:1fr}
+  .fc-panel{padding:14px}
+  .fc-event{grid-template-columns:1fr}
+  .fc-event-meta{text-align:right}
+  .fc-toolbar .fc-field{flex:1 1 100%}
+  .fc-table{min-width:640px}          /* scrolls inside .fc-table-wrap instead of squeezing the columns */
+  .fc-table td:first-child b{white-space:nowrap}
 }

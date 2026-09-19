@@ -2496,7 +2496,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260919-financial-center-1">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260919-cad-1">
   <link rel="stylesheet" href="bsgt-trade-files.css?v=20260915-print-download-1">
-  <link rel="stylesheet" href="bsgt-financial-center.css?v=20260919-phase0-1">
+  <link rel="stylesheet" href="bsgt-financial-center.css?v=20260920-phase1-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260919-cad-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
   <link rel="stylesheet" href="archive.css?v=20260918-archive-1">
@@ -5871,10 +5871,10 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="permissions.js?v=20260912-authoritative-1"></script>
+<script src="permissions.js?v=20260920-financial-center-1"></script>
 <script src="portal-access.js?v=20260916-permit-route"></script>
 <script src="session-navigation.js?v=20260915-sending-master-1"></script>
-  <script src="bsgt-workspace.js?v=20260919-financial-center-1"></script>
+  <script src="bsgt-workspace.js?v=20260920-financial-center-2"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260919-cad-1"></script>
@@ -10561,7 +10561,7 @@ function renderBsgtWorkspace(requestedSection){
     });
     loadBsgtOperationsPage();
   }else if(activeSection === 'financialCenter'){
-    window.JahezBsgtFinancialCenter?.mount(content);
+    window.JahezBsgtFinancialCenter?.mount(content, {sb, toast, profile:currentAccessProfile(), formatDate:formatShipmentAuditDate});
   }else if(activeSection === 'tradeFiles'){
     window.JahezBsgtTradeFiles.mount(content);
   }else if(activeSection === 'operationCenter'){
@@ -22222,6 +22222,6 @@ initializeAuthentication();
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
 <script src="bsgt-revision-workflow.js?v=20260919-placement-3"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
-<script src="bsgt-financial-center.js?v=20260919-phase0-1"></script>
+<script src="bsgt-financial-center.js?v=20260920-phase1-1"></script>
 </body>
 </html>
