@@ -11,3 +11,11 @@
 .bsgt-sign-choice img{width:100%;max-height:110px;object-fit:contain;background:repeating-conic-gradient(#f1f5f9 0 25%,#fff 0 50%) 0 0/16px 16px}
 .bsgt-sign-choice b{font-size:13px;color:#132c50}
 .bsgt-sign-choice small{color:#667085;font-size:11px}
+
+/* Default placement editor (A4 sheet) for stamps and signatures. */
+.jahez-placement-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px;color:#132c50}
+.jahez-placement-controls input{width:80px;padding:5px 7px;border:1px solid #d4deea;border-radius:8px;font:inherit}
+.jahez-placement-sheet{position:relative;width:100%;max-width:calc(62vh * 210 / 297);margin:0 auto;aspect-ratio:210/297;border:1px solid #cbd5e1;border-radius:6px;background:#fff repeating-linear-gradient(0deg,transparent 0 24px,#f1f5f9 24px 25px);overflow:hidden;direction:ltr;touch-action:none}
+.jahez-placement-sheet img{position:absolute;cursor:move;outline:2px solid #EA1B23;outline-offset:2px;user-select:none}
+.jahez-placement-handle{position:absolute;width:16px;height:16px;border-radius:50%;background:#EA1B23;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:nwse-resize;z-index:2}
+.ccp-chip.is-placed{background:#e5f7ee;color:#147a4b;border-color:#bce8d2}

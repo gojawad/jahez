@@ -90,8 +90,9 @@
   function fileCard(file){
     const image=file.mime_type&&file.mime_type.startsWith('image/');
     const uploader=state.uploaders.get(file.uploaded_by)||'—';
-    const actions=`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManage()?'<button data-action="replace">استبدال</button><button data-action="archive">أرشفة</button>':''}`;
-    return `<article class="ccp-file-card" data-file-id="${esc(file.id)}"><div class="ccp-preview">${image?`<img data-profile-image="${esc(file.id)}" alt="${esc(FILE_TYPES[file.file_type])}">`:'<div class="ccp-pdf-mark">PDF</div>'}</div><div class="ccp-file-content"><h4>${esc(file.title||FILE_TYPES[file.file_type])}</h4>${file.signatory_name?`<p><b>الموقّع:</b> ${esc(file.signatory_name)}</p>`:''}<p title="${esc(file.original_name)}">${esc(file.original_name)}</p><small>${esc(fmtDate(file.created_at))} · ${esc(fmtSize(file.size_bytes))} · ${esc(uploader)}</small><div class="ccp-file-actions">${actions}</div></div></article>`;
+    const placeable=image&&['stamp','signature'].includes(file.file_type), placement=placeable&&window.JahezSignaturePlacement?.fromMetadata(file);
+    const actions=`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManage()?`${placeable?'<button data-action="placement">ضبط الموضع والحجم</button>':''}<button data-action="replace">استبدال</button><button data-action="archive">أرشفة</button>`:''}`;
+    return `<article class="ccp-file-card" data-file-id="${esc(file.id)}"><div class="ccp-preview">${image?`<img data-profile-image="${esc(file.id)}" alt="${esc(FILE_TYPES[file.file_type])}">`:'<div class="ccp-pdf-mark">PDF</div>'}</div><div class="ccp-file-content"><h4>${esc(file.title||FILE_TYPES[file.file_type])}${placeable?` <span class="ccp-chip ${placement?'is-placed':''}" title="${placement?`العرض ${(placement.width*100).toFixed(0)}% · من اليسار ${(placement.x*100).toFixed(0)}% · من الأعلى ${(placement.y*100).toFixed(0)}%`:'لم يُضبط بعد — يُستخدم الافتراضي عند الاستجلاب'}">${placement?'الموضع مضبوط':'الموضع افتراضي'}</span>`:''}</h4>${file.signatory_name?`<p><b>الموقّع:</b> ${esc(file.signatory_name)}</p>`:''}<p title="${esc(file.original_name)}">${esc(file.original_name)}</p><small>${esc(fmtDate(file.created_at))} · ${esc(fmtSize(file.size_bytes))} · ${esc(uploader)}</small><div class="ccp-file-actions">${actions}</div></div></article>`;
   }
   function renderDocuments(){
     const docs=state.files.filter(file=>DOCUMENT_TYPES.includes(file.file_type));
@@ -112,7 +113,21 @@
       if(action==='download') return downloadFile(file);
       if(action==='replace') return openUploadModal(file.file_type,file);
       if(action==='archive') return archiveFile(file);
+      if(action==='placement') return editPlacement(file);
     }));
+  }
+  async function editPlacement(file){
+    if(!canManage()||!window.JahezSignaturePlacement) return;
+    try{
+      const url=await signedUrl(file);
+      const placement=await window.JahezSignaturePlacement.open({imageUrl:url,type:file.file_type,placement:file.metadata?.placement,title:`ضبط ${FILE_TYPES[file.file_type]}: ${file.title||file.signatory_name||''}`});
+      if(!placement) return;
+      busy(true);
+      const metadata=Object.assign({},file.metadata||{},{placement});
+      const {error}=await sb.from(TABLE).update({metadata}).eq('id',file.id); if(error) throw error;
+      file.metadata=metadata; render(); notify('تم حفظ الموضع والحجم الافتراضي — سيُطبَّق تلقائياً عند الاستجلاب.');
+    }catch(error){ console.error(error); notify('تعذر حفظ الإعداد: '+(error.message||''),'err'); }
+    finally{ busy(false); }
   }
   async function hydrateImages(){
     const logo=state.files.find(file=>file.file_type==='logo'&&file.mime_type?.startsWith('image/'));

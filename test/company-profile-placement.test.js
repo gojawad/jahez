@@ -1,4 +1,6 @@
 'use strict';
+// Company profile: stamps/signatures carry a default placement (position + size), edited on an
+// A4 preview and saved online in the file metadata; the signing viewer applies it on fetch.
 
 const assert=require('assert');
 const fs=require('fs');
@@ -9,7 +11,7 @@ const PORT=4900+Math.floor(Math.random()*100);
 const BASE=`http://127.0.0.1:${PORT}`;
 const APP=`http://jahez.test:${PORT}`;
 const SUPABASE='https://vthcmqqiexaedukduquv.supabase.co';
-const profile={id:'employee-1',email:'manager@example.test',display_name:'مدير الاختبار',role:'editor',active:true,photo_url:''};
+const profile={id:'employee-1',email:'manager@example.test',display_name:'مدير الاختبار',role:'admin',active:true,photo_url:''};
 const company={id:'bsgt-company',name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}};
 const tradeId='10000000-0000-4000-8000-000000000001';
 const shipmentId='20000000-0000-4000-8000-000000000001';
@@ -24,7 +26,7 @@ async function main(){
     await waitServer(server);browser=await chromium.launch({executablePath:browserPath,headless:true,args:['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP jahez.test 127.0.0.1']});
     const context=await browser.newContext({viewport:{width:1440,height:900}});const exp=Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,exp,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'r',expires_at:exp,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,exp,token:jwt()});
-    let status='sent_to_remitting',startCalls=0,revisionMode=false,savedSignature=null;
+    let placementPatch=null,status='sent_to_remitting',startCalls=0,revisionMode=false,savedSignature=null;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const source=await PDFDocument.create();source.addPage([595,842]);source.addPage([595,842]);const sourceBytes=Buffer.from(await source.save());
     const originals=['letter','undertaking','exchange'].map(kind=>({document_type:kind,document_variant:'finance_original',revision_no:1,is_active:true,storage_path:`workflow/${tradeId}/1/finance/${kind}.pdf`}));
@@ -33,6 +35,7 @@ async function main(){
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
       if(url.pathname.endsWith('/company-profile-files/asset.png'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'image/png'},body:stampPng});
       if(url.pathname.includes('/storage/v1/object/sign/company-profile-files/'))return route.fulfill({status:200,headers,body:JSON.stringify({signedURL:'/object/sign/company-profile-files/asset.png?token=t'})});
+      if(url.pathname==='/rest/v1/company_profile_files'&&req.method()==='PATCH'){placementPatch=req.postDataJSON();return route.fulfill({status:200,headers,body:'[]'});}
       if(url.pathname==='/rest/v1/company_profile_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'cp-stamp',company_id:company.id,file_type:'stamp',title:'الختم الرسمي',original_name:'stamp.png',storage_path:`${company.id}/stamp/stamp.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z',metadata:{placement:{x:.6,y:.7,width:.25}}},{id:'cp-sig-1',company_id:company.id,file_type:'signature',title:'المدير',signatory_name:'جواد المصري',original_name:'sig1.png',storage_path:`${company.id}/signature/sig1.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'},{id:'cp-sig-2',company_id:company.id,file_type:'signature',title:'مفوض',signatory_name:'مفوض ثانٍ',original_name:'sig2.png',storage_path:`${company.id}/signature/sig2.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'}])});
       if(url.pathname==='/rest/v1/clients'||url.pathname==='/rest/v1/client_profile_files'||url.pathname==='/rest/v1/client_authorized_signatories')return route.fulfill({status:200,headers,body:'[]'});
       if(url.pathname.includes('/storage/v1/object/'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:sourceBytes});
@@ -67,59 +70,27 @@ async function main(){
       savedSignature={document_type:payload.kind,shipment_id:shipmentId,document_variant:'administration_signed',storage_path:'workflow/signed.pdf'};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({document:savedSignature})});
     });
-    await page.evaluate(()=>loadBsgtManagement());
-    await page.locator('#bsgtManagementReview [data-bsgt-management-open]').click();
-    await page.locator('[data-packages] .bsgt-management-doc').first().waitFor();
-    assert.equal(await page.locator('[data-packages] .bsgt-management-doc').count(),10);
-    await page.locator('[data-packages] button').filter({hasText:'إضافة توقيع'}).first().click();
-    const dialog=page.locator('dialog[open]');
-    const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=80;c.height=30;const ctx=c.getContext('2d');ctx.fillStyle='#000080';ctx.fillRect(0,0,80,30);return c.toDataURL('image/png').split(',')[1];});
-    await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
-    await page.waitForTimeout(100);
-    // Saved signatures are offered automatically: buyer buttons stay disabled (no client profile),
-    // company stamp adds directly, company signature offers a choice between the two signatories.
-    await page.waitForFunction(()=>!document.querySelector('dialog[open] [data-auto-pick="company-stamp"]').disabled,null,{timeout:10000});
-    assert.equal(await dialog.locator('[data-auto-pick="buyer-stamp"]').isDisabled(),true);
-    assert.equal(await dialog.locator('[data-auto-pick="buyer-signature"]').isDisabled(),true);
-    await dialog.locator('[data-auto-pick="company-stamp"]').click();
-    await dialog.locator('[data-overlay] img').waitFor();
-    assert.equal(await dialog.locator('[data-overlay] img').count(),1,'company stamp placed straight onto the page');
-    const stampStyle=await page.evaluate(()=>{const s=document.querySelector('dialog[open] [data-overlay] img').style;return {left:s.left,top:s.top,width:s.width};});
-    assert.deepStrictEqual(stampStyle,{left:'60%',top:'70%',width:'25%'},'saved profile placement applied on fetch');
-    await dialog.locator('[data-auto-pick="company-signature"]').click();
-    const chooser=page.locator('dialog[open]').last();
-    await chooser.locator('.bsgt-sign-choice').first().waitFor();
-    assert.equal(await chooser.locator('.bsgt-sign-choice').count(),2,'two company signatories to choose from');
-    assert.match(await chooser.locator('.bsgt-sign-choice').first().innerText(),/جواد المصري/);
-    await chooser.locator('.bsgt-sign-choice').first().click();
-    await page.waitForFunction(()=>document.querySelectorAll('dialog[open] [data-overlay] img').length===2);
-    // stamp and signature keep their own images, and the selected one has a corner resize handle
-    const overlayImages=await page.evaluate(()=>[...document.querySelectorAll('dialog[open] [data-overlay] img')].map(img=>img.title));
-    assert.deepStrictEqual(overlayImages.map(t=>t.split(' — ')[0]),['ختم بحر سواكن','توقيع بحر سواكن']);
-    await dialog.locator('.bsgt-sign-handle').waitFor();await dialog.locator('.bsgt-sign-handle').scrollIntoViewIfNeeded();
-    const handleBox=await dialog.locator('.bsgt-sign-handle').boundingBox(), sigBefore=await dialog.locator('[data-overlay] img').nth(1).boundingBox();
-    await page.mouse.move(handleBox.x+8,handleBox.y+8);await page.mouse.down();await page.mouse.move(handleBox.x+68,handleBox.y+30,{steps:5});await page.mouse.up();
-    const sigAfter=await dialog.locator('[data-overlay] img').nth(1).boundingBox();
-    assert.ok(sigAfter.width>sigBefore.width+30,'corner handle resizes the selected signature');
-    await dialog.locator('[data-delete]').click();await dialog.locator('[data-delete]').click();
-    await page.evaluate(()=>{document.querySelector('dialog[open] [data-overlay]').replaceChildren();});
-    await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
-    await page.waitForTimeout(100);
-    await dialog.locator('[data-add]').click();
-    await dialog.locator('[data-overlay] img').waitFor();
-    await dialog.locator('[data-size]').fill('30');
-    const image=dialog.locator('[data-overlay] img'),box=await image.boundingBox();
-    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+25,box.y+box.height/2+20);await page.mouse.up();
-    await dialog.locator('[data-page]').selectOption({value:'1'});
-    await page.waitForFunction(()=>document.querySelector('dialog[open] [data-overlay]').children.length===0);
-    await dialog.locator('[data-clone]').click();await dialog.locator('[data-overlay] img').waitFor();
-    await dialog.locator('[data-clone]').click();assert.equal(await dialog.locator('[data-overlay] img').count(),2);
-    await dialog.locator('[data-delete]').click();assert.equal(await dialog.locator('[data-overlay] img').count(),1);
-    await page.screenshot({path:path.join(__dirname,'output','bsgt-internal-signature.png')});
-    await dialog.locator('[data-save]').click();
-    await page.locator('[data-packages] button').filter({hasText:'معاينة الموقّع'}).waitFor();
-    assert.ok(savedSignature);
-    await context.close();console.log('BSGT management browser workflow: passed');
+    await page.goto(`${APP}/#v=admin`,{waitUntil:'domcontentloaded'});
+    await page.locator('.admin-tab[data-atab="companyProfile"]').waitFor({timeout:20000});
+    await page.locator('.admin-tab[data-atab="companyProfile"]').click();
+    await page.locator('#companyProfileRoot .ccp-file-card').first().waitFor({timeout:20000});
+    assert.equal(await page.locator('#companyProfileRoot .ccp-chip.is-placed').count(),1,'stamp with saved placement is flagged');
+    const sigCard=page.locator('#companyProfileRoot .ccp-file-card').nth(1);
+    await sigCard.locator('[data-action="placement"]').click();
+    await page.locator('.jahez-placement-dialog[open] [data-image]').waitFor();
+    await page.waitForTimeout(400);
+    await page.fill('.jahez-placement-dialog[open] [data-width]','30');
+    await page.locator('.jahez-placement-dialog[open] [data-width]').dispatchEvent('input');
+    const img=page.locator('.jahez-placement-dialog[open] [data-image]');const box=await img.boundingBox();
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2-60,box.y+box.height/2-80,{steps:6});await page.mouse.up();
+    if(process.env.SHOT_DIR) await page.screenshot({path:process.env.SHOT_DIR+'/placement-editor.png'});
+    await page.locator('.jahez-placement-dialog[open] [data-save]').click();
+    await page.waitForFunction(()=>!document.querySelector('.jahez-placement-dialog[open]'));
+    await page.waitForTimeout(500);
+    assert.ok(placementPatch&&placementPatch.metadata&&placementPatch.metadata.placement,'placement saved online');
+    assert.ok(Math.abs(placementPatch.metadata.placement.width-.3)<.01,'width from the input');
+    assert.ok(placementPatch.metadata.placement.y<.7,'dragged upward from the default');
+    console.log('Company profile placement editor: passed');
   }finally{if(browser)await browser.close();server.kill('SIGTERM');}
 }
 main().catch(error=>{console.error(error);process.exit(1);});

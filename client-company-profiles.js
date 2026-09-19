@@ -231,7 +231,8 @@
   function fileCard(file){
     const image=file.mime_type && file.mime_type.startsWith('image/');
     const uploader=state.uploaders.get(file.uploaded_by) || 'غير معروف';
-    const fileActions=canAccessFileCurrent()?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManageCurrent()?'<button data-action="replace">استبدال</button>':''}${canArchiveCurrent()?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">الأصل محفوظ</span>';
+    const placeable=image&&['stamp','signature'].includes(file.file_type), placement=placeable&&root.JahezSignaturePlacement?.fromMetadata(file);
+    const fileActions=canAccessFileCurrent()?`<button data-action="preview">معاينة</button><button data-action="download">تنزيل</button>${canManageCurrent()?`${placeable?'<button data-action="placement">ضبط الموضع والحجم</button>':''}<button data-action="replace">استبدال</button>`:''}${canArchiveCurrent()?'<button data-action="archive">أرشفة</button>':''}`:'<span class="ccp-chip">الأصل محفوظ</span>';
     return `<article class="ccp-file-card" data-file-id="${esc(file.id)}"><div class="ccp-preview">${image?`<img data-profile-image="${esc(file.id)}" alt="${esc(FILE_TYPES[file.file_type])}">`:'<div class="ccp-pdf-mark">PDF</div>'}</div><div class="ccp-file-content"><h4>${esc(file.title || FILE_TYPES[file.file_type])}</h4><p title="${esc(file.original_name)}">${esc(file.original_name)}</p><div class="ccp-file-meta"><span>${fmtSize(file.size_bytes)}</span><span>${fmtDate(file.created_at)}</span><span>بواسطة ${esc(uploader)}</span></div><div class="ccp-file-actions">${fileActions}</div></div></article>`;
   }
   function renderDocuments(){
@@ -267,6 +268,7 @@
       if(action==='download') downloadFile(file);
       if(action==='replace') openUploadModal(file.file_type,file);
       if(action==='archive') archiveFile(file);
+      if(action==='placement') editPlacement(file);
     }));
     body.querySelectorAll('[data-signatory-id]').forEach(card=>card.addEventListener('click',event=>{
       const button=event.target.closest('[data-action]'); if(!button) return;
@@ -366,6 +368,20 @@
       if(uploaded){ try{ await sb.storage.from(BUCKET).remove([path]); }catch(cleanupError){ console.warn('upload rollback',cleanupError); } }
       notify('تعذّر حفظ الملف: '+(error.message||'خطأ غير معروف'),'err'); console.error(error);
     }finally{ endBusy(); }
+  }
+  // Default position/size used when this stamp or signature is fetched into the signing viewer.
+  async function editPlacement(file){
+    if(!canManageCurrent()||!root.JahezSignaturePlacement) return;
+    try{
+      const url=await signedUrl(file);
+      const placement=await root.JahezSignaturePlacement.open({imageUrl:url,type:file.file_type,placement:file.metadata?.placement,title:`ضبط ${FILE_TYPES[file.file_type]}: ${file.title||''}`});
+      if(!placement) return;
+      startBusy();
+      const metadata=Object.assign({},file.metadata||{},{placement});
+      const {error}=await sb.from('client_profile_files').update({metadata}).eq('id',file.id); if(error) throw error;
+      file.metadata=metadata; renderProfile(); notify('تم حفظ الموضع والحجم الافتراضي.');
+    }catch(error){ notify('تعذر حفظ الإعداد.','err'); console.error(error); }
+    finally{ endBusy(); }
   }
   async function archiveFile(file){
     if(!canArchiveCurrent() || !confirm(`أرشفة "${file.title || FILE_TYPES[file.file_type]}"؟\nسيختفي من البروفايل دون حذف الملف نهائياً.`)) return;

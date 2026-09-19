@@ -305,14 +305,14 @@
       tasks.push(prepareBaharContractClientAssets(rowToRecord(shipment)).then(context=>{
         (context?.files||[]).filter(file=>file.signedUrl&&file.mime_type?.startsWith('image/')).forEach(file=>{
           const person=(context.signatories||[]).find(p=>p.id===file.signatory_id);
-          sources[file.file_type==='stamp'?'buyer-stamp':'buyer-signature'].push({label:file.title||(person?.name)||(file.file_type==='stamp'?'ختم المشتري':'توقيع المشتري'),detail:person?[person.name,person.title].filter(Boolean).join(' — '):context.client?.name_ar||context.client?.name||'',url:file.signedUrl});
+          sources[file.file_type==='stamp'?'buyer-stamp':'buyer-signature'].push({label:file.title||(person?.name)||(file.file_type==='stamp'?'ختم المشتري':'توقيع المشتري'),detail:person?[person.name,person.title].filter(Boolean).join(' — '):context.client?.name_ar||context.client?.name||'',url:file.signedUrl,placement:window.JahezSignaturePlacement?.fromMetadata(file)||null});
         });
       }).catch(error=>console.warn('buyer signature assets',error)));
     }
     if(window.JahezCompanyProfile){
       tasks.push(window.JahezCompanyProfile.signingAssets().then(async assets=>{
-        for(const file of assets.stamps){try{sources['company-stamp'].push({label:file.title||'ختم بحر سواكن',detail:'',url:await window.JahezCompanyProfile.signedUrl(file)});}catch(_){}}
-        for(const file of assets.signatures){try{sources['company-signature'].push({label:file.signatory_name||file.title||'توقيع بحر سواكن',detail:file.title&&file.signatory_name?file.title:'',url:await window.JahezCompanyProfile.signedUrl(file)});}catch(_){}}
+        for(const file of assets.stamps){try{sources['company-stamp'].push({label:file.title||'ختم بحر سواكن',detail:'',url:await window.JahezCompanyProfile.signedUrl(file),placement:window.JahezSignaturePlacement?.fromMetadata(file)||null});}catch(_){}}
+        for(const file of assets.signatures){try{sources['company-signature'].push({label:file.signatory_name||file.title||'توقيع بحر سواكن',detail:file.title&&file.signatory_name?file.title:'',url:await window.JahezCompanyProfile.signedUrl(file),placement:window.JahezSignaturePlacement?.fromMetadata(file)||null});}catch(_){}}
       }).catch(error=>console.warn('company signature assets',error)));
     }
     await Promise.all(tasks);
@@ -347,10 +347,11 @@
           const option=options.length===1?options[0]:await chooseSignature(`اختر ${labels[key]}`,options);
           if(!option)return;
           const {dataUrl,ratio}=await toPngDataUrl(option.url);
-          placeImage(dataUrl,ratio,`${labels[key]}${option.label?' — '+option.label:''}`);
+          placeImage(dataUrl,ratio,`${labels[key]}${option.label?' — '+option.label:''}`,option.placement);
         });
       });
-      status.textContent=found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة.`:'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
+      const preset=Object.values(sources).flat().filter(option=>option.placement).length;
+      status.textContent=found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة${preset?` (${preset} منها بموضع وحجم مضبوطين من البروفايل)`:''}.`:'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
     }).catch(error=>{console.warn('auto signatures',error);status.textContent='تعذر البحث عن التوقيعات المحفوظة — ارفع الصورة من الملفات.';});
   }
   async function signatureViewer(bundle,shipmentId,source,onSaved){
@@ -409,7 +410,14 @@
     });
     // Saved stamps / signatures: the buyer's client profile (matched by consignee) and the
     // Bahar Swaken company profile (identity-studio artwork as fallback). Adds straight onto the page.
-    const placeImage=(dataUrl,ratio,label)=>{image=dataUrl;imageRatio=ratio;sessionSignature=dataUrl;sessionSignatureRatio=ratio;const offset=placements.filter(p=>p.page===pageIndex).length*.03;placements.push({page:pageIndex,x:Math.min(.7,.4+offset),y:Math.min(.7,.5+offset),width:.2,height:Math.min(.4,.2*ratio*canvas.width/canvas.height),image:dataUrl,ratio,label:label||''});selected=placements.length-1;draw();};
+    // placement: saved default {x,y,width} from the profile; otherwise a staggered default spot.
+    const placeImage=(dataUrl,ratio,label,placement)=>{
+      image=dataUrl;imageRatio=ratio;sessionSignature=dataUrl;sessionSignatureRatio=ratio;
+      const offset=placements.filter(p=>p.page===pageIndex).length*.03;
+      const width=placement?placement.width:.2,height=Math.min(.8,width*ratio*canvas.width/canvas.height);
+      const x=placement?Math.min(placement.x,1-width):Math.min(.7,.4+offset),y=placement?Math.min(placement.y,1-height):Math.min(.7,.5+offset);
+      placements.push({page:pageIndex,x,y,width,height,image:dataUrl,ratio,label:label||'',preset:Boolean(placement)});selected=placements.length-1;draw();
+    };
     wireAutoSignatures(host,bundle,shipmentId,placeImage);
     host.querySelector('[data-add]').onclick=()=>{
       if(!image){host.querySelector('[data-error]').textContent='اختر صورة التوقيع أولاً أو استخدم الاستجلاب التلقائي.';return;}
