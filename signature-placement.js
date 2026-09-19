@@ -39,7 +39,9 @@
         inputs.width.value=(current.width*100).toFixed(1);inputs.mm.value=Math.round(current.width*210);inputs.x.value=(current.x*100).toFixed(1);inputs.y.value=(current.y*100).toFixed(1);
       };
       img.onload=()=>{ratio=img.naturalHeight/img.naturalWidth||1;apply();};
+      img.onerror=()=>{node.querySelector('[data-note]').textContent='تعذر تحميل الصورة — يمكنك ضبط الأرقام وحفظها.';apply();};
       img.src=imageUrl;
+      apply();
       img.onpointerdown=event=>{
         event.preventDefault();const rect=sheet.getBoundingClientRect(),startX=event.clientX,startY=event.clientY,x=current.x,y=current.y;
         img.setPointerCapture(event.pointerId);

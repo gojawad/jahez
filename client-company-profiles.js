@@ -371,7 +371,8 @@
   }
   // Default position/size used when this stamp or signature is fetched into the signing viewer.
   async function editPlacement(file){
-    if(!canManageCurrent()||!root.JahezSignaturePlacement) return;
+    if(!canManageCurrent()) return;
+    if(!root.JahezSignaturePlacement){ notify('أداة ضبط الموضع غير محمّلة — حدّث الصفحة (Ctrl+F5).','err'); return; }
     try{
       const url=await signedUrl(file);
       const placement=await root.JahezSignaturePlacement.open({imageUrl:url,type:file.file_type,placement:file.metadata?.placement,title:`ضبط ${FILE_TYPES[file.file_type]}: ${file.title||''}`});
