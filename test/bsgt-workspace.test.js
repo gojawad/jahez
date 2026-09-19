@@ -14,10 +14,16 @@ const editor = {id:'editor-1', role:'editor', active:true};
 const viewer = {id:'viewer-1', role:'viewer', active:true};
 const financeOnly = [{section:'finance', can_view:true, can_edit:true}];
 
-assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'finance', 'management', 'relations', 'tradeFiles', 'operationCenter']);
+assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'financialCenter', 'finance', 'management', 'relations', 'tradeFiles', 'operationCenter']);
 assert.deepStrictEqual(workspace.LEGACY_SECTION_KEYS, ['operations', 'finance', 'management', 'relations']);
 assert.deepStrictEqual(workspace.allowedSections(admin, []).map(item=>item.key), workspace.SECTION_KEYS);
-assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['finance', 'tradeFiles']);
+assert.deepStrictEqual(workspace.allowedSections(editor, financeOnly).map(item=>item.key), ['financialCenter', 'finance', 'tradeFiles']);
+// Phase 0: the financial center is an empty shell visible to anyone inside the workspace, never editable, never the default landing.
+assert.strictEqual(workspace.permissionFor('financialCenter', editor, financeOnly).canEdit, false);
+assert.strictEqual(workspace.permissionFor('financialCenter', admin, []).canEdit, false);
+assert.strictEqual(workspace.resolveSection(null, editor, financeOnly), 'finance');
+assert.strictEqual(workspace.resolveSection('financialCenter', editor, financeOnly), 'financialCenter');
+assert.strictEqual(workspace.permissionFor('financialCenter', editor, []), null);
 assert.strictEqual(workspace.permissionFor('tradeFiles',editor,financeOnly).canEdit,false);
 for(const section of ['finance','management','relations']){
   assert.strictEqual(workspace.permissionFor('tradeFiles',editor,[],{featureKeys:[`bsgt.${section}.view`]}).canEdit,false);
@@ -29,10 +35,11 @@ assert.strictEqual(workspace.resolveSection('operations', editor, financeOnly), 
 assert.strictEqual(workspace.resolveSection('finance', editor, financeOnly), 'finance');
 assert.strictEqual(workspace.resolveSection('operations', editor, []), null);
 assert.strictEqual(workspace.normalizePermission({section:'operationCenter',can_view:true}), null);
-assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['operationCenter']);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['financialCenter', 'operationCenter']);
+assert.strictEqual(workspace.resolveSection(null, editor, [], {featureKeys:['bsgt.operation_center.view']}), 'operationCenter');
 assert.strictEqual(workspace.SECTIONS.at(-1).permissionKey, 'bsgt.operation_center.view');
 assert.strictEqual(workspace.permissionFor('operationCenter', editor, [], {featureKeys:['bsgt.operation_center.view']}).canEdit, false);
-assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations']);
+assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations', 'financialCenter']);
 assert.strictEqual(workspace.resolveBsgtCompanyId([
   {id:'other', name_ar:'شركة أخرى'},
   {id:'bsgt', name_en:'Bahar Swaken General Trading LLC'}
@@ -42,6 +49,9 @@ assert.ok(html.includes('data-view="bsgtWorkspace" id="navBsgt"'));
 assert.ok(html.includes('>مساحة BSGT</button>'));
 assert.ok(!html.includes('id="navBsgt" data-ic="ship">شحنات BSGT</button>'));
 assert.ok(html.includes('id="viewBsgtWorkspace"'));
+assert.ok(html.includes("activeSection === 'financialCenter'"));
+assert.ok(html.includes('bsgt-financial-center.js?v='));
+assert.ok(html.includes('bsgt-financial-center.css?v='));
 assert.ok(html.includes("section: p.get('section')"));
 assert.ok(html.includes("bsgtWorkspace:'مساحة BSGT'"));
 for(const text of [
