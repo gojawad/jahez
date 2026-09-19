@@ -299,6 +299,7 @@
   }
   async function collectSavedSignatures(bundle,shipmentId){
     const sources={'buyer-stamp':[],'buyer-signature':[],'company-stamp':[],'company-signature':[]};
+    const notes=[];
     const shipment=bundle.shipments.find(s=>s.shipment.id===shipmentId)?.shipment;
     const tasks=[];
     if(shipment&&typeof prepareBaharContractClientAssets==='function'){
@@ -311,6 +312,8 @@
     }
     if(window.JahezCompanyProfile){
       tasks.push(window.JahezCompanyProfile.signingAssets().then(async assets=>{
+        if(assets.error)notes.push('تعذر قراءة بروفايل بحر سواكن ('+assets.error+') — تأكد من تشغيل ملف supabase/52.');
+        else notes.push(`بروفايل بحر سواكن: ${assets.stamps.length} ختم، ${assets.signatures.length} توقيع${assets.skippedNonImages?` (تم تجاهل ${assets.skippedNonImages} ملف PDF — ارفع الختم/التوقيع كصورة PNG)`:''}.`);
         for(const file of assets.stamps){try{sources['company-stamp'].push({label:file.title||'ختم بحر سواكن',detail:'',url:await window.JahezCompanyProfile.signedUrl(file),placement:window.JahezSignaturePlacement?.fromMetadata(file)||null});}catch(_){}}
         for(const file of assets.signatures){try{sources['company-signature'].push({label:file.signatory_name||file.title||'توقيع بحر سواكن',detail:file.title&&file.signatory_name?file.title:'',url:await window.JahezCompanyProfile.signedUrl(file),placement:window.JahezSignaturePlacement?.fromMetadata(file)||null});}catch(_){}}
       }).catch(error=>console.warn('company signature assets',error)));
@@ -320,9 +323,10 @@
     if(!sources['company-stamp'].length||!sources['company-signature'].length){
       const brand=(typeof baharCompanyEntry==='function'?baharCompanyEntry()?.settings:null)||{};
       const art=brand.invoiceBranding||brand.collectionBranding||{};
-      if(!sources['company-stamp'].length&&art.stamp)sources['company-stamp'].push({label:'ختم بحر سواكن (استوديو الهوية)',detail:'',url:art.stamp});
-      if(!sources['company-signature'].length&&art.signature)sources['company-signature'].push({label:'توقيع بحر سواكن (استوديو الهوية)',detail:'',url:art.signature});
+      if(!sources['company-stamp'].length&&art.stamp){sources['company-stamp'].push({label:'ختم بحر سواكن (استوديو الهوية)',detail:'ليس من بروفايل بحر سواكن — لا يوجد ختم مرفوع هناك',url:art.stamp});notes.push('الختم المعروض من استوديو الهوية لأن البروفايل لا يحتوي ختماً.');}
+      if(!sources['company-signature'].length&&art.signature){sources['company-signature'].push({label:'توقيع بحر سواكن (استوديو الهوية)',detail:'ليس من بروفايل بحر سواكن — لا يوجد توقيع مرفوع هناك',url:art.signature});notes.push('التوقيع المعروض من استوديو الهوية لأن البروفايل لا يحتوي توقيعاً.');}
     }
+    sources.notes=notes;
     return sources;
   }
   function chooseSignature(title,options){
@@ -341,7 +345,7 @@
       let found=0;
       host.querySelectorAll('[data-auto-pick]').forEach(button=>{
         const key=button.dataset.autoPick,options=sources[key]||[];
-        button.disabled=!options.length;button.title=options.length?`${options.length} محفوظ`:'غير متوفر — ارفع الصورة من الملفات';
+        button.disabled=!options.length;button.title=options.length?options.map(option=>option.label).join(' · '):'غير متوفر — ارفع الصورة من الملفات';
         if(options.length)found+=options.length;
         button.onclick=()=>run(async()=>{
           const option=options.length===1?options[0]:await chooseSignature(`اختر ${labels[key]}`,options);
@@ -351,7 +355,7 @@
         });
       });
       const preset=Object.values(sources).flat().filter(option=>option.placement).length;
-      status.textContent=found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة${preset?` (${preset} منها بموضع وحجم مضبوطين من البروفايل)`:''}.`:'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
+      status.textContent=(found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة${preset?` (${preset} منها بموضع وحجم مضبوطين من البروفايل)`:''}.`:'')+(sources.notes?.length?' '+sources.notes.join(' '):'')||'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
     }).catch(error=>{console.warn('auto signatures',error);status.textContent='تعذر البحث عن التوقيعات المحفوظة — ارفع الصورة من الملفات.';});
   }
   async function signatureViewer(bundle,shipmentId,source,onSaved){

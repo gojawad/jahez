@@ -50,10 +50,13 @@
     return new Promise((resolve,reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=reject; reader.readAsDataURL(blob); });
   }
   // Active stamps / signatures for the signature viewer (empty when the table is missing).
+  // Always re-reads the vault so a stamp replaced moments ago is the one offered.
   async function signingAssets(){
-    try{ if(!state.loaded) await loadFiles(); }catch(error){ console.warn('company profile assets',error); return {stamps:[],signatures:[]}; }
+    let error=null;
+    try{ await loadFiles(); }catch(caught){ error=caught; console.warn('company profile assets',caught); }
     const images=state.files.filter(file=>file.mime_type&&file.mime_type.startsWith('image/'));
-    return {stamps:images.filter(file=>file.file_type==='stamp'),signatures:images.filter(file=>file.file_type==='signature')};
+    const skipped=state.files.filter(file=>['stamp','signature'].includes(file.file_type)&&!(file.mime_type||'').startsWith('image/')).length;
+    return {stamps:images.filter(file=>file.file_type==='stamp'),signatures:images.filter(file=>file.file_type==='signature'),error:error?error.message||String(error):null,skippedNonImages:skipped,available:!error};
   }
 
   function rootEl(){ return document.getElementById('companyProfileRoot'); }
