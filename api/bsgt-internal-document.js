@@ -4,18 +4,31 @@ const {PDFDocument} = require('../experiments/bs-collection/collection-pdf-lib')
 const {readBody,serviceHeaders} = require('./bsgt-operations-package');
 const FINANCE = ['exchange','letter','undertaking'];
 
+// Each placement may carry its own PNG (stamp and signature together); without one the
+// shared image applies. Identical images are embedded once.
 async function applySignature(bytes, image, placements) {
   if (!Array.isArray(placements) || !placements.length || placements.length>100) throw new Error('Invalid signature placements');
   const document = await PDFDocument.load(bytes);
-  const asset = await document.embedPng(image);
+  const embedded = new Map();
+  const assetFor = async source => {
+    const key = source.toString('base64').slice(0, 64) + ':' + source.length;
+    if (!embedded.has(key)) embedded.set(key, await document.embedPng(source));
+    return embedded.get(key);
+  };
   for(const p of placements) {
     if(!Number.isInteger(p.page) || p.page<0 || p.page>=document.getPageCount()
       || !['x','y','width','height'].every(key=>Number.isFinite(p[key])&&p[key]>=0&&p[key]<=1)
       || p.width<=0 || p.height<=0 || p.x+p.width>1.000001 || p.y+p.height>1.000001) throw new Error('Signature is outside the document');
+    if (p.image !== undefined && (typeof p.image !== 'string' || p.image.length > 4000000)) throw new Error('Signature image too large');
+    const asset = await assetFor(typeof p.image === 'string' && p.image ? Buffer.from(p.image, 'base64') : image);
     const page=document.getPage(p.page),size=page.getSize();
     page.drawImage(asset,{x:p.x*size.width,y:(1-p.y-p.height)*size.height,width:p.width*size.width,height:p.height*size.height});
   }
   return Buffer.from(await document.save());
+}
+// Placement geometry only, for the database record.
+function placementRecords(placements) {
+  return placements.map(({page,x,y,width,height,cloned}) => ({page,x,y,width,height,...(cloned ? {cloned:true} : {})}));
 }
 
 async function handler(req,res) {
@@ -81,7 +94,7 @@ async function handler(req,res) {
       const path=`workflow/${bundle.file.id}/${body.revisionNo}/signed/${randomUUID()}.pdf`;
       await store(path,signed);
       const document=await rpc('register_bsgt_internal_signature',{p_file_id:bundle.file.id,p_revision_no:body.revisionNo,
-        p_shipment_id:body.shipmentId,p_kind:body.kind,p_path:path,p_source_path:sourcePath,p_placements:body.placements});
+        p_shipment_id:body.shipmentId,p_kind:body.kind,p_path:path,p_source_path:sourcePath,p_placements:placementRecords(body.placements)});
       return res.status(200).json({document});
     }
     return res.status(400).json({error:'Unknown document action'});

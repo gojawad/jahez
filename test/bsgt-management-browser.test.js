@@ -63,6 +63,7 @@ async function main(){
       assert.equal(payload.action,'sign');assert.equal(payload.shipmentId,shipmentId);
       assert.equal(payload.placements.length,2);assert.deepEqual(payload.placements.map(p=>p.page),[0,1]);
       assert.equal(payload.placements[1].cloned,true);assert.ok(payload.placements[0].width>.2);
+      assert.ok(payload.placements.every(p=>typeof p.image==='string'&&p.image.length>20),'each placement carries its own PNG');
       savedSignature={document_type:payload.kind,shipment_id:shipmentId,document_variant:'administration_signed',storage_path:'workflow/signed.pdf'};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({document:savedSignature})});
     });
@@ -90,6 +91,14 @@ async function main(){
     assert.match(await chooser.locator('.bsgt-sign-choice').first().innerText(),/جواد المصري/);
     await chooser.locator('.bsgt-sign-choice').first().click();
     await page.waitForFunction(()=>document.querySelectorAll('dialog[open] [data-overlay] img').length===2);
+    // stamp and signature keep their own images, and the selected one has a corner resize handle
+    const overlayImages=await page.evaluate(()=>[...document.querySelectorAll('dialog[open] [data-overlay] img')].map(img=>img.title));
+    assert.deepStrictEqual(overlayImages.map(t=>t.split(' — ')[0]),['ختم بحر سواكن','توقيع بحر سواكن']);
+    await dialog.locator('.bsgt-sign-handle').waitFor();await dialog.locator('.bsgt-sign-handle').scrollIntoViewIfNeeded();
+    const handleBox=await dialog.locator('.bsgt-sign-handle').boundingBox(), sigBefore=await dialog.locator('[data-overlay] img').nth(1).boundingBox();
+    await page.mouse.move(handleBox.x+8,handleBox.y+8);await page.mouse.down();await page.mouse.move(handleBox.x+68,handleBox.y+30,{steps:5});await page.mouse.up();
+    const sigAfter=await dialog.locator('[data-overlay] img').nth(1).boundingBox();
+    assert.ok(sigAfter.width>sigBefore.width+30,'corner handle resizes the selected signature');
     await dialog.locator('[data-delete]').click();await dialog.locator('[data-delete]').click();
     await page.evaluate(()=>{document.querySelector('dialog[open] [data-overlay]').replaceChildren();});
     await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});

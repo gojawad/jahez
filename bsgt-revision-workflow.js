@@ -347,7 +347,7 @@
           const option=options.length===1?options[0]:await chooseSignature(`اختر ${labels[key]}`,options);
           if(!option)return;
           const {dataUrl,ratio}=await toPngDataUrl(option.url);
-          placeImage(dataUrl,ratio);
+          placeImage(dataUrl,ratio,`${labels[key]}${option.label?' — '+option.label:''}`);
         });
       });
       status.textContent=found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة.`:'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
@@ -365,7 +365,8 @@
     function draw(){
       overlay.replaceChildren();placements.forEach((p,index)=>{
         if(p.page!==pageIndex)return;
-        const img=document.createElement('img');img.src=image;img.draggable=false;img.alt='التوقيع';
+        // Each placement keeps its own image (stamp and signature can coexist on one page).
+        const img=document.createElement('img');img.src=p.image||image;img.draggable=false;img.alt=p.label||'التوقيع';img.title=p.label||'';
         img.style.cssText=`position:absolute;left:${p.x*100}%;top:${p.y*100}%;width:${p.width*100}%;height:${p.height*100}%;cursor:move;touch-action:none;outline:${index===selected?'2px solid #EA1B23':'1px dashed #999'}`;
         img.onpointerdown=event=>{
           selected=index;host.querySelector('[data-size]').value=p.width*100;
@@ -374,6 +375,22 @@
           img.onpointermove=e=>{p.x=Math.max(0,Math.min(1-p.width,x+(e.clientX-startX)/rect.width));p.y=Math.max(0,Math.min(1-p.height,y+(e.clientY-startY)/rect.height));img.style.left=`${p.x*100}%`;img.style.top=`${p.y*100}%`;};
           img.onpointerup=()=>{img.onpointermove=null;draw();};
         };overlay.append(img);
+        if(index===selected){
+          // Corner handle: drag to resize the selected stamp/signature (aspect ratio kept).
+          const handle=document.createElement('span');handle.className='bsgt-sign-handle';handle.title='اسحب لتغيير الحجم';
+          handle.style.cssText=`position:absolute;left:calc(${(p.x+p.width)*100}% - 8px);top:calc(${(p.y+p.height)*100}% - 8px);width:16px;height:16px;border-radius:50%;background:#EA1B23;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:nwse-resize;touch-action:none;z-index:2`;
+          handle.onpointerdown=event=>{
+            event.stopPropagation();const rect=overlay.getBoundingClientRect(),startX=event.clientX,baseWidth=p.width,ratio=p.ratio||imageRatio;
+            handle.setPointerCapture(event.pointerId);
+            handle.onpointermove=e=>{
+              p.width=Math.max(.03,Math.min(1-p.x,baseWidth+(e.clientX-startX)/rect.width));
+              p.height=Math.min(1-p.y,p.width*ratio*canvas.width/canvas.height);
+              host.querySelector('[data-size]').value=p.width*100;
+              img.style.width=`${p.width*100}%`;img.style.height=`${p.height*100}%`;handle.style.left=`calc(${(p.x+p.width)*100}% - 8px)`;handle.style.top=`calc(${(p.y+p.height)*100}% - 8px)`;
+            };
+            handle.onpointerup=()=>{handle.onpointermove=null;draw();};
+          };overlay.append(handle);
+        }
       });
     }
     async function render(){
@@ -392,19 +409,19 @@
     });
     // Saved stamps / signatures: the buyer's client profile (matched by consignee) and the
     // Bahar Swaken company profile (identity-studio artwork as fallback). Adds straight onto the page.
-    const placeImage=(dataUrl,ratio)=>{image=dataUrl;imageRatio=ratio;sessionSignature=dataUrl;sessionSignatureRatio=ratio;placements.push({page:pageIndex,x:.4,y:.5,width:.2,height:Math.min(.4,.2*ratio*canvas.width/canvas.height)});selected=placements.length-1;draw();};
+    const placeImage=(dataUrl,ratio,label)=>{image=dataUrl;imageRatio=ratio;sessionSignature=dataUrl;sessionSignatureRatio=ratio;const offset=placements.filter(p=>p.page===pageIndex).length*.03;placements.push({page:pageIndex,x:Math.min(.7,.4+offset),y:Math.min(.7,.5+offset),width:.2,height:Math.min(.4,.2*ratio*canvas.width/canvas.height),image:dataUrl,ratio,label:label||''});selected=placements.length-1;draw();};
     wireAutoSignatures(host,bundle,shipmentId,placeImage);
     host.querySelector('[data-add]').onclick=()=>{
       if(!image){host.querySelector('[data-error]').textContent='اختر صورة التوقيع أولاً أو استخدم الاستجلاب التلقائي.';return;}
-      placements.push({page:pageIndex,x:.4,y:.5,width:.2,height:Math.min(.4,.2*imageRatio*canvas.width/canvas.height)});selected=placements.length-1;draw();
+      placements.push({page:pageIndex,x:.4,y:.5,width:.2,height:Math.min(.4,.2*imageRatio*canvas.width/canvas.height),image,ratio:imageRatio,label:'توقيع مرفوع'});selected=placements.length-1;draw();
     };
     host.querySelector('[data-clone]').onclick=()=>{if(selected<0)return;const p=placements[selected];placements.push({...p,page:pageIndex,x:Math.min(1-p.width,p.x+.03),y:Math.min(1-p.height,p.y+.03),cloned:true});selected=placements.length-1;draw();};
     host.querySelector('[data-delete]').onclick=()=>{if(selected>=0)placements.splice(selected,1);selected=-1;draw();};
-    host.querySelector('[data-size]').oninput=event=>{const p=placements[selected];if(!p||p.page!==pageIndex)return;p.width=Number(event.target.value)/100;p.height=Math.min(.8,p.width*imageRatio*canvas.width/canvas.height);p.x=Math.min(p.x,1-p.width);p.y=Math.min(p.y,1-p.height);draw();};
+    host.querySelector('[data-size]').oninput=event=>{const p=placements[selected];if(!p||p.page!==pageIndex)return;p.width=Number(event.target.value)/100;p.height=Math.min(.8,p.width*(p.ratio||imageRatio)*canvas.width/canvas.height);p.x=Math.min(p.x,1-p.width);p.y=Math.min(p.y,1-p.height);draw();};
     host.querySelector('[data-save]').onclick=()=>run(async()=>{
       if(!placements.length)throw new Error('أضف التوقيع قبل الحفظ.');
       const button=host.querySelector('[data-save]');button.disabled=true;
-      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,image:image.split(',')[1],placements});node.close();await onSaved();toast('حُفظت النسخة الموقعة داخلياً. الأصل وQR لم يتغيرا.');}
+      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,image:(placements[0].image||image).split(',')[1],placements:placements.map(({page,x,y,width,height,cloned,image:own})=>({page,x,y,width,height,cloned,image:(own||image).split(',')[1]}))});node.close();await onSaved();toast('حُفظت النسخة الموقعة داخلياً. الأصل وQR لم يتغيرا.');}
       finally{button.disabled=false;}
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();
