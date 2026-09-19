@@ -1,0 +1,13 @@
+/* Bahar Swaken company profile pane + auto-fetched signatures in the signing viewer. */
+#apaneCompanyProfile .ccp-shell{width:100%;max-width:none;margin:0}
+#apaneCompanyProfile .ccp-profile-head{margin-top:0}
+.bsgt-sign-auto{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc}
+.bsgt-sign-auto-title{font-size:12px;font-weight:800;color:#132c50}
+.bsgt-sign-auto .btn:disabled{opacity:.45;cursor:not-allowed}
+.bsgt-sign-auto small{flex-basis:100%;color:#667085;font-size:11px}
+.bsgt-sign-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px}
+.bsgt-sign-choice{display:grid;gap:6px;justify-items:center;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer;text-align:center}
+.bsgt-sign-choice:hover{border-color:#EA1B23;background:#fff5f5}
+.bsgt-sign-choice img{width:100%;max-height:110px;object-fit:contain;background:repeating-conic-gradient(#f1f5f9 0 25%,#fff 0 50%) 0 0/16px 16px}
+.bsgt-sign-choice b{font-size:13px;color:#132c50}
+.bsgt-sign-choice small{color:#667085;font-size:11px}

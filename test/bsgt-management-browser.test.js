@@ -13,7 +13,7 @@ const profile={id:'employee-1',email:'manager@example.test',display_name:'مدي
 const company={id:'bsgt-company',name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}};
 const tradeId='10000000-0000-4000-8000-000000000001';
 const shipmentId='20000000-0000-4000-8000-000000000001';
-function executable(){return ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync);}
+function executable(){return [process.env.CHROMIUM_PATH,'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync);}
 function jwt(){const enc=v=>Buffer.from(JSON.stringify(v)).toString('base64url');return `${enc({alg:'HS256'})}.${enc({sub:profile.id,exp:Math.floor(Date.now()/1000)+3600,aud:'authenticated'})}.x`;}
 async function waitServer(proc){for(let i=0;i<50;i++){if(proc.exitCode!==null)throw Error('server exited');try{if((await fetch(`${BASE}/healthz`)).ok)return;}catch{}await new Promise(r=>setTimeout(r,200));}throw Error('server timeout');}
 
@@ -28,8 +28,13 @@ async function main(){
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const source=await PDFDocument.create();source.addPage([595,842]);source.addPage([595,842]);const sourceBytes=Buffer.from(await source.save());
     const originals=['letter','undertaking','exchange'].map(kind=>({document_type:kind,document_variant:'finance_original',revision_no:1,is_active:true,storage_path:`workflow/${tradeId}/1/finance/${kind}.pdf`}));
+    const stampPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAoAAAAFCAYAAAB8ZH1oAAAAE0lEQVR4nGM4ISL3nxjMMAQUAgBv3GKjXEl0zgAAAABJRU5ErkJggg==','base64');
     const revision={id:'ops-revision',revision_no:1,documents:['contract','proforma','invoice','packing','import_permit','certificate_of_origin','bill_of_lading'].map(kind=>({kind,path:`${shipmentId}/ops-revision/${kind}.pdf`,source:'operations'}))};
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
+      if(url.pathname.endsWith('/company-profile-files/asset.png'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'image/png'},body:stampPng});
+      if(url.pathname.includes('/storage/v1/object/sign/company-profile-files/'))return route.fulfill({status:200,headers,body:JSON.stringify({signedURL:'/object/sign/company-profile-files/asset.png?token=t'})});
+      if(url.pathname==='/rest/v1/company_profile_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'cp-stamp',company_id:company.id,file_type:'stamp',title:'الختم الرسمي',original_name:'stamp.png',storage_path:`${company.id}/stamp/stamp.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'},{id:'cp-sig-1',company_id:company.id,file_type:'signature',title:'المدير',signatory_name:'جواد المصري',original_name:'sig1.png',storage_path:`${company.id}/signature/sig1.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'},{id:'cp-sig-2',company_id:company.id,file_type:'signature',title:'مفوض',signatory_name:'مفوض ثانٍ',original_name:'sig2.png',storage_path:`${company.id}/signature/sig2.png`,mime_type:'image/png',is_active:true,created_at:'2026-09-12T10:00:00Z'}])});
+      if(url.pathname==='/rest/v1/clients'||url.pathname==='/rest/v1/client_profile_files'||url.pathname==='/rest/v1/client_authorized_signatories')return route.fulfill({status:200,headers,body:'[]'});
       if(url.pathname.includes('/storage/v1/object/'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:sourceBytes});
       if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:{id:tradeId,status,revision_no:1},shipments:[{shipment:{id:shipmentId,data:{operationNo:'BSGTX-2026-0099'}},revision}],documents:[...originals,...(savedSignature?[savedSignature]:[])]})});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
@@ -68,6 +73,25 @@ async function main(){
     await page.locator('[data-packages] button').filter({hasText:'إضافة توقيع'}).first().click();
     const dialog=page.locator('dialog[open]');
     const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=80;c.height=30;const ctx=c.getContext('2d');ctx.fillStyle='#000080';ctx.fillRect(0,0,80,30);return c.toDataURL('image/png').split(',')[1];});
+    await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+    await page.waitForTimeout(100);
+    // Saved signatures are offered automatically: buyer buttons stay disabled (no client profile),
+    // company stamp adds directly, company signature offers a choice between the two signatories.
+    await page.waitForFunction(()=>!document.querySelector('dialog[open] [data-auto-pick="company-stamp"]').disabled,null,{timeout:10000});
+    assert.equal(await dialog.locator('[data-auto-pick="buyer-stamp"]').isDisabled(),true);
+    assert.equal(await dialog.locator('[data-auto-pick="buyer-signature"]').isDisabled(),true);
+    await dialog.locator('[data-auto-pick="company-stamp"]').click();
+    await dialog.locator('[data-overlay] img').waitFor();
+    assert.equal(await dialog.locator('[data-overlay] img').count(),1,'company stamp placed straight onto the page');
+    await dialog.locator('[data-auto-pick="company-signature"]').click();
+    const chooser=page.locator('dialog[open]').last();
+    await chooser.locator('.bsgt-sign-choice').first().waitFor();
+    assert.equal(await chooser.locator('.bsgt-sign-choice').count(),2,'two company signatories to choose from');
+    assert.match(await chooser.locator('.bsgt-sign-choice').first().innerText(),/جواد المصري/);
+    await chooser.locator('.bsgt-sign-choice').first().click();
+    await page.waitForFunction(()=>document.querySelectorAll('dialog[open] [data-overlay] img').length===2);
+    await dialog.locator('[data-delete]').click();await dialog.locator('[data-delete]').click();
+    await page.evaluate(()=>{document.querySelector('dialog[open] [data-overlay]').replaceChildren();});
     await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await page.waitForTimeout(100);
     await dialog.locator('[data-add]').click();

@@ -2491,6 +2491,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="brand-theme.css?v=20260911-brand-2">
   <link rel="stylesheet" href="employee-dashboard.css?v=20260912-enterprise-2">
   <link rel="stylesheet" href="client-company-profiles.css?v=20260912-1">
+  <link rel="stylesheet" href="company-profile.css?v=20260919-company-profile-1">
   <link rel="stylesheet" href="permissions.css?v=20260912-authoritative-1">
   <link rel="stylesheet" href="bsgt-workspace.css?v=20260918-compact-shell-2">
   <link rel="stylesheet" href="bsgt-finance.css?v=20260919-cad-1">
@@ -3920,6 +3921,7 @@ try{
       <button class="admin-tab" data-atab="commodities" data-ic="award">دليل السلع</button>
       <button class="admin-tab" data-atab="clients" data-ic="users">العملاء</button>
       <button class="admin-tab" data-atab="companies" data-ic="building">الشركات</button>
+      <button class="admin-tab" data-atab="companyProfile" data-ic="briefcase">بروفايل بحر سواكن</button>
       <button class="admin-tab" data-atab="templates" data-ic="doc">النماذج والمستندات</button>
       <button class="admin-tab" data-atab="data" data-ic="save">النسخ الاحتياطي</button>
     </div>
@@ -4104,6 +4106,11 @@ try{
           <div id="companiesList" class="comp-list"></div>
         </div>
       </div>
+    </div>
+
+    <!-- بروفايل بحر سواكن: مخزن الأختام والتوقيعات والمستندات (مصدر الاستجلاب التلقائي في التوقيع) -->
+    <div class="admin-pane" id="apaneCompanyProfile">
+      <div id="companyProfileRoot"></div>
     </div>
 
     <!-- النماذج والمستندات -->
@@ -7793,11 +7800,12 @@ function applyBranding(){
 document.querySelectorAll('.admin-tab').forEach(t=>{
   t.addEventListener('click', ()=>{
     document.querySelectorAll('.admin-tab').forEach(x=>x.classList.toggle('active', x===t));
-    const map = {users:'apaneUsers', brand:'apaneBrand', lists:'apaneLists', commodities:'apaneCommodities', clients:'apaneClients', companies:'apaneCompanies', templates:'apaneTemplates', data:'apaneData'};
+    const map = {users:'apaneUsers', brand:'apaneBrand', lists:'apaneLists', commodities:'apaneCommodities', clients:'apaneClients', companies:'apaneCompanies', companyProfile:'apaneCompanyProfile', templates:'apaneTemplates', data:'apaneData'};
     Object.entries(map).forEach(([k,id])=>{
       document.getElementById(id).classList.toggle('active', k===t.dataset.atab);
     });
     if(t.dataset.atab==='data') renderDataStats();
+    if(t.dataset.atab==='companyProfile') window.JahezCompanyProfile?.open();
     if(t.dataset.atab==='brand') fillBrandForm();
     if(t.dataset.atab==='lists') renderLookupAdmin();
     if(t.dataset.atab==='commodities') renderCommodityAdmin();
@@ -22206,8 +22214,9 @@ initializeAuthentication();
 <script src="shipment-detail.js"></script>
 <script src="shipment-list.js?v=20260918-archive-1"></script>
 <script src="client-company-profiles.js?v=20260912-granular-permissions"></script>
+<script src="company-profile.js?v=20260919-company-profile-1"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260919-cad-portal-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260919-auto-sign-1"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 </body>
 </html>

@@ -292,12 +292,73 @@
       }
     });
   }
+  async function toPngDataUrl(src){
+    const response=await fetch(src);if(!response.ok)throw new Error('image');
+    const bitmap=await createImageBitmap(await response.blob()),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;c.getContext('2d').drawImage(bitmap,0,0);
+    return {dataUrl:c.toDataURL('image/png'),ratio:bitmap.height/bitmap.width};
+  }
+  async function collectSavedSignatures(bundle,shipmentId){
+    const sources={'buyer-stamp':[],'buyer-signature':[],'company-stamp':[],'company-signature':[]};
+    const shipment=bundle.shipments.find(s=>s.shipment.id===shipmentId)?.shipment;
+    const tasks=[];
+    if(shipment&&typeof prepareBaharContractClientAssets==='function'){
+      tasks.push(prepareBaharContractClientAssets(rowToRecord(shipment)).then(context=>{
+        (context?.files||[]).filter(file=>file.signedUrl&&file.mime_type?.startsWith('image/')).forEach(file=>{
+          const person=(context.signatories||[]).find(p=>p.id===file.signatory_id);
+          sources[file.file_type==='stamp'?'buyer-stamp':'buyer-signature'].push({label:file.title||(person?.name)||(file.file_type==='stamp'?'ختم المشتري':'توقيع المشتري'),detail:person?[person.name,person.title].filter(Boolean).join(' — '):context.client?.name_ar||context.client?.name||'',url:file.signedUrl});
+        });
+      }).catch(error=>console.warn('buyer signature assets',error)));
+    }
+    if(window.JahezCompanyProfile){
+      tasks.push(window.JahezCompanyProfile.signingAssets().then(async assets=>{
+        for(const file of assets.stamps){try{sources['company-stamp'].push({label:file.title||'ختم بحر سواكن',detail:'',url:await window.JahezCompanyProfile.signedUrl(file)});}catch(_){}}
+        for(const file of assets.signatures){try{sources['company-signature'].push({label:file.signatory_name||file.title||'توقيع بحر سواكن',detail:file.title&&file.signatory_name?file.title:'',url:await window.JahezCompanyProfile.signedUrl(file)});}catch(_){}}
+      }).catch(error=>console.warn('company signature assets',error)));
+    }
+    await Promise.all(tasks);
+    // Fallback: the identity-studio artwork used on invoices and collection documents.
+    if(!sources['company-stamp'].length||!sources['company-signature'].length){
+      const brand=(typeof baharCompanyEntry==='function'?baharCompanyEntry()?.settings:null)||{};
+      const art=brand.invoiceBranding||brand.collectionBranding||{};
+      if(!sources['company-stamp'].length&&art.stamp)sources['company-stamp'].push({label:'ختم بحر سواكن (استوديو الهوية)',detail:'',url:art.stamp});
+      if(!sources['company-signature'].length&&art.signature)sources['company-signature'].push({label:'توقيع بحر سواكن (استوديو الهوية)',detail:'',url:art.signature});
+    }
+    return sources;
+  }
+  function chooseSignature(title,options){
+    return new Promise(resolve=>{
+      const node=dialog(title),host=node.querySelector('[data-content]');
+      host.innerHTML=`<div class="bsgt-sign-choices">${options.map((option,index)=>`<button type="button" class="bsgt-sign-choice" data-index="${index}"><img src="${esc(option.url)}" alt=""><b>${esc(option.label)}</b>${option.detail?`<small>${esc(option.detail)}</small>`:''}</button>`).join('')}</div>`;
+      let picked=null;
+      host.querySelectorAll('[data-index]').forEach(button=>button.onclick=()=>{picked=options[Number(button.dataset.index)];node.close();});
+      node.addEventListener('close',()=>resolve(picked),{once:true});
+    });
+  }
+  function wireAutoSignatures(host,bundle,shipmentId,placeImage){
+    const status=host.querySelector('[data-auto-status]');
+    const labels={'buyer-stamp':'ختم المشتري','buyer-signature':'توقيع المشتري','company-stamp':'ختم بحر سواكن','company-signature':'توقيع بحر سواكن'};
+    collectSavedSignatures(bundle,shipmentId).then(sources=>{
+      let found=0;
+      host.querySelectorAll('[data-auto-pick]').forEach(button=>{
+        const key=button.dataset.autoPick,options=sources[key]||[];
+        button.disabled=!options.length;button.title=options.length?`${options.length} محفوظ`:'غير متوفر — ارفع الصورة من الملفات';
+        if(options.length)found+=options.length;
+        button.onclick=()=>run(async()=>{
+          const option=options.length===1?options[0]:await chooseSignature(`اختر ${labels[key]}`,options);
+          if(!option)return;
+          const {dataUrl,ratio}=await toPngDataUrl(option.url);
+          placeImage(dataUrl,ratio);
+        });
+      });
+      status.textContent=found?`${found} ختم/توقيع محفوظ متاح — اضغط لإضافته على الصفحة.`:'لا توجد أختام أو توقيعات محفوظة لهذا الطرف — ارفع الصورة من الملفات.';
+    }).catch(error=>{console.warn('auto signatures',error);status.textContent='تعذر البحث عن التوقيعات المحفوظة — ارفع الصورة من الملفات.';});
+  }
   async function signatureViewer(bundle,shipmentId,source,onSaved){
     const result=await sb.storage.from(source.bucket).download(source.path);if(result.error)throw result.error;
     const bytes=new Uint8Array(await result.data.arrayBuffer());
     const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
     const node=dialog(`توقيع ${labels[source.kind]||source.kind}`),host=node.querySelector('[data-content]');
-    host.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><label>صورة التوقيع <input data-image type="file" accept="image/png,image/jpeg"></label><label>الصفحة <select data-page></select></label><button type="button" class="btn btn-ghost" data-add>إضافة توقيع</button><button type="button" class="btn btn-ghost" data-clone>نسخ التوقيع</button><button type="button" class="btn btn-ghost" data-delete>حذف التوقيع</button><label>الحجم <input data-size type="range" min="3" max="50" value="20"></label><button type="button" class="btn btn-primary" data-save>حفظ النسخة الموقعة</button></div><div data-error role="status"></div><div data-paper style="position:relative;direction:ltr;max-width:100%;margin:auto"><canvas style="display:block;width:100%;height:auto"></canvas><div data-overlay style="position:absolute;inset:0"></div></div>';
+    host.innerHTML='<div data-auto class="bsgt-sign-auto"><span class="bsgt-sign-auto-title">استجلاب تلقائي</span><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-stamp" disabled>ختم المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-signature" disabled>توقيع المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-stamp" disabled>ختم بحر سواكن</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-signature" disabled>توقيع بحر سواكن</button><small data-auto-status>جاري البحث عن الأختام والتوقيعات المحفوظة…</small></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><label>صورة التوقيع <input data-image type="file" accept="image/png,image/jpeg"></label><label>الصفحة <select data-page></select></label><button type="button" class="btn btn-ghost" data-add>إضافة توقيع</button><button type="button" class="btn btn-ghost" data-clone>نسخ التوقيع</button><button type="button" class="btn btn-ghost" data-delete>حذف التوقيع</button><label>الحجم <input data-size type="range" min="3" max="50" value="20"></label><button type="button" class="btn btn-primary" data-save>حفظ النسخة الموقعة</button></div><div data-error role="status"></div><div data-paper style="position:relative;direction:ltr;max-width:100%;margin:auto"><canvas style="display:block;width:100%;height:auto"></canvas><div data-overlay style="position:absolute;inset:0"></div></div>';
     const select=host.querySelector('[data-page]'),paper=host.querySelector('[data-paper]'),canvas=host.querySelector('canvas'),overlay=host.querySelector('[data-overlay]');
     for(let i=0;i<pdf.numPages;i++){const option=document.createElement('option');option.value=i;option.textContent=i+1;select.append(option);}
     let image=sessionSignature,imageRatio=sessionSignatureRatio,pageIndex=0,selected=-1,placements=[],rendering=null;
@@ -329,8 +390,12 @@
       if(file.size>3000000)throw new Error('اختر صورة أصغر من 3MB.');
       const bitmap=await createImageBitmap(file),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;c.getContext('2d').drawImage(bitmap,0,0);image=c.toDataURL('image/png');imageRatio=bitmap.height/bitmap.width;sessionSignature=image;sessionSignatureRatio=imageRatio;bitmap.close();placements=[];selected=-1;draw();
     });
+    // Saved stamps / signatures: the buyer's client profile (matched by consignee) and the
+    // Bahar Swaken company profile (identity-studio artwork as fallback). Adds straight onto the page.
+    const placeImage=(dataUrl,ratio)=>{image=dataUrl;imageRatio=ratio;sessionSignature=dataUrl;sessionSignatureRatio=ratio;placements.push({page:pageIndex,x:.4,y:.5,width:.2,height:Math.min(.4,.2*ratio*canvas.width/canvas.height)});selected=placements.length-1;draw();};
+    wireAutoSignatures(host,bundle,shipmentId,placeImage);
     host.querySelector('[data-add]').onclick=()=>{
-      if(!image){host.querySelector('[data-error]').textContent='اختر صورة التوقيع أولاً.';return;}
+      if(!image){host.querySelector('[data-error]').textContent='اختر صورة التوقيع أولاً أو استخدم الاستجلاب التلقائي.';return;}
       placements.push({page:pageIndex,x:.4,y:.5,width:.2,height:Math.min(.4,.2*imageRatio*canvas.width/canvas.height)});selected=placements.length-1;draw();
     };
     host.querySelector('[data-clone]').onclick=()=>{if(selected<0)return;const p=placements[selected];placements.push({...p,page:pageIndex,x:Math.min(1-p.width,p.x+.03),y:Math.min(1-p.height,p.y+.03),cloned:true});selected=placements.length-1;draw();};
