@@ -24,19 +24,19 @@
       node.style.cssText='max-width:min(720px,95vw);width:95vw;max-height:94dvh;overflow:auto;border:1px solid #e5e7eb;border-radius:16px;padding:18px';
       node.innerHTML=`<header style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h3 style="margin:0">${title||'ضبط الموضع والحجم الافتراضي'}</h3><button type="button" class="btn btn-ghost" data-close>إغلاق</button></header>
         <p style="margin:8px 0 12px;color:#667085;font-size:12px">اسحب الصورة إلى موضعها على الصفحة، وغيّر حجمها من المقبض الأحمر أو الحقول. يُطبَّق تلقائياً عند الاستجلاب في نافذة التوقيع لكل المستندات.</p>
-        <div class="jahez-placement-controls"><label>العرض % <input data-width type="number" min="3" max="90" step="0.5"></label><label>من اليسار % <input data-x type="number" min="0" max="100" step="0.5"></label><label>من الأعلى % <input data-y type="number" min="0" max="100" step="0.5"></label><button type="button" class="btn btn-ghost btn-small" data-reset>الافتراضي</button></div>
+        <div class="jahez-placement-controls"><label>العرض % <input data-width type="number" min="3" max="90" step="0.5"></label><label>العرض بالمليمتر <input data-mm type="number" min="6" max="190" step="1"></label><label>من اليسار % <input data-x type="number" min="0" max="100" step="0.5"></label><label>من الأعلى % <input data-y type="number" min="0" max="100" step="0.5"></label><button type="button" class="btn btn-ghost btn-small" data-reset>الافتراضي</button><small data-note style="flex-basis:100%;color:#667085">المعاينة أدناه ورقة A4 مصغّرة؛ الأرقام بالمليمتر هي المرجع الحقيقي على الورق المطبوع.</small></div>
         <div data-sheet class="jahez-placement-sheet"><img data-image alt="" draggable="false"><span data-handle class="jahez-placement-handle" title="اسحب لتغيير الحجم"></span></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button type="button" class="btn btn-ghost" data-cancel>إلغاء</button><button type="button" class="btn btn-primary" data-save>حفظ الإعداد</button></div>`;
       document.body.append(node);
       const sheet=node.querySelector('[data-sheet]'),img=node.querySelector('[data-image]'),handle=node.querySelector('[data-handle]');
-      const inputs={width:node.querySelector('[data-width]'),x:node.querySelector('[data-x]'),y:node.querySelector('[data-y]')};
+      const inputs={width:node.querySelector('[data-width]'),mm:node.querySelector('[data-mm]'),x:node.querySelector('[data-x]'),y:node.querySelector('[data-y]')};
       let ratio=1,result=null;
       const apply=()=>{
         const rect=sheet.getBoundingClientRect();
         img.style.left=`${current.x*100}%`;img.style.top=`${current.y*100}%`;img.style.width=`${current.width*100}%`;
         const height=current.width*ratio*rect.width/rect.height;
         handle.style.left=`calc(${(current.x+current.width)*100}% - 8px)`;handle.style.top=`calc(${(current.y+height)*100}% - 8px)`;
-        inputs.width.value=(current.width*100).toFixed(1);inputs.x.value=(current.x*100).toFixed(1);inputs.y.value=(current.y*100).toFixed(1);
+        inputs.width.value=(current.width*100).toFixed(1);inputs.mm.value=Math.round(current.width*210);inputs.x.value=(current.x*100).toFixed(1);inputs.y.value=(current.y*100).toFixed(1);
       };
       img.onload=()=>{ratio=img.naturalHeight/img.naturalWidth||1;apply();};
       img.src=imageUrl;
@@ -53,6 +53,7 @@
         handle.onpointerup=()=>{handle.onpointermove=null;};
       };
       inputs.width.oninput=()=>{current.width=clamp(Number(inputs.width.value)/100||current.width,.03,1-current.x);apply();};
+      inputs.mm.oninput=()=>{current.width=clamp((Number(inputs.mm.value)||current.width*210)/210,.03,1-current.x);apply();};
       inputs.x.oninput=()=>{current.x=clamp(Number(inputs.x.value)/100||0,0,1-current.width);apply();};
       inputs.y.oninput=()=>{current.y=clamp(Number(inputs.y.value)/100||0,0,.97);apply();};
       node.querySelector('[data-reset]').onclick=()=>{Object.assign(current,normalize(null,type));apply();};

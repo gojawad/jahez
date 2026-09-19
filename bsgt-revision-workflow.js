@@ -363,7 +363,7 @@
     const bytes=new Uint8Array(await result.data.arrayBuffer());
     const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
     const node=dialog(`توقيع ${labels[source.kind]||source.kind}`),host=node.querySelector('[data-content]');
-    host.innerHTML='<div data-auto class="bsgt-sign-auto"><span class="bsgt-sign-auto-title">استجلاب تلقائي</span><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-stamp" disabled>ختم المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-signature" disabled>توقيع المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-stamp" disabled>ختم بحر سواكن</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-signature" disabled>توقيع بحر سواكن</button><small data-auto-status>جاري البحث عن الأختام والتوقيعات المحفوظة…</small></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><label>صورة التوقيع <input data-image type="file" accept="image/png,image/jpeg"></label><label>الصفحة <select data-page></select></label><button type="button" class="btn btn-ghost" data-add>إضافة توقيع</button><button type="button" class="btn btn-ghost" data-clone>نسخ التوقيع</button><button type="button" class="btn btn-ghost" data-delete>حذف التوقيع</button><label>الحجم <input data-size type="range" min="3" max="50" value="20"></label><button type="button" class="btn btn-primary" data-save>حفظ النسخة الموقعة</button></div><div data-error role="status"></div><div data-paper style="position:relative;direction:ltr;max-width:100%;margin:auto"><canvas style="display:block;width:100%;height:auto"></canvas><div data-overlay style="position:absolute;inset:0"></div></div>';
+    host.innerHTML='<div data-auto class="bsgt-sign-auto"><span class="bsgt-sign-auto-title">استجلاب تلقائي</span><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-stamp" disabled>ختم المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-signature" disabled>توقيع المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-stamp" disabled>ختم بحر سواكن</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-signature" disabled>توقيع بحر سواكن</button><small data-auto-status>جاري البحث عن الأختام والتوقيعات المحفوظة…</small></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><label>صورة التوقيع <input data-image type="file" accept="image/png,image/jpeg"></label><label>الصفحة <select data-page></select></label><button type="button" class="btn btn-ghost" data-add>إضافة توقيع</button><button type="button" class="btn btn-ghost" data-clone>نسخ التوقيع</button><button type="button" class="btn btn-ghost" data-delete>حذف التوقيع</button><label>الحجم <input data-size type="range" min="3" max="50" value="20"> <small data-size-mm style="color:#667085"></small></label><button type="button" class="btn btn-ghost btn-small" data-preset hidden title="إرجاع العنصر المحدد إلى الموضع والحجم المحفوظين في البروفايل">الحجم المحفوظ</button><button type="button" class="btn btn-primary" data-save>حفظ النسخة الموقعة</button></div><div data-error role="status"></div><div data-paper style="position:relative;direction:ltr;max-width:100%;margin:auto"><canvas style="display:block;width:100%;height:auto"></canvas><div data-overlay style="position:absolute;inset:0"></div></div>';
     const select=host.querySelector('[data-page]'),paper=host.querySelector('[data-paper]'),canvas=host.querySelector('canvas'),overlay=host.querySelector('[data-overlay]');
     for(let i=0;i<pdf.numPages;i++){const option=document.createElement('option');option.value=i;option.textContent=i+1;select.append(option);}
     let image=sessionSignature,imageRatio=sessionSignatureRatio,pageIndex=0,selected=-1,placements=[],rendering=null;
@@ -374,7 +374,7 @@
         const img=document.createElement('img');img.src=p.image||image;img.draggable=false;img.alt=p.label||'التوقيع';img.title=p.label||'';
         img.style.cssText=`position:absolute;left:${p.x*100}%;top:${p.y*100}%;width:${p.width*100}%;height:${p.height*100}%;cursor:move;touch-action:none;outline:${index===selected?'2px solid #EA1B23':'1px dashed #999'}`;
         img.onpointerdown=event=>{
-          selected=index;host.querySelector('[data-size]').value=p.width*100;
+          selected=index;host.querySelector('[data-size]').value=p.width*100;syncSizeInfo();
           const rect=overlay.getBoundingClientRect(),startX=event.clientX,startY=event.clientY,x=p.x,y=p.y;
           img.setPointerCapture(event.pointerId);
           img.onpointermove=e=>{p.x=Math.max(0,Math.min(1-p.width,x+(e.clientX-startX)/rect.width));p.y=Math.max(0,Math.min(1-p.height,y+(e.clientY-startY)/rect.height));img.style.left=`${p.x*100}%`;img.style.top=`${p.y*100}%`;};
@@ -390,13 +390,18 @@
             handle.onpointermove=e=>{
               p.width=Math.max(.03,Math.min(1-p.x,baseWidth+(e.clientX-startX)/rect.width));
               p.height=Math.min(1-p.y,p.width*ratio*canvas.width/canvas.height);
-              host.querySelector('[data-size]').value=p.width*100;
+              host.querySelector('[data-size]').value=p.width*100;syncSizeInfo();
               img.style.width=`${p.width*100}%`;img.style.height=`${p.height*100}%`;handle.style.left=`calc(${(p.x+p.width)*100}% - 8px)`;handle.style.top=`calc(${(p.y+p.height)*100}% - 8px)`;
             };
             handle.onpointerup=()=>{handle.onpointermove=null;draw();};
           };overlay.append(handle);
         }
       });
+    }
+    function syncSizeInfo(){
+      const p=placements[selected],mm=host.querySelector('[data-size-mm]'),preset=host.querySelector('[data-preset]');
+      if(mm)mm.textContent=p?`≈ ${Math.round(p.width*210)} مم على A4`:'';
+      if(preset)preset.hidden=!(p&&p.presetPlacement);
     }
     async function render(){
       if(rendering){rendering.cancel();await rendering.promise.catch(()=>{});}
@@ -420,8 +425,9 @@
       const offset=placements.filter(p=>p.page===pageIndex).length*.03;
       const width=placement?placement.width:.2,height=Math.min(.8,width*ratio*canvas.width/canvas.height);
       const x=placement?Math.min(placement.x,1-width):Math.min(.7,.4+offset),y=placement?Math.min(placement.y,1-height):Math.min(.7,.5+offset);
-      placements.push({page:pageIndex,x,y,width,height,image:dataUrl,ratio,label:label||'',preset:Boolean(placement)});selected=placements.length-1;draw();
+      placements.push({page:pageIndex,x,y,width,height,image:dataUrl,ratio,label:label||'',preset:Boolean(placement),presetPlacement:placement||null});selected=placements.length-1;draw();syncSizeInfo();
     };
+    host.querySelector('[data-preset]').onclick=()=>{const p=placements[selected];if(!p||!p.presetPlacement)return;p.width=p.presetPlacement.width;p.height=Math.min(.8,p.width*(p.ratio||imageRatio)*canvas.width/canvas.height);p.x=Math.min(p.presetPlacement.x,1-p.width);p.y=Math.min(p.presetPlacement.y,1-p.height);host.querySelector('[data-size]').value=p.width*100;draw();syncSizeInfo();};
     wireAutoSignatures(host,bundle,shipmentId,placeImage);
     host.querySelector('[data-add]').onclick=()=>{
       if(!image){host.querySelector('[data-error]').textContent='اختر صورة التوقيع أولاً أو استخدم الاستجلاب التلقائي.';return;}
@@ -429,7 +435,7 @@
     };
     host.querySelector('[data-clone]').onclick=()=>{if(selected<0)return;const p=placements[selected];placements.push({...p,page:pageIndex,x:Math.min(1-p.width,p.x+.03),y:Math.min(1-p.height,p.y+.03),cloned:true});selected=placements.length-1;draw();};
     host.querySelector('[data-delete]').onclick=()=>{if(selected>=0)placements.splice(selected,1);selected=-1;draw();};
-    host.querySelector('[data-size]').oninput=event=>{const p=placements[selected];if(!p||p.page!==pageIndex)return;p.width=Number(event.target.value)/100;p.height=Math.min(.8,p.width*(p.ratio||imageRatio)*canvas.width/canvas.height);p.x=Math.min(p.x,1-p.width);p.y=Math.min(p.y,1-p.height);draw();};
+    host.querySelector('[data-size]').oninput=event=>{const p=placements[selected];if(!p||p.page!==pageIndex)return;p.width=Number(event.target.value)/100;p.height=Math.min(.8,p.width*(p.ratio||imageRatio)*canvas.width/canvas.height);syncSizeInfo();p.x=Math.min(p.x,1-p.width);p.y=Math.min(p.y,1-p.height);draw();};
     host.querySelector('[data-save]').onclick=()=>run(async()=>{
       if(!placements.length)throw new Error('أضف التوقيع قبل الحفظ.');
       const button=host.querySelector('[data-save]');button.disabled=true;
