@@ -198,7 +198,15 @@
     const context=await rpc('create_bsgt_finance_context',{p_shipment_ids:ids});
     location.assign(`/experiments/bs-collection/?financeContext=${encodeURIComponent(context)}`);
   }
-  function updateFinanceSelection(){const button=$('bsgtFinancePortalSelection');if(button){button.disabled=!bsgtFinanceState.selected.size||[...bsgtFinanceState.selected].some(id=>!bsgtFinanceState.readyRows.find(row=>row.id===id)?.operationsRevisionId);button.textContent=`فتح بوابة التحصيل (${bsgtFinanceState.selected.size})`;}}
+  function updateFinanceSelection(){
+    const button=$('bsgtFinancePortalSelection');if(!button)return;
+    const rows=[...bsgtFinanceState.selected].map(id=>bsgtFinanceState.readyRows.find(row=>row.id===id));
+    // CAD / paid-in-advance shipments never go through the collection portal: only the trade file is created.
+    const cadSelected=rows.some(row=>row&&window.JahezBsgtFinance?.collectionMode?.(row)==='cad');
+    button.hidden=cadSelected;
+    button.disabled=cadSelected||!rows.length||rows.some(row=>!row?.operationsRevisionId);
+    button.textContent=`فتح بوابة التحصيل (${bsgtFinanceState.selected.size})`;
+  }
   function decorateFinance(){
     const actions=document.querySelector('.bsgt-finance-selection');
     if(actions&&!$('bsgtFinancePortalSelection')){
@@ -236,7 +244,7 @@
       merged.textContent='فتح الملف المدموج كاملاً في تبويب';merged.title='يفتح الحزمة المدموجة في تبويب جديد بالمتصفح للمطابقة مع المستندات الأصلية';
       merged.onclick=()=>openMergedPackageTab(id);host.querySelector('[data-actions]').append(merged);
     }
-    if(shipment.bsgt_stage==='ready_for_finance'){
+    if(shipment.bsgt_stage==='ready_for_finance'&&window.JahezBsgtFinance?.collectionMode?.(row)!=='cad'){
       const actions=host.querySelector('[data-actions]'),open=document.createElement('button');open.className='btn btn-primary';open.textContent='فتح بوابة التحصيل';open.onclick=()=>run(()=>openFinance([id]));actions.append(open);
       if(bsgtFinancePermission(true)){
         const back=document.createElement('button');back.className='btn btn-ghost';back.textContent='إرجاع للعمليات';back.onclick=()=>returnToOperations(shipment,revision,node);actions.append(back);

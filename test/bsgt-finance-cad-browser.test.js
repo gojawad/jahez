@@ -70,6 +70,11 @@ async function main(){
     await page.locator('[data-bsgt-finance-select]').nth(1).check();
     assert.strictEqual(await page.locator('#bsgtFinanceSelectedCount').textContent(),'2');
     assert.strictEqual(await page.locator('.bsgt-finance-mode-warning').count(),0);
+    revisionMode=true; await page.evaluate(()=>loadBsgtFinance()); await page.waitForTimeout(600);
+    await page.locator('[data-bsgt-finance-select]').first().check(); await page.locator('[data-bsgt-finance-select]').nth(1).check();
+    assert.strictEqual(await page.locator('#bsgtFinancePortalSelection').isVisible(),false,'the collection portal button is hidden for CAD shipments');
+    revisionMode=false; await page.evaluate(()=>loadBsgtFinance()); await page.waitForTimeout(600);
+    await page.locator('[data-bsgt-finance-select]').first().check(); await page.locator('[data-bsgt-finance-select]').nth(1).check();
     await page.locator('#bsgtFinanceCreateBtn').click();
     await page.locator('#bsgtFinanceConfirm:not([hidden])').waitFor();
     await page.locator('#bsgtFinanceConfirmSubmit').click();
