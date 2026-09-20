@@ -1097,7 +1097,7 @@ window.BALDNA_COMMODITY_UNIT_LABELS = Object.freeze({
   },
   "طن": {
     "ar": "طن",
-    "en": "METRIC TON"
+    "en": "TON"
   },
   "كيلوجرام": {
     "ar": "كيلوجرام",

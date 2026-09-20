@@ -28,6 +28,7 @@ test('distinct source reference prices stay distinguishable and missing prices s
   assert.equal(new Set(keys).size,rows.length);
 });
 test('print units expand workbook and legacy abbreviations',()=>{
+  assert.equal(units['طن'].en,'TON');assert.equal(units['طن'].ar,'طن');
   for(const unit of ['كيلوجرام','KGM','KG']){
     assert.equal(units[unit].en,'KILOGRAM');assert.equal(units[unit].ar,'كيلوجرام');
   }
