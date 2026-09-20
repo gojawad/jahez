@@ -41,8 +41,10 @@
       requiredTypes:Object.freeze(requiredTypes),
       signedTypes:Object.freeze(signedTypes),
       missingTypes:Object.freeze(missingTypes),
-      completed:requiredTypes.length > 0 && missingTypes.length === 0,
-      progress:tradeFile?.metadata?.operationsRevisionWorkflow ? 'التوقيع اختياري' : `${signedTypes.length} من ${requiredTypes.length}`
+      // Revision-based collection files still require their finance originals,
+      // but signatures are optional in both current and legacy workflows.
+      completed:!tradeFile?.metadata?.operationsRevisionWorkflow || missingTypes.length === 0,
+      progress:'التوقيع اختياري'
     });
   }
 

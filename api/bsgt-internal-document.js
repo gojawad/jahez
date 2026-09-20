@@ -78,9 +78,10 @@ async function handler(req,res) {
       return res.status(200).json({file});
     }
     if(body.action==='sign') {
-      if(!await rpc('has_bsgt_workspace_permission',{p_section:'management',p_require_edit:true})) throw new Error('Management edit permission required');
       const bundle=await rpc('bsgt_internal_package',{p_file_id:body.tradeFileId});
-      if(bundle.file.status!=='under_management_review'||bundle.file.revision_no!==body.revisionNo) throw new Error('Management review changed');
+      const signingSection=bundle.file.status==='under_management_review'?'management':bundle.file.status==='final_accepted'?'relations':null;
+      if(!signingSection||bundle.file.revision_no!==body.revisionNo) throw new Error('Signing stage or revision changed');
+      if(!await rpc('has_bsgt_workspace_permission',{p_section:signingSection,p_require_edit:true})) throw new Error('Stage edit permission required');
       const shipment=bundle.shipments.find(s=>s.shipment.id===body.shipmentId);
       if(!shipment) throw new Error('Shipment is outside this package');
       const isFinance=FINANCE.includes(body.kind);

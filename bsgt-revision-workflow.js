@@ -266,11 +266,13 @@
     if(shipments.every(s=>s.bsgtStage==='ready_for_finance'))host.querySelectorAll('a[href*="tradeFileId"]').forEach(a=>{a.onclick=event=>{event.preventDefault();run(()=>openFinance(shipments.map(s=>s.id)));};});
     const send=$('bsgtTradeSend');if(send){send.disabled=true;send.title='افتح بوابة التحصيل لحفظ المستندات الأصلية الثلاثة قبل الإرسال.';}
   }
-  async function renderInternalPackage(host,file){
+  async function renderInternalPackage(host,file,portal='management'){
     return run(async()=>{
       const bundle=await rpc('bsgt_internal_package',{p_file_id:file.id});
-      if(bsgtManagementState.detailId!==file.id||!host.isConnected)return;
-      const sections=[...host.querySelectorAll('.bsgt-management-section')].filter(section=>['مستندات العمليات','مستندات التحصيل','المستندات الموقعة','حزمة المستندات الداخلية'].includes(section.querySelector('h4')?.textContent));
+      const relations=portal==='relations';
+      if((relations?bsgtRelationsState:bsgtManagementState).detailId!==file.id||!host.isConnected)return;
+      const sections=[...host.querySelectorAll(relations?'.bsgt-relations-section':'.bsgt-management-section')].filter(section=>(relations?['حزمة المستندات الداخلية']:['مستندات العمليات','مستندات التحصيل','المستندات الموقعة','حزمة المستندات الداخلية']).includes(section.querySelector('h4')?.textContent));
+      if(relations&&!sections.length){const section=document.createElement('section');section.className='bsgt-relations-section';host.querySelector('.bsgt-relations-detail').append(section);sections.push(section);}
       if(!sections.length)return;
       const section=sections[0];sections.slice(1).forEach(s=>s.remove());
       section.innerHTML='<header><h4>حزمة المستندات الداخلية</h4><small>الأصول محفوظة · التوقيع اختياري · لا يؤثر على QR</small></header><div data-packages></div>';
@@ -285,8 +287,8 @@
           row.innerHTML=`<div><b>${esc(labels[source.kind]||source.kind)}</b><small>${source.source==='finance'?'المالية':'العمليات'} · ${signed?'توجد نسخة موقعة':'الأصل'}</small></div><div data-actions></div>`;
           const actions=row.querySelector('[data-actions]'),view=document.createElement('button');view.className='btn btn-ghost btn-small';view.textContent='معاينة الأصل';view.onclick=()=>run(()=>openStored(source.bucket,source.path,labels[source.kind]));actions.append(view);
           if(signed){const b=document.createElement('button');b.className='btn btn-ghost btn-small';b.textContent='معاينة الموقّع';b.onclick=()=>run(()=>openStored('trade-collection-documents',signed.storage_path,labels[source.kind]));actions.append(b);}
-          if(bsgtManagementPermission(true)&&file.status==='under_management_review'){
-            const sign=document.createElement('button');sign.className='btn btn-primary btn-small';sign.textContent='إضافة توقيع';sign.onclick=()=>run(()=>signatureViewer(bundle,shipment.id,source,()=>renderInternalPackage(host,file)));actions.append(sign);
+          if(relations?bsgtRelationsPermission(true)&&bundle.file.status==='final_accepted':bsgtManagementPermission(true)&&bundle.file.status==='under_management_review'){
+            const sign=document.createElement('button');sign.className='btn btn-primary btn-small';sign.textContent='إضافة توقيع';sign.onclick=()=>run(()=>signatureViewer(bundle,shipment.id,source,()=>renderInternalPackage(host,file,portal)));actions.append(sign);
           }root.append(row);
         }
       }

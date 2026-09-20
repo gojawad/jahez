@@ -20,12 +20,12 @@ test('selective signatures and clones leave original PDF untouched',async()=>{
 test('internal API enforces authorization and server-owned document scope',async()=>{
   const savedFetch=global.fetch,savedKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_SERVICE_ROLE_KEY='test-service';
-  let edit=false,reads=[],writes=[],registered;
+  let edit=false,section='management',reads=[],writes=[],registered;
   const source=await pdf(),sourceBefore=Buffer.from(source);
   const bundle={file:{id:'case',revision_no:2,status:'under_management_review'},shipments:[{shipment:{id:'shipment'},revision:{documents:[{kind:'invoice',path:'shipment/revision/invoice.pdf'}]}}],documents:[]};
   global.fetch=async(url,options={})=>{
     const path=new URL(url).pathname;
-    if(path.endsWith('/has_bsgt_workspace_permission'))return Response.json(edit);
+    if(path.endsWith('/has_bsgt_workspace_permission'))return Response.json(edit&&JSON.parse(options.body).p_section===section);
     if(path.endsWith('/bsgt_internal_package'))return Response.json(bundle);
     if(path.endsWith('/register_bsgt_internal_signature')){registered=JSON.parse(options.body);return Response.json({id:'signed'});}
     if(options.method==='POST'){writes.push(path);return Response.json({});}
@@ -46,5 +46,12 @@ test('internal API enforces authorization and server-owned document scope',async
     assert.deepEqual(reads,['/storage/v1/object/bsgt-operations-packages/shipment/revision/invoice.pdf']);
     assert.ok(writes.every(path=>path.startsWith('/storage/v1/object/trade-collection-documents/workflow/case/2/signed/')));
     assert.equal(registered.p_source_path,'shipment/revision/invoice.pdf');assert.deepEqual(source,sourceBefore);
+    bundle.file.status='final_accepted';
+    const before=writes.length;
+    assert.equal((await call(body)).code,409,'management permission alone cannot sign in relations');assert.equal(writes.length,before);
+    section='relations';assert.equal((await call(body)).code,200,'relations editor signs after final acceptance');
+    bundle.file.status='under_management_review';assert.equal((await call(body)).code,409,'relations cannot sign during management review');
+    bundle.file.status='sent_to_collecting';assert.equal((await call(body)).code,409,'dispatched file is read-only');
+    bundle.file.status='final_accepted';edit=false;assert.equal((await call(body)).code,409,'relations viewer cannot sign');
   }finally{global.fetch=savedFetch;if(savedKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=savedKey;}
 });

@@ -24,7 +24,7 @@ async function main(){
     await waitServer(server);browser=await chromium.launch({executablePath:browserPath,headless:true,args:['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP jahez.test 127.0.0.1']});
     const context=await browser.newContext({viewport:{width:1440,height:900}});const exp=Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,exp,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'r',expires_at:exp,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,exp,token:jwt()});
-    let status='sent_to_remitting',startCalls=0,revisionMode=false,savedSignature=null;
+    let status='sent_to_remitting',startCalls=0,revisionMode=false,savedSignature=null,cadMode=false,acceptCalls=0;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const source=await PDFDocument.create();source.addPage([595,842]);source.addPage([595,842]);const sourceBytes=Buffer.from(await source.save());
     const originals=['letter','undertaking','exchange'].map(kind=>({document_type:kind,document_variant:'finance_original',revision_no:1,is_active:true,storage_path:`workflow/${tradeId}/1/finance/${kind}.pdf`}));
@@ -43,8 +43,9 @@ async function main(){
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions')return route.fulfill({status:200,headers,body:JSON.stringify([{section:'management',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/start_bsgt_management_review'){startCalls++;status='under_management_review';return route.fulfill({status:200,headers,body:'{}'});}
+      if(url.pathname==='/rest/v1/rpc/final_accept_bsgt_trade_file'){acceptCalls++;status='final_accepted';return route.fulfill({status:200,headers,body:'{}'});}
       if(url.pathname==='/rest/v1/companies')return route.fulfill({status:200,headers,body:JSON.stringify([company])});
-      if(url.pathname==='/rest/v1/trade_collection_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:tradeId,operation_no:'TC-2026-000321',company_id:company.id,status,revision_no:1,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',metadata:{documentKinds:['letter','undertaking','exchange'],currency:'USD',operationsRevisionWorkflow:revisionMode}}])});
+      if(url.pathname==='/rest/v1/trade_collection_files')return route.fulfill({status:200,headers,body:JSON.stringify([{id:tradeId,operation_no:'TC-2026-000321',company_id:company.id,status,revision_no:1,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',metadata:{collectionMode:cadMode?'cad':'collection',documentKinds:['letter','undertaking','exchange'],currency:'USD',operationsRevisionWorkflow:revisionMode}}])});
       if(url.pathname==='/rest/v1/trade_collection_file_shipments')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'link',trade_file_id:tradeId,shipment_id:shipmentId}])});
       if(url.pathname==='/rest/v1/trade_collection_file_documents')return route.fulfill({status:200,headers,body:JSON.stringify(revisionMode?originals:[])});
       if(url.pathname==='/rest/v1/trade_collection_file_events'||url.pathname==='/rest/v1/shipment_files')return route.fulfill({status:200,headers,body:'[]'});
@@ -127,6 +128,12 @@ async function main(){
     await dialog.locator('[data-save]').click();
     await page.locator('[data-packages] button').filter({hasText:'معاينة الموقّع'}).waitFor();
     assert.ok(savedSignature);
+    cadMode=true;savedSignature=null;
+    await page.evaluate(()=>loadBsgtManagement());await page.locator('#bsgtManagementReview [data-bsgt-management-open]').click();
+    page.on('dialog',d=>d.accept());
+    await page.locator('#bsgtManagementAccept').click();
+    await page.waitForFunction(()=>!bsgtManagementState.busy);
+    assert.equal(acceptCalls,1,'CAD accepts with zero optional signatures');
     await context.close();console.log('BSGT management browser workflow: passed');
   }finally{if(browser)await browser.close();server.kill('SIGTERM');}
 }

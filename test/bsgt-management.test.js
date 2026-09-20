@@ -11,16 +11,19 @@ const portal=fs.readFileSync(path.join(root,'experiments','bs-collection','colle
 let passed=0;
 function check(value,message){assert.ok(value,message);passed+=1;}
 
-const base={revision_no:2,metadata:{documentKinds:['letter','undertaking','exchange']}};
+const base={revision_no:2,metadata:{documentKinds:['letter','undertaking','exchange'],operationsRevisionWorkflow:true}};
 check(management.requiredDocumentTypes({metadata:{}}).length===3,'default document kinds');
 check(JSON.stringify(management.requiredDocumentTypes({metadata:{documentKinds:['letter']}}))==='["letter"]','metadata document kinds');
 check(JSON.stringify(management.requiredDocumentTypes({metadata:{documentKinds:['letter','letter','bad']}}))==='["letter"]','document kinds are normalized');
 check(management.evaluateBsgtManagementReadiness(base,[]).completed===false,'empty documents are incomplete');
 check(management.evaluateBsgtManagementReadiness(base,[{revision_no:1,document_type:'letter',is_active:true}]).signedTypes.length===0,'old revision is ignored');
 check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:false}]).signedTypes.length===0,'archived document is ignored');
-check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:true},{revision_no:2,document_type:'letter',is_active:true}]).signedTypes.length===1,'duplicate document type counts once');
-check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',is_active:true}]).missingTypes.length===2,'missing types are reported');
-const completeDocs=['letter','undertaking','exchange'].map(document_type=>({revision_no:2,document_type,is_active:true}));
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',document_variant:'finance_original',is_active:true},{revision_no:2,document_type:'letter',document_variant:'finance_original',is_active:true}]).signedTypes.length===1,'duplicate document type counts once');
+check(management.evaluateBsgtManagementReadiness(base,[{revision_no:2,document_type:'letter',document_variant:'finance_original',is_active:true}]).missingTypes.length===2,'missing originals are reported');
+const completeDocs=['letter','undertaking','exchange'].map(document_type=>({revision_no:2,document_type,document_variant:'finance_original',is_active:true}));
+check(management.evaluateBsgtManagementReadiness({revision_no:1,metadata:{collectionMode:'cad',operationsRevisionWorkflow:true}},[]).completed,'CAD needs no signatures or collection originals');
+check(management.evaluateBsgtManagementReadiness({revision_no:1,metadata:{}},[]).completed,'legacy signatures are optional too');
+check(!management.evaluateBsgtManagementReadiness(base,completeDocs.map(d=>({...d,document_variant:'administration_signed'}))).completed,'signatures cannot replace required finance originals');
 check(management.evaluateBsgtManagementReadiness(base,completeDocs).completed===true,'current revision can complete');
 check(management.mergeAllowed({bsgtStage:'final_accepted'},null,completeDocs)===null,'unlinked file delegates to legacy');
 check(management.mergeAllowed({bsgtStage:'management_review'},{...base,status:'final_accepted'},completeDocs)===false,'shipment stage gates merge');
