@@ -56,6 +56,67 @@ test('internal API enforces authorization and server-owned document scope',async
   }finally{global.fetch=savedFetch;if(savedKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=savedKey;}
 });
 
+test('signing appends to current PDF, preserves prior versions, and rejects stale or concurrent saves',async()=>{
+  const savedFetch=global.fetch,savedKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='test-service';
+  const source=await pdf(),original=Buffer.from(source),files=new Map([['s/r/invoice.pdf',source],['finance/letter.pdf',source]]);
+  const bundle={file:{id:'case',revision_no:2,status:'final_accepted'},shipments:[{shipment:{id:'s'},revision:{id:'r',documents:[{kind:'invoice',path:'s/r/invoice.pdf'}]}}],documents:[{document_variant:'finance_original',document_type:'letter',storage_path:'finance/letter.pdf'}]};
+  const history=[],reads=[];let registered=0,uploads=0,failRead=false,pauseStore=null,enteredStore=null,changeDuringStore=false;
+  global.fetch=async(input,options={})=>{
+    const path=new URL(input).pathname;
+    if(path.endsWith('/has_bsgt_workspace_permission'))return Response.json(true);
+    if(path.endsWith('/bsgt_internal_package'))return Response.json(bundle);
+    if(path.endsWith('/register_bsgt_internal_signature')){
+      const args=JSON.parse(options.body);registered++;
+      bundle.documents=bundle.documents.filter(d=>d.document_variant!=='administration_signed'||d.document_type!==args.p_kind);
+      const row={id:'signed-'+registered,trade_file_id:'case',revision_no:2,is_active:true,document_type:args.p_kind,shipment_id:'s',operations_revision_id:'r',document_variant:'administration_signed',storage_path:args.p_path,source_document_path:args.p_source_path,signature_placements:args.p_placements};
+      bundle.documents.push(row);history.push(row);return Response.json(row);
+    }
+    const stored=decodeURIComponent(path.replace(/^\/storage\/v1\/object\/[^/]+\//,''));
+    if(options.method==='POST'){
+      uploads++;files.set(stored,Buffer.from(options.body));
+      if(changeDuringStore){bundle.file.status='sent_to_collecting';changeDuringStore=false;}
+      if(pauseStore){enteredStore();await pauseStore;}
+      return Response.json({});
+    }
+    reads.push(stored);if(failRead)return new Response('',{status:503});
+    assert.ok(files.has(stored),'only server-owned PDF paths are read');return new Response(files.get(stored));
+  };
+  const body={action:'sign',tradeFileId:'case',revisionNo:2,shipmentId:'s',kind:'invoice',baseSignatureId:null,baseOperationsRevisionId:'r',image:PNG.toString('base64'),placements:[{page:0,x:.1,y:.1,width:.1,height:.1}]};
+  async function call(extra={}){const res={setHeader(){},status(n){this.code=n;return this;},json(body){this.body=body;return this;}};await handler({method:'POST',headers:{authorization:'Bearer employee'},body:{...body,...extra}},res);return res;}
+  async function images(bytes){const doc=await PDFDocument.load(bytes);return doc.getPages().map(p=>p.node.Resources()?.lookup(PDFName.of('XObject'))?.keys().length||0);}
+  try{
+    const first=await call();assert.equal(first.code,200);const firstBytes=Buffer.from(files.get(first.body.document.storage_path));
+    assert.deepEqual(await images(firstBytes),[1,0]);
+    const second=await call({baseSignatureId:first.body.document.id});assert.equal(second.code,200);
+    const secondBytes=Buffer.from(files.get(second.body.document.storage_path));assert.deepEqual(await images(secondBytes),[2,0]);
+    assert.equal(reads.at(-1),first.body.document.storage_path,'second signature starts from signed PDF, not original');
+    assert.equal(second.body.document.signature_placements.length,2);assert.equal(second.body.document.source_document_path,'s/r/invoice.pdf');
+    assert.deepEqual(files.get(first.body.document.storage_path),firstBytes);assert.deepEqual(files.get('s/r/invoice.pdf'),original);
+    const count=uploads;
+    for(const extra of [{},{baseSignatureId:first.body.document.id},{baseSignatureId:'foreign'},{baseSignatureId:second.body.document.id,baseOperationsRevisionId:'old'}])assert.equal((await call(extra)).code,409);
+    assert.equal(uploads,count,'stale and forged versions fail before writing');
+    failRead=true;assert.equal((await call({baseSignatureId:second.body.document.id})).code,409);failRead=false;
+    assert.equal(registered,2,'unavailable signed PDF cannot fall back to original');
+    let release;pauseStore=new Promise(resolve=>{release=resolve;});const started=new Promise(resolve=>{enteredStore=resolve;});
+    const pending=call({baseSignatureId:second.body.document.id,placements:[{page:1,x:.2,y:.2,width:.1,height:.1}]});await started;
+    assert.equal((await call({baseSignatureId:second.body.document.id})).code,409,'overlapping save is blocked');
+    assert.equal((await call({baseSignatureId:second.body.document.id})).code,409,'blocked request must not release the first request lock');
+    release();pauseStore=null;const third=await pending;assert.equal(third.code,200);
+    assert.deepEqual(await images(files.get(third.body.document.storage_path)),[2,1]);
+    const {buildSignedOperationsPackage,pickSignedRows}=require('../api/qr-signed-package');
+    const qr=await buildSignedOperationsPackage({documents:bundle.shipments[0].revision.documents,signedRows:pickSignedRows(bundle.documents,{shipmentId:'s',revisionId:'r',revisionNo:2}),download:async(bucket,path)=>files.get(path)});
+    assert.deepEqual(await images(qr.bytes),[2,1],'QR includes all accumulated signatures without changing the source-document link');
+    assert.deepEqual(files.get(second.body.document.storage_path),secondBytes);assert.equal(third.body.document.signature_placements.length,3);
+    assert.equal((await call({baseSignatureId:second.body.document.id})).code,409,'old tab remains stale after concurrent save completes');
+    const finance=await call({kind:'letter'});assert.equal(finance.code,200);
+    const financeAgain=await call({kind:'letter',baseSignatureId:finance.body.document.id});assert.equal(financeAgain.code,200);
+    assert.deepEqual(await images(files.get(financeAgain.body.document.storage_path)),[2,0]);assert.deepEqual(files.get('finance/letter.pdf'),original);
+    assert.equal(bundle.documents.find(d=>d.document_type==='invoice').id,third.body.document.id,'signing another document leaves the invoice active');
+    const before=registered;changeDuringStore=true;assert.equal((await call({baseSignatureId:third.body.document.id})).code,409);assert.equal(registered,before,'changed workflow cannot activate a newly rendered PDF');
+  }finally{global.fetch=savedFetch;if(savedKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=savedKey;}
+});
+
 test('relations saved assets are scoped to authorized package owners and client-use permission',async()=>{
   const savedFetch=global.fetch,savedKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_SERVICE_ROLE_KEY='test-service';

@@ -5,6 +5,15 @@ const {readBody,serviceHeaders} = require('./bsgt-operations-package');
 const FINANCE = ['exchange','letter','undertaking'];
 const {normalizeConsigneeName}=require('../consignee-client-resolver');
 const {fromMetadata}=require('../signature-placement');
+// The deployed Node server is a single process. Reject overlapping saves for a
+// trade file; the expected signed-version ID also rejects stale browser tabs.
+const signingFiles=new Set();
+function currentSignature(bundle,shipment,kind,sourcePath){
+  return bundle.documents.find(d=>d.is_active===true&&d.trade_file_id===bundle.file.id
+    &&d.revision_no===bundle.file.revision_no&&d.shipment_id===shipment.shipment.id
+    &&d.operations_revision_id===shipment.revision.id&&d.document_type===kind
+    &&d.document_variant==='administration_signed'&&d.source_document_path===sourcePath)||null;
+}
 
 // Each placement may carry its own PNG (stamp and signature together); without one the
 // shared image applies. Identical images are embedded once.
@@ -83,8 +92,15 @@ async function handler(req,res) {
     if(url.origin!==new URL(base).origin||!url.pathname.startsWith(`/storage/v1/object/sign/${bucket}/`)) throw new Error('Invalid signing image URL');
     return url.href;
   }
+  let signingFile=null;
   try {
     const body=await readBody(req);
+    if(body.action==='sign'){
+      if(typeof body.tradeFileId!=='string'||!body.tradeFileId)throw new Error('Invalid trade file');
+      const lockKey=body.tradeFileId.toLowerCase();
+      if(signingFiles.has(lockKey))return res.status(409).json({error:'يجري حفظ توقيع لهذا الملف الآن. انتظر اكتماله ثم أعد فتح نافذة التوقيع.'});
+      signingFile=lockKey;signingFiles.add(signingFile);
+    }
     if(body.action==='signing-assets') {
       // Resolve owners from the authorized immutable shipment, never request IDs.
       const bundle=await rpc('bsgt_internal_package',{p_file_id:body.tradeFileId});
@@ -152,19 +168,29 @@ async function handler(req,res) {
       if(!source) throw new Error('Original document unavailable');
       if(typeof body.image!=='string'||body.image.length>4000000) throw new Error('Signature image too large');
       const sourcePath=isFinance?source.storage_path:source.path;
-      const bytes=await download(isFinance?'trade-collection-documents':'bsgt-operations-packages',sourcePath);
+      const previous=currentSignature(bundle,shipment,body.kind,sourcePath);
+      if((body.baseSignatureId??null)!==(previous?.id||null)
+        ||(body.baseOperationsRevisionId!==undefined&&body.baseOperationsRevisionId!==shipment.revision.id))throw new Error('SIGNATURE_CHANGED');
+      const bytes=await download(previous||isFinance?'trade-collection-documents':'bsgt-operations-packages',previous?.storage_path||sourcePath);
       const signed=await applySignature(bytes,Buffer.from(body.image,'base64'),body.placements);
       const path=`workflow/${bundle.file.id}/${body.revisionNo}/signed/${randomUUID()}.pdf`;
       await store(path,signed);
+      const latest=await rpc('bsgt_internal_package',{p_file_id:bundle.file.id});
+      const latestShipment=latest.shipments.find(s=>s.shipment.id===body.shipmentId);
+      if(latest.file.status!==bundle.file.status||latest.file.revision_no!==body.revisionNo
+        ||latestShipment?.revision.id!==shipment.revision.id
+        ||(currentSignature(latest,latestShipment,body.kind,sourcePath)?.id||null)!==(previous?.id||null))throw new Error('SIGNATURE_CHANGED');
       const document=await rpc('register_bsgt_internal_signature',{p_file_id:bundle.file.id,p_revision_no:body.revisionNo,
-        p_shipment_id:body.shipmentId,p_kind:body.kind,p_path:path,p_source_path:sourcePath,p_placements:placementRecords(body.placements)});
+        p_shipment_id:body.shipmentId,p_kind:body.kind,p_path:path,p_source_path:sourcePath,
+        p_placements:[...(Array.isArray(previous?.signature_placements)?placementRecords(previous.signature_placements):[]),...placementRecords(body.placements)]});
       return res.status(200).json({document});
     }
     return res.status(400).json({error:'Unknown document action'});
   } catch(error) {
     console.error('Internal workflow document:',error.message);
+    if(error.message==='SIGNATURE_CHANGED')return res.status(409).json({error:'تغيرت النسخة الموقعة أثناء العمل. أغلق نافذة التوقيع وافتحها من جديد لإضافة توقيعك فوق أحدث نسخة دون فقد التوقيعات السابقة.'});
     return res.status(409).json({error:'تعذر حفظ المستند. تحقق من الصلاحيات ومن أن مراجعة الملف لم تتغير.'});
-  }
+  } finally {if(signingFile)signingFiles.delete(signingFile);}
 }
 module.exports=handler;
 module.exports.applySignature=applySignature;

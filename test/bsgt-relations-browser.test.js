@@ -28,7 +28,8 @@ async function main(){
     await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'LOCAL ONLY BANK',address:'NOT A DATABASE VALUE'}]})));
     let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0;
     const attachments=[];
-    let revisionMode=false,signedDocument=null;
+    let revisionMode=false,signedDocument=null,signCalls=0;
+    const signedPdfs=new Map(),signedReads=[];
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const testPdf=await PDFDocument.create();testPdf.addPage([595,842]);const testPdfBytes=Buffer.from(await testPdf.save());
     const updatedPdf=await PDFDocument.create();updatedPdf.addPage([610,842]);const updatedPdfBytes=Buffer.from(await updatedPdf.save());
@@ -44,7 +45,11 @@ async function main(){
     const file=()=>({id:tradeId,operation_no:'TC-2026-000555',company_id:company.id,status,revision_no:2,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',collecting_bank:'COLLECTING BANK',final_accepted_at:'2026-09-12T11:00:00Z',final_accepted_by:profile.id,sent_to_collecting_at:status==='sent_to_collecting'?'2026-09-12T12:00:00Z':null,metadata:{operationsRevisionWorkflow:revisionMode,documentKinds:['letter','undertaking','exchange'],currency:'USD',collectingBankAddress:'DUBAI'}});
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
-      if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:file(),shipments:[shipmentId,secondShipmentId].map(id=>({shipment:{id,data:{operationNo:id}},revision:{revision_no:1,documents:[{kind:'contract',path:id+'/contract.pdf'},{kind:'invoice',path:id+'/invoice.pdf'}]}})),documents:signedDocument?[signedDocument]:[]})});
+      if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:file(),shipments:[shipmentId,secondShipmentId].map(id=>({shipment:{id,data:{operationNo:id}},revision:{id:'revision-'+id,revision_no:1,documents:[{kind:'contract',path:id+'/contract.pdf'},{kind:'invoice',path:id+'/invoice.pdf'}]}})),documents:signedDocument?[signedDocument]:[]})});
+      if(req.method()==='GET'&&url.pathname.includes('/trade-collection-documents/workflow/relations-signed-')){
+        const path=url.pathname.split('/trade-collection-documents/')[1];signedReads.push(path);assert.ok(signedPdfs.has(path));
+        return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:signedPdfs.get(path)});
+      }
       if(url.pathname.includes('/storage/v1/object/')&&url.pathname.includes('/bsgt-operations-packages/'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:testPdfBytes});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions')return route.fulfill({status:200,headers,body:JSON.stringify([{section:'relations',can_view:true,can_edit:canEditPermission}])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_relations_trade_files')return route.fulfill({status:200,headers,body:JSON.stringify([{...file(),shipment_count:2,missing_optional_count:2-new Set(attachments.filter(a=>a.is_active).map(a=>a.attachment_type)).size,total_count:1}])});
@@ -96,8 +101,13 @@ async function main(){
         const asset={label:'Saved image',url:'data:image/png;base64,'+png,placement:{x:.1,y:.2,width:.15}};
         return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({sources:{'buyer-stamp':[asset],'buyer-signature':[asset],'company-stamp':[asset],'company-signature':[asset]},notes:[]})});
       }
-      assert.equal(body.action,'sign');assert.equal(body.placements.length,1);
-      signedDocument={document_type:body.kind,shipment_id:body.shipmentId,document_variant:'administration_signed',storage_path:'workflow/relations-signed.pdf'};
+      assert.equal(body.action,'sign');assert.equal(body.placements.length,signCalls?1:2);
+      assert.equal(body.baseSignatureId,signedDocument?.id||null);assert.equal(body.baseOperationsRevisionId,'revision-'+shipmentId);
+      const prior=signedDocument?signedPdfs.get(signedDocument.storage_path):testPdfBytes;
+      const bytes=await require('../api/bsgt-internal-document').applySignature(prior,Buffer.from(body.image,'base64'),body.placements);
+      signCalls++;
+      signedDocument={id:'signed-'+signCalls,trade_file_id:tradeId,revision_no:2,is_active:true,operations_revision_id:'revision-'+shipmentId,source_document_path:shipmentId+'/contract.pdf',document_type:body.kind,shipment_id:body.shipmentId,document_variant:'administration_signed',storage_path:`workflow/relations-signed-${signCalls}.pdf`};
+      signedPdfs.set(signedDocument.storage_path,bytes);
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({document:signedDocument})});
     });
     revisionMode=true;
@@ -126,11 +136,30 @@ async function main(){
     }
     await signDialog.locator('[data-image]').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await signDialog.locator('[data-add]').click();await signDialog.locator('[data-overlay] img').waitFor();
+    await signDialog.locator('[data-image]').setInputFiles({name:'another.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+    await page.waitForTimeout(100);
+    assert.equal(await signDialog.locator('[data-overlay] img').count(),1,'choosing another image preserves unsaved placements');
+    await signDialog.locator('[data-add]').click();
+    assert.equal(await signDialog.locator('[data-overlay] img').count(),2,'both uploaded signatures coexist');
     await signDialog.locator('[data-save]').click();
     await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'معاينة الموقّع'}).waitFor();
     assert.ok(signedDocument);assert.equal(await page.locator('[data-bsgt-relations-generated]').count(),8,'previous previews remain');
     assert.equal(await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).count(),4,'remaining originals do not require signing');
     await checkUpdatedPreview([610,595]);
+    const firstSignedPath=signedDocument.storage_path,firstSignedBytes=Buffer.from(signedPdfs.get(firstSignedPath));
+    await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).first().click();
+    await signDialog.locator('[data-existing-signatures]').waitFor();
+    assert.equal(signedReads.at(-1),firstSignedPath,'reopening signs the current PDF instead of starting over');
+    assert.equal(await signDialog.locator('[data-overlay] img').count(),0,'saved images stay embedded, not re-added as editable duplicates');
+    await signDialog.locator('[data-auto-pick="buyer-stamp"]').click();
+    await signDialog.locator('[data-overlay] img').waitFor();
+    await signDialog.locator('[data-save]').click();
+    await page.waitForFunction(()=>!document.querySelector('dialog[open]'));
+    assert.equal(signCalls,2);assert.deepEqual(signedPdfs.get(firstSignedPath),firstSignedBytes,'previous signed PDF stays intact');
+    const firstPdf=await PDFDocument.load(firstSignedBytes),latestPdf=await PDFDocument.load(signedPdfs.get(signedDocument.storage_path));
+    const {PDFName}=require('../experiments/bs-collection/collection-pdf-lib');
+    const imageCount=doc=>doc.getPage(0).node.Resources().lookup(PDFName.of('XObject')).keys().length;
+    assert.equal(imageCount(latestPdf),imageCount(firstPdf)+1,'new version retains old images and adds one');
     await checkUpdatedPreview([610,595]);
     assert.strictEqual(await page.locator('#bsgtRelationsBank option[value="COLLECTING BANK"]').count(),0,'bank_book entries are not choices');
     assert.strictEqual(await page.locator('#bsgtRelationsBank option').filter({hasText:'LOCAL ONLY BANK'}).count(),0,'database is authoritative, not this browser');

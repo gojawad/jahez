@@ -377,12 +377,21 @@
     }).catch(error=>{console.warn('auto signatures',error);status.textContent='تعذر البحث عن التوقيعات المحفوظة — ارفع الصورة من الملفات.';});
   }
   async function signatureViewer(bundle,shipmentId,source,onSaved){
-    const result=await sb.storage.from(source.bucket).download(source.path);if(result.error)throw result.error;
+    bundle=await rpc('bsgt_internal_package',{p_file_id:bundle.file.id});
+    const entry=bundle.shipments.find(s=>s.shipment.id===shipmentId);
+    const original=source.source==='finance'?bundle.documents.find(d=>d.document_variant==='finance_original'&&d.document_type===source.kind&&d.storage_path===source.path)
+      :entry?.revision.documents.find(d=>d.kind===source.kind&&d.path===source.path);
+    if(!entry||!original)throw new Error('تغير المستند. أعد فتح الملف قبل التوقيع.');
+    const previous=bundle.documents.find(d=>d.is_active===true&&d.trade_file_id===bundle.file.id
+      &&d.revision_no===bundle.file.revision_no&&d.shipment_id===shipmentId&&d.operations_revision_id===entry.revision.id
+      &&d.document_variant==='administration_signed'&&d.document_type===source.kind&&d.source_document_path===source.path);
+    const result=await sb.storage.from(previous?'trade-collection-documents':source.bucket).download(previous?.storage_path||source.path);if(result.error)throw result.error;
     const bytes=new Uint8Array(await result.data.arrayBuffer());
     const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
     const node=dialog(`توقيع ${labels[source.kind]||source.kind}`),host=node.querySelector('[data-content]');
     host.innerHTML='<div data-auto class="bsgt-sign-auto"><span class="bsgt-sign-auto-title">استجلاب تلقائي</span><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-stamp" disabled>ختم المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="buyer-signature" disabled>توقيع المشتري</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-stamp" disabled>ختم بحر سواكن</button><button type="button" class="btn btn-ghost btn-small" data-auto-pick="company-signature" disabled>توقيع بحر سواكن</button><small data-auto-status>جاري البحث عن الأختام والتوقيعات المحفوظة…</small></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><label>صورة التوقيع <input data-image type="file" accept="image/png,image/jpeg"></label><label>الصفحة <select data-page></select></label><button type="button" class="btn btn-ghost" data-add>إضافة توقيع</button><button type="button" class="btn btn-ghost" data-clone>نسخ التوقيع</button><button type="button" class="btn btn-ghost" data-delete>حذف التوقيع</button><label>الحجم <input data-size type="range" min="3" max="50" value="20"> <small data-size-mm style="color:#667085"></small></label><button type="button" class="btn btn-ghost btn-small" data-preset hidden title="إرجاع العنصر المحدد إلى الموضع والحجم المحفوظين في البروفايل">الحجم المحفوظ</button><button type="button" class="btn btn-primary" data-save>حفظ النسخة الموقعة</button></div><div data-error role="status"></div><div data-paper style="position:relative;direction:ltr;max-width:100%;margin:auto"><canvas style="display:block;width:100%;height:auto"></canvas><div data-overlay style="position:absolute;inset:0"></div></div>';
     const select=host.querySelector('[data-page]'),paper=host.querySelector('[data-paper]'),canvas=host.querySelector('canvas'),overlay=host.querySelector('[data-overlay]');
+    if(previous){const note=document.createElement('p');note.dataset.existingSignatures='';note.textContent='هذه أحدث نسخة موقعة. التوقيعات المحفوظة جزء من المستند وستبقى كما هي؛ أضف التوقيع الجديد فوقها.';host.prepend(note);}
     for(let i=0;i<pdf.numPages;i++){const option=document.createElement('option');option.value=i;option.textContent=i+1;select.append(option);}
     let image=sessionSignature,imageRatio=sessionSignatureRatio,pageIndex=0,selected=-1,placements=[],rendering=null;
     function draw(){
@@ -433,7 +442,7 @@
     host.querySelector('[data-image]').onchange=()=>run(async()=>{
       const file=host.querySelector('[data-image]').files[0];if(!file)return;
       if(file.size>3000000)throw new Error('اختر صورة أصغر من 3MB.');
-      const bitmap=await createImageBitmap(file),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;c.getContext('2d').drawImage(bitmap,0,0);image=c.toDataURL('image/png');imageRatio=bitmap.height/bitmap.width;sessionSignature=image;sessionSignatureRatio=imageRatio;bitmap.close();placements=[];selected=-1;draw();
+      const bitmap=await createImageBitmap(file),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;c.getContext('2d').drawImage(bitmap,0,0);image=c.toDataURL('image/png');imageRatio=bitmap.height/bitmap.width;sessionSignature=image;sessionSignatureRatio=imageRatio;bitmap.close();selected=-1;draw();
     });
     // Saved stamps / signatures: the buyer's client profile (matched by consignee) and the
     // Bahar Swaken company profile (identity-studio artwork as fallback). Adds straight onto the page.
@@ -457,7 +466,7 @@
     host.querySelector('[data-save]').onclick=()=>run(async()=>{
       if(!placements.length)throw new Error('أضف التوقيع قبل الحفظ.');
       const button=host.querySelector('[data-save]');button.disabled=true;
-      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,image:(placements[0].image||image).split(',')[1],placements:placements.map(({page,x,y,width,height,cloned,image:own})=>({page,x,y,width,height,cloned,image:(own||image).split(',')[1]}))});node.close();await onSaved();toast('حُفظت النسخة الموقعة. أعد فتح الملف المحدث لمعاينتها؛ الأصل محفوظ ورابط QR ثابت.');}
+      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,baseSignatureId:previous?.id||null,baseOperationsRevisionId:entry.revision.id,image:(placements[0].image||image).split(',')[1],placements:placements.map(({page,x,y,width,height,cloned,image:own})=>({page,x,y,width,height,cloned,image:(own||image).split(',')[1]}))});node.close();await onSaved();toast('حُفظت النسخة الموقعة. أعد فتح الملف المحدث لمعاينتها؛ الأصل محفوظ ورابط QR ثابت.');}
       finally{button.disabled=false;}
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();

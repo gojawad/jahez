@@ -110,8 +110,9 @@ async function main(){
     await page.mouse.move(handleBox.x+8,handleBox.y+8);await page.mouse.down();await page.mouse.move(handleBox.x+68,handleBox.y+30,{steps:5});await page.mouse.up();
     const sigAfter=await dialog.locator('[data-overlay] img').nth(1).boundingBox();
     assert.ok(sigAfter.width>sigBefore.width+30,'corner handle resizes the selected signature');
-    await dialog.locator('[data-delete]').click();await dialog.locator('[data-delete]').click();
-    await page.evaluate(()=>{document.querySelector('dialog[open] [data-overlay]').replaceChildren();});
+    await dialog.locator('[data-delete]').click();
+    await dialog.locator('[data-overlay] img').click();await dialog.locator('[data-delete]').click();
+    assert.equal(await dialog.locator('[data-overlay] img').count(),0,'remove saved-profile test placements explicitly, not by uploading another image');
     await dialog.locator('input[data-image]').setInputFiles({name:'test-signature.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await page.waitForTimeout(100);
     await dialog.locator('[data-add]').click();
