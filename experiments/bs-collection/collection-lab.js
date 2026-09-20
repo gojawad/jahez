@@ -908,6 +908,7 @@ function applyCollectionBatchSnapshot(batch){
   state.activeOperationNo=batch.operationNo||'';
   state.overrides={};
   Object.entries(batch.snapshotsByShipment||{}).forEach(([shipmentId,snapshot])=>{ state.overrides[shipmentId]=Object.assign({},snapshot); });
+  delete state.settings.documentCounts;
   if(batch.documentSettings) Object.assign(state.settings,batch.documentSettings);
   state.convertToAed=Boolean(batch.convertToAed);
   state.exchangeRate=Number(batch.exchangeRate)||3.6725;
@@ -980,6 +981,7 @@ function renderCollectionPortal(){
   }));
 }
 async function sendToRemittingBank(){
+  captureDocumentCounts();
   if(requestedFinanceContext) return window.CollectionRevisionContext.send();
   const {rows,currencies}=detected();
   if(!rows.length){ alert('اختر شحنة واحدة على الأقل قبل الإرسال للبنك المُرسل.'); return; }
@@ -1302,9 +1304,47 @@ function referenceDocumentsEnclosed(){
   </tbody></table>`;
 }
 
+function captureDocumentCounts(){
+  const rows=window.CollectionHtmlTemplates?.documentCounts()||[];
+  state.settings.documentCounts=Object.fromEntries(rows.map(({id,original,duplicate})=>[id,{original,duplicate}]));
+}
+function documentCountsReadOnly(){
+  return Boolean(state.tradeFile&&!['draft','returned_to_operations','returned_to_finance'].includes(state.tradeFile.status));
+}
+function renderDocumentCounts(){
+  const panel=$('documentCountsPanel');
+  const rows=window.CollectionHtmlTemplates?.documentCounts()||[];
+  panel.hidden=state.preview!=='letter'||!state.selected.size||!rows.length;
+  const readOnly=documentCountsReadOnly();
+  $('documentCountsControls').innerHTML=rows.map(row=>`<div class="document-count-row"><strong>${esc(row.label)}</strong>${['original','duplicate'].map(kind=>{
+    const label=kind==='original'?'Original · أصل':'Duplicate · نسخة';
+    return `<label>${label}<span class="document-count-stepper" dir="ltr"><button type="button" data-count-id="${row.id}" data-count-kind="${kind}" data-count-step="-1" aria-label="إنقاص ${label} ${esc(row.label)}" ${readOnly||row[kind]===0?'disabled':''}>−</button><input type="number" min="0" step="1" value="${row[kind]}" data-count-id="${row.id}" data-count-kind="${kind}" aria-label="${label} ${esc(row.label)}" ${readOnly?'disabled':''}><button type="button" data-count-id="${row.id}" data-count-kind="${kind}" data-count-step="1" aria-label="زيادة ${label} ${esc(row.label)}" ${readOnly?'disabled':''}>+</button></span></label>`;
+  }).join('')}</div>`).join('');
+}
+function changeDocumentCount(event){
+  const control=event.target.closest('[data-count-id]');
+  if(!control||documentCountsReadOnly())return;
+  if(event.type==='click'&&control.tagName!=='BUTTON')return;
+  const {countId:id,countKind:kind,countStep:step}=control.dataset;
+  const rows=window.CollectionHtmlTemplates.documentCounts();
+  const row=rows.find(row=>row.id===id);
+  if(!row||!['original','duplicate'].includes(kind))return;
+  const raw=step?String(row[kind]+Number(step)):control.value;
+  if(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw))){control.value=row[kind];return;}
+  captureDocumentCounts();
+  state.settings.documentCounts[id][kind]=Number(raw);
+  renderPreview();
+  const replacement=$('documentCountsControls').querySelector(`${control.tagName.toLowerCase()}[data-count-id="${id}"][data-count-kind="${kind}"]${step?`[data-count-step="${step}"]`:''}`);
+  replacement?.focus({preventScroll:true});
+}
+$('documentCountsControls').addEventListener('click',changeDocumentCount);
+$('documentCountsControls').addEventListener('change',changeDocumentCount);
+$('resetBtn').addEventListener('click',()=>{delete state.settings.documentCounts;renderPreview();});
+
 function renderPreview(){
   const {rows,currencies,consignees,totals}=detected();
   const s=state.settings;
+  renderDocumentCounts();
   updateDocumentEditorState();
   const overflowNotice=$('documentOverflowNotice'); if(overflowNotice) overflowNotice.hidden=true;
   if(!rows.length){ $('documentPreview').innerHTML='<div class="empty-state">اختر شحنات أولاً لعرض مستندات التحصيل.</div>'; renderTextLayers($('documentPreview')); updateTextStyleControls(); return; }
@@ -1328,6 +1368,7 @@ function renderPreview(){
   $('documentPreview').innerHTML=body;
   $('documentPreview').querySelectorAll('mark').forEach(mark=>mark.replaceWith(...mark.childNodes));
   applyCollectionBranding();
+  if(state.preview==='letter'||state.preview==='application')window.CollectionHtmlTemplates?.applyDocumentCounts($('documentPreview'));
   updateTextOffsetControls();
 }
 

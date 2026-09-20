@@ -10,6 +10,47 @@ window.CollectionHtmlTemplates = (()=>{
   const builtIn=kind=>({exchange:window.CollectionExchangeWordTemplate,undertaking:window.CollectionUndertakingWordTemplate,letter:window.CollectionLetterWordTemplate}[kind])?.config();
   const active=kind=>saved(kind)?.html?.trim()?saved(kind):builtIn(kind)||saved(kind)||defaults();
   const hasTemplate=kind=>Boolean(active(kind)?.html?.trim());
+  const countDocuments=[
+    ['exchange','BILL OF EXCHANGE','الكمبيالة'],
+    ['invoice','COMMERCIAL INVOICE','الفاتورة التجارية'],
+    ['bill','COPY B/L','بوليصة الشحن'],
+    ['origin','CERTIFICATE OF ORIGIN','شهادة المنشأ']
+  ];
+  const validCount=value=>/^\d+$/.test(String(value))&&Number.isSafeInteger(Number(value));
+  function countRows(root){
+    const normalize=value=>String(value).replace(/\s+/g,' ').trim().toUpperCase();
+    return [...root.querySelectorAll('table')].flatMap(table=>{
+      const heading=[...table.rows].find(row=>[...row.cells].some(cell=>normalize(cell.textContent)==='ORIGINAL')&&[...row.cells].some(cell=>normalize(cell.textContent)==='DUPLICATE'));
+      if(!heading)return [];
+      const original=[...heading.cells].findIndex(cell=>normalize(cell.textContent)==='ORIGINAL');
+      const duplicate=[...heading.cells].findIndex(cell=>normalize(cell.textContent)==='DUPLICATE');
+      return [...table.rows].flatMap(row=>{
+        const document=countDocuments.find(([,name])=>[...row.cells].some(cell=>normalize(cell.textContent)===name));
+        return document&&row.cells[original]&&row.cells[duplicate]?[{id:document[0],label:document[2],original:row.cells[original],duplicate:row.cells[duplicate]}]:[];
+      });
+    });
+  }
+  function documentCounts(){
+    const root=new DOMParser().parseFromString(active('letter').html||'','text/html');
+    return countRows(root).map(row=>{
+      const saved=state.settings.documentCounts?.[row.id];
+      return {id:row.id,label:row.label,...Object.fromEntries(['original','duplicate'].map(kind=>{
+        const value=saved?.[kind]??row[kind].textContent.trim();
+        return [kind,validCount(value)?Number(value):0];
+      }))};
+    });
+  }
+  function applyDocumentCounts(root){
+    for(const row of countRows(root))for(const kind of ['original','duplicate']){
+      const value=state.settings.documentCounts?.[row.id]?.[kind];
+      if(!validCount(value))continue;
+      // Keep Word's nested font/spacing spans; replace only the numeric text.
+      const walker=document.createTreeWalker(row[kind],NodeFilter.SHOW_TEXT);
+      const nodes=[];while(walker.nextNode())if(walker.currentNode.textContent.trim())nodes.push(walker.currentNode);
+      if(nodes.length){nodes[0].textContent=String(value);nodes.slice(1).forEach(node=>{node.textContent='';});}
+      else row[kind].textContent=String(value);
+    }
+  }
   const byId=id=>document.getElementById(id);
   const title=kind=>collectionDocumentLabels[kind]?.title||kind;
   const error=message=>{ byId('templateError').textContent=message; };
@@ -139,6 +180,11 @@ window.CollectionHtmlTemplates = (()=>{
       return legacyHtml(kind);
     }
     const content=sanitize(interpolate(config.html,context));
+    if((kind==='letter'||kind==='application')&&state.settings.documentCounts){
+      const root=new DOMParser().parseFromString(content.html,'text/html');
+      applyDocumentCounts(root);
+      content.html=root.body.innerHTML;
+    }
     const mm=key=>config[key]*units[config.unit];
     const top=mm('top')+mm('headerSize'),bottom=mm('bottom')+mm('footerSize'),left=mm('left'),right=mm('right');
     const company=sharedCollectionCompany?.settings||{};
@@ -474,6 +520,6 @@ window.CollectionHtmlTemplates = (()=>{
     });
   }
   init();
-  return {open,hasTemplate,renderSaved,printSaved,printAll,documentHtml,sanitize,importWord,validate,settingsKey,pdf,
+  return {open,hasTemplate,renderSaved,printSaved,printAll,documentHtml,sanitize,importWord,validate,settingsKey,pdf,documentCounts,applyDocumentCounts,
     exportPdf:kind=>pdf(documentHtml(kind,active(kind)))};
 })();

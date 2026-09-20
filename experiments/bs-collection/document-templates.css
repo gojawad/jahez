@@ -39,3 +39,17 @@ body.collection-html-templates .document-editor-shell { grid-template-columns:mi
   .template-fields #templateHtml { min-height:280px; }
 }
 @media print { .template-dialog { display:none!important; } }
+.document-counts-panel { margin:0 0 18px; padding:16px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.document-counts-panel[hidden] { display:none!important; }
+.document-counts-panel p { margin:5px 0 12px; color:var(--muted); font-size:12px; }
+.document-counts-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.document-count-row { display:grid; grid-template-columns:minmax(95px,1fr) repeat(2,minmax(115px,1fr)); gap:10px; align-items:center; padding:10px; border:1px solid var(--line); border-radius:10px; }
+.document-count-row label { display:grid; gap:5px; font-size:12px; }
+.document-count-stepper { display:flex; align-items:center; gap:4px; }
+.document-count-stepper button { flex:0 0 32px; height:34px; border:1px solid var(--line); border-radius:7px; background:#fff; color:#e30613; font:700 20px inherit; cursor:pointer; }
+.document-count-stepper input { width:60px; min-width:0; height:34px; padding:3px; border:1px solid var(--line); border-radius:7px; text-align:center; font:inherit; appearance:textfield; }
+.document-count-stepper input::-webkit-inner-spin-button { appearance:none; }
+.document-count-stepper button:disabled { opacity:.4; cursor:default; }
+@media(max-width:1100px){ .document-counts-grid { grid-template-columns:1fr; } }
+@media(max-width:480px){ .document-count-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .document-count-row>strong { grid-column:1/-1; } }
+@media print { .document-counts-panel { display:none!important; } }

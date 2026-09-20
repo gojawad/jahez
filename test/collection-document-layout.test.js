@@ -270,6 +270,7 @@ async function main() {
     await page.locator('.collection-html-page').screenshot({path:path.join(OUTPUT, 'collection-exchange.png')});
     await require('./collection-exchange-word.test')({page,BASE,OUTPUT});
     await require('./collection-letter-word.test')({page,BASE,OUTPUT});
+    await require('./collection-document-counts.test')({page,BASE,OUTPUT});
 
     page.once('dialog', dialog=>dialog.accept());
     await page.locator('#recordCollectionBtn').click();
@@ -296,6 +297,7 @@ async function main() {
     assert.deepStrictEqual(operation.bankSentAt, operation.workflowUpdatedAt);
     assert.ok(operation.operations.every(item=>item.operationNo===operation.numbers[0]));
     assert.ok(operation.operations.every(item=>item.qrIncluded===false));
+    assert.ok(operation.operations.every(item=>item.documentSettings.documentCounts.invoice.original===6),'manual counts saved with each operation');
     assert.ok(operation.operations.every(item=>JSON.stringify(item.documentKinds)===JSON.stringify(['letter','undertaking','exchange'])));
     assert.ok(operation.activeRef.includes(operation.numbers[0]));
     const restored = await page.evaluate(operationNo=>{
@@ -311,6 +313,8 @@ async function main() {
       '22222222-2222-4222-8222-222222222222'
     ]);
     assert.strictEqual(restored.activeOperationNo,operation.numbers[0]);
+    assert.strictEqual(await page.evaluate(()=>state.settings.documentCounts.invoice.original),6,'saved counts restored when reopening operation');
+    await page.evaluate(()=>{delete state.settings.documentCounts;});
     await require('./collection-html-templates.test')({page,BASE,OUTPUT});
 
     await page.setViewportSize({width:390,height:844});
