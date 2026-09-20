@@ -29,6 +29,13 @@ const profile = role => ({id:`${role}-id`, role, active:true});
   await check('inactive admin is denied', () => assert.strictEqual(access.canAccessPortal('import_permit', {...profile('admin'),active:false}), false));
   await check('assigned employee can enter import permit', () => assert.strictEqual(access.canAccessPortal('import_permit', profile('staff'), {portalKeys:['import_permit']}), true));
   await check('unassigned employee cannot enter import permit', () => assert.strictEqual(access.canAccessPortal('import_permit', profile('staff'), {portalKeys:[]}), false));
+  await check('BSGT finance can open the import-permit register without a write portal grant', () => {
+    for(const role of ['staff','editor','bsgt_user','viewer']){
+      assert.strictEqual(access.canAccessPortal('import_permit',profile(role),{featureKeys:['bsgt.finance.view']}),true);
+      assert.strictEqual(access.canAccessPortal('import_permit',profile(role),{featureKeys:['bsgt.financial_center.view']}),false);
+    }
+    assert.strictEqual(access.canAccessPortal('import_permit',{...profile('staff'),active:false},{featureKeys:['bsgt.finance.view']}),false);
+  });
   await check('role boundary still rejects unknown assigned roles', () => assert.strictEqual(access.canAccessPortal('commercial_collection', profile('unknown'), {portalKeys:['commercial_collection']}), false));
   await check('assigned finance viewer can retain collection preview access', () => assert.strictEqual(access.canAccessPortal('commercial_collection', profile('viewer'), {portalKeys:['commercial_collection']}), true));
   await check('missing employee permissions are fail closed', () => assert.strictEqual(access.canAccessPortal('import_permit', profile('editor')), false));

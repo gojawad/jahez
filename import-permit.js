@@ -74,6 +74,20 @@
     if(typeof switchView === 'function') switchView('dashboard');
   }
 
+  function canWritePortal(){
+    if(!canUsePortal()) return false;
+    if(window.JahezAccess?.isAdmin()) return true;
+    return !window.JahezAccess?.can('bsgt.finance.view');
+  }
+
+  function syncReadOnlyControls(){
+    const readOnly=!canWritePortal();
+    document.querySelectorAll('[data-import-permit-tab="new"],#importPermitNewBtn').forEach(button=>{
+      button.hidden=readOnly;
+      button.style.display=readOnly?'none':'';
+    });
+  }
+
   async function portalApi(path, options){
     const request = await window.JahezSessionNavigation.fetchWithSessionRetry(sb, fetch, path, {
       ...options,
@@ -430,6 +444,7 @@
   }
 
   async function saveCurrentRecord(){
+    if(!canWritePortal()) return null;
     if(!validatePortal()) return null;
     const button = byId('importPermitSaveBtn');
     const printButton = byId('importPermitPrintBtn');
@@ -608,7 +623,7 @@
     const availableTotal = Number(recordPagination.availableTotal) || 0;
     if(!total){
       const filtered = hasRecordFilters();
-      host.innerHTML = `<div class="import-permit-records-empty"><b>${filtered ? 'لا توجد نتائج مطابقة لبحثك.' : 'لا توجد فواتير إذن استيراد حتى الآن.'}</b><button type="button" class="btn btn-primary btn-small" data-import-permit-empty-action="${filtered ? 'clear' : 'new'}">${filtered ? 'مسح عوامل التصفية' : 'إنشاء فاتورة جديدة'}</button></div>`;
+      host.innerHTML = `<div class="import-permit-records-empty"><b>${filtered ? 'لا توجد نتائج مطابقة لبحثك.' : 'لا توجد فواتير إذن استيراد حتى الآن.'}</b>${filtered || canWritePortal() ? `<button type="button" class="btn btn-primary btn-small" data-import-permit-empty-action="${filtered ? 'clear' : 'new'}">${filtered ? 'مسح عوامل التصفية' : 'إنشاء فاتورة جديدة'}</button>` : ''}</div>`;
       byId('importPermitResultsSummary').textContent = filtered ? `لا توجد نتائج ضمن ${availableTotal.toLocaleString('ar-AE')} فاتورة` : 'لا توجد فواتير محفوظة بعد.';
       renderRecordPagination();
       return;
@@ -627,10 +642,10 @@
         <td data-label="أنشأها">${escapeText(record.ownerName || '—')}<small>${escapeText(formatSavedDate(record.updatedAt))}</small></td>
         <td data-label="الحالة"><span class="import-permit-status">نشطة</span></td>
         <td data-label="الإجراءات"><div class="import-permit-record-actions">
-          <button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}" data-ic="edit">فتح</button>
+          ${canWritePortal() ? `<button type="button" class="btn btn-ghost btn-small" data-record-open="${escapeText(record.id)}" data-ic="edit">فتح</button>` : ''}
           <button type="button" class="btn btn-ghost btn-small" data-record-preview="${escapeText(record.id)}" data-ic="eye">معاينة</button>
           <button type="button" class="btn btn-primary btn-small" data-record-print="${escapeText(record.id)}" data-ic="printer">طباعة</button>
-          <button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}" data-ic="archive">أرشفة</button>
+          ${canWritePortal() ? `<button type="button" class="btn btn-danger btn-small" data-record-archive="${escapeText(record.id)}" data-ic="archive">أرشفة</button>` : ''}
         </div></td>
       </tr>`;
     }).join('');
@@ -660,7 +675,7 @@
         <span>${escapeText(record.data?.proformaNo || 'بدون رقم')} · ${escapeText(record.data?.consignee || 'بدون مستلم')}</span>
         <small>أُرشفت ${escapeText(formatSavedDate(record.archivedAt))}${record.archivedByName ? ` بواسطة ${escapeText(record.archivedByName)}` : ''}</small>
       </div>
-      <div class="import-permit-record-actions"><button type="button" class="btn btn-primary btn-small" data-record-restore="${escapeText(record.id)}">استرجاع إلى السجل</button></div>
+      <div class="import-permit-record-actions">${canWritePortal() ? `<button type="button" class="btn btn-primary btn-small" data-record-restore="${escapeText(record.id)}">استرجاع إلى السجل</button>` : `<button type="button" class="btn btn-ghost btn-small" data-record-preview="${escapeText(record.id)}">معاينة</button><button type="button" class="btn btn-primary btn-small" data-record-print="${escapeText(record.id)}">طباعة</button>`}</div>
     </article>`).join('');
   }
 
@@ -697,6 +712,7 @@
   }
 
   async function changeArchiveState(id, archived){
+    if(!canWritePortal()) return;
     const source = archived ? savedRecords : archivedRecords;
     const record = source.find(item => item.id === id);
     if(!record) return;
@@ -773,6 +789,7 @@
 
   function openNewInvoicePortal(reset = true){
     if(!portalIsReady()) return false;
+    if(!canWritePortal()) return openRecordsPortal();
     if(!confirmLeave())return false;
     fillPortalOptions();
     if(reset) resetPortal();
@@ -849,6 +866,7 @@
 
   async function openRecordsPortal(){
     if(!portalIsReady()) return false;
+    syncReadOnlyControls();
     if(!confirmLeave())return false;
     hidePortal('importPermitOverlay');
     hidePortal('importPermitArchiveOverlay');
@@ -920,6 +938,7 @@
     if(!openButton) return;
     const record = savedRecords.find(item => item.id === openButton.dataset.recordOpen);
     if(record){
+      if(!canWritePortal()) return previewSavedRecord(record);
       hidePortal('importPermitRecordsOverlay');
       hydratePortal(record);
       showPortal('importPermitOverlay');
@@ -928,6 +947,13 @@
     }
   });
   byId('importPermitArchivedRecords').addEventListener('click', event => {
+    const preview=event.target.closest('[data-record-preview]');
+    const print=event.target.closest('[data-record-print]');
+    if(preview || print){
+      const record=archivedRecords.find(item=>item.id===(preview?.dataset.recordPreview || print?.dataset.recordPrint));
+      if(record)(preview?previewSavedRecord:printSavedRecord)(record);
+      return;
+    }
     const button = event.target.closest('[data-record-restore]');
     if(button) changeArchiveState(button.dataset.recordRestore, false);
   });

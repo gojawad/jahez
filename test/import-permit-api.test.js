@@ -36,8 +36,8 @@ test('permit API preserves legacy records, decimals, references, authorization a
   const legacy={id:'old',reference:'BSGT-IP-2026-0001',ownerId:'user',data,createdAt:'2026-09-01',updatedAt:'2026-09-01'};
   const seed=[legacy,...Array.from({length:115},(_,i)=>({...legacy,id:'archive-'+i,reference:'ARCH-'+i,archivedAt:'2026-09-01'}))];
   fs.writeFileSync(file,JSON.stringify(seed));const before=fs.readFileSync(file,'utf8');
-  const originalFetch=global.fetch;let role='admin';
-  global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:'user'}:String(url).includes('/profiles?')?[{id:'user',role,active:true,display_name:'Tester'}]:[]});
+  const originalFetch=global.fetch;let role='admin',finance=false,portal=false,profileId='user',active=true;
+  global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:profileId}:String(url).includes('/profiles?')?[{id:profileId,role,active,display_name:'Tester'}]:String(url).includes('/rpc/has_feature_permission')?finance:String(url).includes('/user_portal_permissions?')&&portal?[{portal_key:'import_permit',can_view:true}]:[]});
   const modulePath=require.resolve('../api/import-permit-invoices');delete require.cache[modulePath];const handler=require(modulePath);
   async function call(method,body,query={}){const res={setHeader(){},status(c){this.code=c;return this;},json(body){this.body=body;return this;}};await handler({method,body,query,headers:{authorization:'Bearer test'}},res);return res;}
   try{
@@ -59,6 +59,21 @@ test('permit API preserves legacy records, decimals, references, authorization a
     const legacyEdit=await call('POST',{id:'old',data:{...data,proformaNo:'OLD-EDIT'}});assert.equal(legacyEdit.body.record.reference,legacy.reference);assert.equal(legacyEdit.body.record.data.items[0].amount,'123.456789');
     const noConversion=await call('POST',{data:{...data,convertToAed:false,aedRate:''}});assert.equal(noConversion.code,200);assert.equal(noConversion.body.record.data.aedRate,'');
     role='editor';assert.equal((await call('GET')).code,403);
+    role='staff';profileId='finance-user';finance=true;
+    const storedBeforeFinance=fs.readFileSync(file,'utf8');
+    const financeList=await call('GET');assert.equal(financeList.code,200);
+    assert.ok(financeList.body.records.some(r=>r.ownerId==='user'),'finance sees invoices made by other employees');
+    const updates=financeList.body.records.map(r=>r.updatedAt);
+    assert.deepEqual(updates,updates.slice().sort().reverse(),'newest updates first');
+    assert.equal((await call('GET',null,{search:'OLD-EDIT'})).body.records.length,1);
+    assert.equal((await call('GET',null,{status:'archived',page:12,pageSize:10})).body.records.length,5);
+    for(const body of [{data:payload},{id:'old',data:payload}])assert.equal((await call('POST',body)).code,403);
+    for(const archived of [true,false])assert.equal((await call('PATCH',{id:'old',archived})).code,403);
+    portal=true;assert.equal((await call('POST',{data:payload})).code,403,'finance remains read-only even with the legacy portal grant');
+    assert.equal(fs.readFileSync(file,'utf8'),storedBeforeFinance,'finance reads and denied writes never rewrite the store');
+    active=false;assert.equal((await call('GET')).code,403);active=true;
+    finance=false;assert.equal((await call('GET')).body.records.length,0,'ordinary portal employee is still owner-scoped');
+    portal=false;assert.equal((await call('GET')).code,403,'revoking finance access immediately denies further reads');
   }finally{
     global.fetch=originalFetch;delete require.cache[modulePath];
     for(const [key,value] of [['JAHEZ_DATA_DIR',oldEnv.dir],['SUPABASE_SERVICE_ROLE_KEY',oldEnv.key]])if(value===undefined)delete process.env[key];else process.env[key]=value;

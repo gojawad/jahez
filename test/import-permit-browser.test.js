@@ -12,8 +12,9 @@ async function main(){
   try{
     for(let i=0;i<50;i++){try{if((await fetch(BASE+'/healthz')).ok)break;}catch{}await new Promise(r=>setTimeout(r,200));}
     const profile={id:userId,email:'permit@example.test',display_name:'Permit Tester',role:'admin',active:true};
+    let featureRows=[{permission_key:'import_permit.view',allowed:true}];
     process.env.JAHEZ_DATA_DIR=dir;process.env.SUPABASE_SERVICE_ROLE_KEY='test-key';
-    global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:userId}:[profile]});
+    global.fetch=async url=>({ok:true,json:async()=>String(url).includes('/auth/')?{id:userId}:String(url).includes('/rpc/has_feature_permission')?featureRows.some(row=>row.permission_key==='bsgt.finance.view'&&row.allowed):[profile]});
     const api=require('../api/import-permit-invoices');
     const legacyData={proformaNo:'LEGACY',proformaDate:'2026-09-01',consignee:'BUYER',consigneeAddress:'ADDRESS',portDischarge:'PORT SUDAN',countryOrigin:'CHINA',currency:'USD',convertToAed:true,aedRate:3.67,incoterm:'CFR',paymentTerm:'D/A',bankId:'bank',items:[{commodityId:'legacy-not-in-catalog',description:'OLD GOODS',descriptionEn:'OLD GOODS',category:'OLD',hsCode:'123456',unit:'PCE',quantity:18.17,amount:123.456789}]};
     const legacy={id:'legacy',reference:'BSGT-IP-2026-0001',ownerId:userId,data:legacyData,createdAt:'2026-09-01',updatedAt:'2026-09-01'};
@@ -39,7 +40,7 @@ async function main(){
       if(url.pathname.includes('/auth/v1/user'))body={id:userId,email:profile.email};
       if(url.pathname==='/rest/v1/profiles')body=[profile];
       if(url.pathname==='/rest/v1/user_portal_permissions')body=[{portal_key:'import_permit',can_view:true}];
-      if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions')body=[{permission_key:'import_permit.view',allowed:true}];
+      if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions')body=featureRows;
       if(url.pathname==='/rest/v1/companies')body=[{id:companyId,name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:true,settings:{}}];
       return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/0'},body:request.method()==='HEAD'?'':JSON.stringify(body)});
     });
@@ -164,6 +165,35 @@ async function main(){
     const employee=await context.newPage();await employee.goto(APP+'/?portal=import-permit-records&permitView=history'+HASH,{waitUntil:'domcontentloaded'});
     await employee.locator('#importPermitRecordsOverlay.open').waitFor({timeout:20000}).catch(async error=>{console.error(await employee.evaluate(()=>({url:location.href,user:currentUser,allowed:window.JahezAccess?.canAccessPortal('import_permit'),company:!!baharCompanyEntry()})));throw error;});assert.equal(new URL(employee.url()).hash,HASH,'portal-only employee retains the required route');
     assert.equal(await employee.evaluate(()=>canAccessAppView('bsgtWorkspace')),false,'opening the permit portal does not grant BSGT access');await employee.close();
+    profile.role='staff';featureRows=[{permission_key:'bsgt.finance.view',allowed:true}];
+    const financePage=await context.newPage();
+    await financePage.goto(APP+'/?portal=import-permit-records&permitView=new'+HASH,{waitUntil:'domcontentloaded'});
+    await financePage.locator('#importPermitRecordsOverlay.open').waitFor({timeout:20000});
+    assert.equal(new URL(financePage.url()).searchParams.get('permitView'),'history','finance direct new link opens the read-only register');
+    assert.equal(await financePage.locator('#importPermitNewBtn').isVisible(),false);
+    assert.equal(await financePage.locator('[data-import-permit-tab="new"]:visible').count(),0);
+    assert.equal(await financePage.locator('[data-record-archive]').count(),0);
+    assert.equal(await financePage.locator('[data-record-open][data-ic="edit"]').count(),0);
+    assert.ok(await financePage.locator('[data-record-preview]').count());
+    assert.ok(await financePage.locator('[data-record-print]').count());
+    assert.equal(await financePage.locator('#importPermitFilterSort').inputValue(),'updated-desc');
+    await financePage.locator('#importPermitFilterSearch').fill('LEGACY-EDIT');
+    await financePage.waitForFunction(()=>document.querySelectorAll('#importPermitRecords tbody tr').length===1);
+    await financePage.locator('#importPermitFilterSort').selectOption('date-asc');
+    await financePage.waitForResponse(r=>r.url().includes('sort=date-asc'));
+    await financePage.evaluate(()=>{window.openPrintWindow=html=>{window.__permitPrintedHtml=html;};});
+    await financePage.locator('[data-record-print="legacy"]').click();await financePage.locator('#docLangEnBtn').click();
+    await financePage.waitForFunction(()=>!!window.__permitPrintedHtml);
+    assert.match(await financePage.evaluate(()=>window.__permitPrintedHtml),/OLD GOODS/);
+    await financePage.locator('[data-record-open="legacy"]').click();
+    await financePage.locator('#pdfPreviewOverlay.open').waitFor();
+    assert.equal(await financePage.locator('#importPermitOverlay.open').count(),0,'invoice number opens preview, not an editable form');
+    await financePage.reload({waitUntil:'domcontentloaded'});await financePage.locator('#importPermitRecordsOverlay.open').waitFor();
+    assert.equal(await financePage.locator('#importPermitNewBtn').isVisible(),false);
+    await financePage.locator('#importPermitOpenArchiveBtn').click();await financePage.locator('#importPermitArchivedRecords article').first().waitFor();
+    assert.equal(await financePage.locator('[data-record-restore]').count(),0);
+    assert.ok(await financePage.locator('#importPermitArchivedRecords [data-record-print]').count());
+    await financePage.close();
     assert.deepEqual(foreignWrites,[],'permit interactions never mutate shipments, finance or permissions');assert.deepEqual(errors,[]);
     console.log('Import permit browser: decimals, real API save/reopen/print, legacy edit, dirty guards, archive pages, standalone routes and close: passed');
   }finally{

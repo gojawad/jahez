@@ -622,6 +622,7 @@ async function main() {
       delete require.cache[modulePath];
       global.fetch = async url => {
         if(String(url).includes('/auth/v1/user')) return new Response(JSON.stringify({id:'user-1'}), {status:200});
+        if(String(url).includes('/rest/v1/rpc/has_feature_permission')) return new Response('false', {status:200});
         if(String(url).includes('/rest/v1/profiles')) return new Response(JSON.stringify([{id:'user-1',email:'editor@example.test',display_name:'Editor',role:'editor',active:true}]), {status:200});
         if(String(url).includes('/rest/v1/user_portal_permissions')) return new Response(JSON.stringify([{portal_key:'import_permit',can_view:true}]), {status:200});
         throw new Error(`unexpected fetch ${url}`);

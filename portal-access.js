@@ -42,6 +42,7 @@
 
   function hasExplicitPermission(portalKey, permissions) {
     if (!permissions) return false;
+    if (portalKey === 'import_permit' && permissions.featureKeys?.includes('bsgt.finance.view')) return true;
     if (Array.isArray(permissions.featureKeys)) return permissions.featureKeys.includes(`${portalKey}.view`);
     return Array.isArray(permissions.portalKeys) && permissions.portalKeys.includes(portalKey);
   }

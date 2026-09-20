@@ -56,6 +56,14 @@ async function authorize(req) {
     throw Object.assign(new Error('ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.'), { status: 403 });
   }
   if (profile.role === 'admin') return profile;
+  // Evaluate the existing finance permission using the caller's identity, not the service role.
+  const financeResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_feature_permission`, {
+    method:'POST',
+    headers:{apikey:SERVICE_KEY,Authorization:authorization,'Content-Type':'application/json'},
+    body:JSON.stringify({p_permission_key:'bsgt.finance.view'})
+  });
+  if (!financeResponse.ok) throw new Error(`Finance permission lookup failed (${financeResponse.status}).`);
+  if (await financeResponse.json() === true) return {...profile,permitReadOnly:true};
   if (!ALLOWED_ROLES.has(profile.role)) {
     throw Object.assign(new Error('ليست لديك صلاحية استخدام بوابة فاتورة إذن الاستيراد.'), { status: 403 });
   }
@@ -180,7 +188,7 @@ function listInvoices(records, profile, query = {}) {
     : 'updated-desc';
 
   const available = records
-    .filter(record => profile.role === 'admin' || record.ownerId === profile.id)
+    .filter(record => profile.role === 'admin' || profile.permitReadOnly === true || record.ownerId === profile.id)
     .filter(record => archived ? !!record.archivedAt : !record.archivedAt);
   const clients = [...new Set(available.map(record => cleanText(record.data?.consignee)).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'ar'));
@@ -297,6 +305,9 @@ module.exports = async function importPermitInvoices(req, res) {
     const profile = await authorize(req);
     if (req.method === 'GET') {
       return res.status(200).json(listInvoices(await loadStore(), profile, req.query));
+    }
+    if (profile.permitReadOnly === true && ['POST','PATCH'].includes(req.method)) {
+      return res.status(403).json({error:'بوابة إذن الاستيراد للمالية متاحة للمعاينة والطباعة فقط.'});
     }
     if (req.method === 'POST') {
       const body = await readRequestBody(req);
