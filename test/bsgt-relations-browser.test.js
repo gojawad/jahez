@@ -77,8 +77,16 @@ async function main(){
     assert.strictEqual(await page.locator('[data-bsgt-relations-generated]').count(),8);
     // Exercise the shared signing UI in the actual relations portal without
     // replacing the existing attachments/history/preview controls.
+    const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=40;c.height=20;const x=c.getContext('2d');x.fillRect(0,0,40,20);return c.toDataURL('image/png').split(',')[1];});
+    let assetCalls=0;
     await context.route(`${APP}/api/bsgt-internal-document`,async route=>{
-      const body=route.request().postDataJSON();assert.equal(body.action,'sign');assert.equal(body.tradeFileId,tradeId);assert.equal(body.placements.length,1);
+      const body=route.request().postDataJSON();assert.equal(body.tradeFileId,tradeId);
+      if(body.action==='signing-assets'){
+        assetCalls++;assert.equal(body.shipmentId,shipmentId);assert.equal(body.revisionNo,2);
+        const asset={label:'Saved image',url:'data:image/png;base64,'+png,placement:{x:.1,y:.2,width:.15}};
+        return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({sources:{'buyer-stamp':[asset],'buyer-signature':[asset],'company-stamp':[asset],'company-signature':[asset]},notes:[]})});
+      }
+      assert.equal(body.action,'sign');assert.equal(body.placements.length,1);
       signedDocument={document_type:body.kind,shipment_id:body.shipmentId,document_variant:'administration_signed',storage_path:'workflow/relations-signed.pdf'};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({document:signedDocument})});
     });
@@ -86,7 +94,13 @@ async function main(){
     await page.evaluate(()=>loadBsgtRelationsDetail('10000000-0000-4000-8000-000000000005'));
     await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).first().click();
     const signDialog=page.locator('dialog[open]');
-    const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=40;c.height=20;const x=c.getContext('2d');x.fillRect(0,0,40,20);return c.toDataURL('image/png').split(',')[1];});
+    await page.waitForFunction(()=>{const buttons=[...document.querySelectorAll('dialog[open] [data-auto-pick]')];return buttons.length===4&&buttons.every(b=>!b.disabled);});
+    assert.equal(assetCalls,1,'relations uses scoped assets without profile access');
+    for(const key of ['buyer-stamp','buyer-signature','company-stamp','company-signature']){
+      await signDialog.locator(`[data-auto-pick="${key}"]`).click();await signDialog.locator('[data-overlay] img').waitFor();
+      assert.equal(await signDialog.locator('[data-overlay] img').evaluate(img=>img.style.left),'10%');
+      await signDialog.locator('[data-delete]').click();
+    }
     await signDialog.locator('[data-image]').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await signDialog.locator('[data-add]').click();await signDialog.locator('[data-overlay] img').waitFor();
     await signDialog.locator('[data-save]').click();

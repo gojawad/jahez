@@ -10048,7 +10048,7 @@ async function sendBsgtTradeFile(file,shipments,summary){
   if(!confirm(`إرسال ${shipments.length} شحنة ضمن ${file.operation_no} إلى ${bank}؟${window.JahezBsgtFinance.fileCollectionMode(file,shipments)==='cad'?'\n\nملف CAD — بدون مستندات تحصيل، يذهب للإدارة مباشرة.':''}`)) return;
   const isCad=window.JahezBsgtFinance.fileCollectionMode(file,shipments)==='cad';
   const metadata={documentSettings:{remittingBank:bank},documentKinds:isCad?[]:['letter','undertaking','exchange'],collectionMode:isCad?'cad':'collection',amountSnapshot:summary.amount,currency:summary.currency,shipmentNumbers:shipments.map(row=>row.operationNo),qrIncluded:false};
-  try{ netStart(); const {error}=await sb.rpc('send_bsgt_trade_file_to_remitting',{p_trade_file_id:file.id,p_remitting_bank:bank,p_metadata:metadata}); if(error) throw error; toast('تم إرسال ملف العملية للبنك المرسل.'); await loadBsgtFinance(); openBsgtTradeFile(file.id); }
+  try{ netStart(); if(isCad&&shipments.some(row=>row.operationsRevisionId))await window.JahezRevisionWorkflow.prepareCadSubmission(file,shipments); const {error}=await sb.rpc('send_bsgt_trade_file_to_remitting',{p_trade_file_id:file.id,p_remitting_bank:bank,p_metadata:metadata}); if(error) throw error; toast('تم إرسال ملف العملية للبنك المرسل.'); await loadBsgtFinance(); openBsgtTradeFile(file.id); }
   catch(error){ toast(error.message||'تعذر إرسال الملف للبنك المرسل.','err'); } finally{ netEnd(); }
 }
 
@@ -22224,7 +22224,7 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260919-placement-2"></script>
 <script src="company-profile.js?v=20260919-placement-2"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260920-relations-signing-1"></script>
+<script src="bsgt-revision-workflow.js?v=20260920-assets-cad-3"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 <script src="bsgt-financial-center.js?v=20260920-phase1-1"></script>
 </body>

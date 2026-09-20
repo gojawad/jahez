@@ -3,6 +3,8 @@ const {randomUUID} = require('node:crypto');
 const {PDFDocument} = require('../experiments/bs-collection/collection-pdf-lib');
 const {readBody,serviceHeaders} = require('./bsgt-operations-package');
 const FINANCE = ['exchange','letter','undertaking'];
+const {normalizeConsigneeName}=require('../consignee-client-resolver');
+const {fromMetadata}=require('../signature-placement');
 
 // Each placement may carry its own PNG (stamp and signature together); without one the
 // shared image applies. Identical images are embedded once.
@@ -57,8 +59,68 @@ async function handler(req,res) {
     if(!response.ok) throw new Error('Original document unavailable');
     return Buffer.from(await response.arrayBuffer());
   }
+  async function assetRows(table,params) {
+    const rows=[];
+    for(let offset=0;;offset+=1000){
+      const query=new URLSearchParams({...params,limit:'1000',offset:String(offset)});
+      const response=await fetch(`${base}/rest/v1/${table}?${query}`,{headers:service,signal:AbortSignal.timeout(15000)});
+      if(!response.ok) throw new Error('Signing assets unavailable');
+      const page=await response.json();
+      if(!Array.isArray(page)) throw new Error('Invalid signing assets');
+      rows.push(...page);if(page.length<1000)return rows;
+    }
+  }
+  async function assetUrl(bucket,path,owner,type) {
+    const parts=String(path||'').split('/');
+    if(parts[0]!==owner||parts[1]!==type||parts.some(p=>!p||p==='.'||p==='..'||p.includes('\\'))) throw new Error('Invalid asset ownership');
+    const response=await fetch(`${base}/storage/v1/object/sign/${bucket}/${parts.map(encodeURIComponent).join('/')}`,{
+      method:'POST',headers:{...service,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:120}),signal:AbortSignal.timeout(15000)
+    });
+    if(!response.ok) throw new Error('Signing image unavailable');
+    const data=await response.json(),value=data.signedURL||data.signedUrl;
+    if(typeof value!=='string') throw new Error('Signing image URL missing');
+    const url=new URL(value.startsWith('/object/')?'/storage/v1'+value:value,base);
+    if(url.origin!==new URL(base).origin||!url.pathname.startsWith(`/storage/v1/object/sign/${bucket}/`)) throw new Error('Invalid signing image URL');
+    return url.href;
+  }
   try {
     const body=await readBody(req);
+    if(body.action==='signing-assets') {
+      // Resolve owners from the authorized immutable shipment, never request IDs.
+      const bundle=await rpc('bsgt_internal_package',{p_file_id:body.tradeFileId});
+      if(bundle.file.status!=='final_accepted'||bundle.file.revision_no!==body.revisionNo) throw new Error('Relations signing stage changed');
+      if(await rpc('has_bsgt_workspace_permission',{p_section:'relations',p_require_edit:true})!==true) throw new Error('Relations edit permission required');
+      const shipment=bundle.shipments.find(s=>s.shipment.id===body.shipmentId)?.shipment;
+      if(!shipment||!bundle.file.company_id) throw new Error('Shipment is outside this package');
+      const sources={'buyer-stamp':[],'buyer-signature':[],'company-stamp':[],'company-signature':[]},notes=[];
+      const columns='id,file_type,title,storage_path,mime_type,is_active,metadata';
+      async function append(table,ownerColumn,owner,prefix){
+        const files=await assetRows(table,{select:`${columns},${ownerColumn},${prefix==='company'?'signatory_name':'signatory_id'}`,[ownerColumn]:`eq.${owner}`,is_active:'eq.true',file_type:'in.(stamp,signature)',order:'created_at.desc,id.asc'});
+        const people=prefix==='buyer'&&files.some(f=>f.signatory_id)?await assetRows('client_authorized_signatories',{select:'id,client_id,name,title,active',client_id:`eq.${owner}`,active:'eq.true',order:'id.asc'}):[];
+        for(const file of files){
+          if(file[ownerColumn]!==owner||file.is_active!==true||!['stamp','signature'].includes(file.file_type))continue;
+          const person=people.find(p=>p.id===file.signatory_id&&p.client_id===owner&&p.active===true);
+          if(prefix==='buyer'&&file.signatory_id&&!person)continue;
+          if(!['image/png','image/jpeg','image/webp'].includes(file.mime_type)){notes.push('يوجد ختم أو توقيع بصيغة غير صورية؛ الاستجلاب يحتاج صورة PNG أو JPEG أو WEBP.');continue;}
+          try{
+            const url=await assetUrl(prefix==='company'?'company-profile-files':'client-profile-files',file.storage_path,owner,file.file_type);
+            sources[`${prefix}-${file.file_type}`].push({label:person?.name||file.signatory_name||file.title||(file.file_type==='stamp'?'ختم':'توقيع'),detail:person?.title||'',url,placement:fromMetadata(file)});
+          }catch(_){notes.push('تعذر فتح إحدى صور البروفايل. راجع الملف المحفوظ؛ لم يتم استبداله بصورة أخرى.');}
+        }
+      }
+      await append('company_profile_files','company_id',bundle.file.company_id,'company');
+      if(await rpc('has_feature_permission',{p_permission_key:'client_assets.use'})===true){
+        const name=normalizeConsigneeName(shipment.data?.consignee);
+        if(name){
+          const pattern=name.replace(/[\\%_*]/g,'\\$&').replace(/\s+/g,'%');
+          const candidates=await assetRows('clients',{select:'id,name',name:`ilike.${pattern}`,order:'id.asc'});
+          const matches=candidates.filter(client=>normalizeConsigneeName(client.name)===name);
+          if(matches.length===1)await append('client_profile_files','client_id',matches[0].id,'buyer');
+          else notes.push(matches.length?'يوجد أكثر من بروفايل مطابق للمشتري؛ يلزم تصحيح الربط قبل استجلاب توقيعه.':'لم يتم العثور على بروفايل مطابق للمشتري في الشحنة.');
+        }else notes.push('اسم المشتري غير متوفر في نسخة الشحنة المعتمدة.');
+      }else notes.push('استجلاب أختام وتوقيعات المشتري يحتاج صلاحية «استخدام أختام وتوقيعات العملاء».');
+      return res.status(200).json({sources,notes:[...new Set(notes)]});
+    }
     if(body.action==='finance') {
       if(!await rpc('has_bsgt_workspace_permission',{p_section:'finance',p_require_edit:true})) throw new Error('Finance edit permission required');
       const context=await rpc('get_bsgt_finance_context',{p_context_id:body.contextId});

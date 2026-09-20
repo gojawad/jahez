@@ -34,7 +34,8 @@ async function main(){
     const context=await browser.newContext({viewport:{width:1440,height:900}}), profile={id:userId,email:'finance@example.test',display_name:'موظف المالية',role:'editor',active:true,photo_url:''};
     const expiresAt=Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,expiresAt,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'refresh-token',expires_at:expiresAt,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,expiresAt,token:fakeJwt(expiresAt)});
-    let lastSendMetadata=null, created=false,sent=false,createCalls=0,sendCalls=0;
+    let lastSendMetadata=null, created=false,sent=false,createCalls=0,sendCalls=0,returnCalls=0,refreshCalls=0,contextOpened=false;
+    const returned=new Set();
     await context.route(`${SUPABASE_ORIGIN}/**`,async route=>{
       const request=route.request(), url=new URL(request.url());
       const headers={'Access-Control-Allow-Origin':APP_ORIGIN,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};
@@ -42,14 +43,24 @@ async function main(){
       if(url.pathname==='/rest/v1/profiles') return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions') return route.fulfill({status:200,headers,body:JSON.stringify([{section:'finance',can_view:true,can_edit:true}])});
       if(url.pathname==='/rest/v1/rpc/create_bsgt_trade_collection_file'){ createCalls++; created=true; return route.fulfill({status:200,headers,body:JSON.stringify({id:tradeFileId,operation_no:'TC-2026-000123',company_id:companyId,status:'draft',created_by:userId,created_at:'2026-09-12T08:00:00Z',metadata:{}})}); }
-      if(url.pathname==='/rest/v1/rpc/send_bsgt_trade_file_to_remitting'){ sendCalls++; sent=true; lastSendMetadata=request.postDataJSON().p_metadata; return route.fulfill({status:200,headers,body:JSON.stringify({id:tradeFileId,operation_no:'TC-2026-000123',company_id:companyId,status:'sent_to_remitting',created_by:userId,created_at:'2026-09-12T08:00:00Z',sent_to_remitting_at:'2026-09-12T09:00:00Z',remitting_bank:'Abu Dhabi Islamic Bank',metadata:{currency:'USD'}})}); }
+      if(url.pathname==='/rest/v1/rpc/create_bsgt_finance_context'){assert.deepStrictEqual(request.postDataJSON().p_shipment_ids,shipmentIds);return route.fulfill({status:200,headers,body:JSON.stringify('cad-context')});}
+      if(url.pathname==='/rest/v1/rpc/open_bsgt_finance_context_trade_file'){assert.equal(request.postDataJSON().p_context_id,'cad-context');contextOpened=true;return route.fulfill({status:200,headers,body:JSON.stringify({id:tradeFileId})});}
+      if(url.pathname==='/rest/v1/rpc/refresh_bsgt_finance_revision'){assert.ok(contextOpened);assert.equal(request.postDataJSON().p_context_id,'cad-context');refreshCalls++;return route.fulfill({status:200,headers,body:JSON.stringify({id:tradeFileId,status:'draft'})});}
+      if(url.pathname==='/rest/v1/rpc/return_bsgt_shipment_from_finance'){
+        const body=request.postDataJSON();assert.equal(body.p_shipment_id,shipmentIds[0]);assert.ok(body.p_revision_id);assert.match(body.p_note,/correction/);
+        returnCalls++;returned.add(body.p_shipment_id);return route.fulfill({status:200,headers,body:JSON.stringify({id:body.p_shipment_id})});
+      }
+      if(url.pathname==='/rest/v1/bsgt_operations_revisions')return route.fulfill({status:200,headers,body:JSON.stringify({id:shipmentRow(shipmentIds[0],1).operations_revision_id,revision_no:returnCalls+1,shipment_snapshot:shipmentRow(shipmentIds[0],1),documents:[]})});
+      if(url.pathname==='/rest/v1/rpc/send_bsgt_trade_file_to_remitting'){ assert.equal(refreshCalls,1,'CAD source revisions are refreshed before sending');sendCalls++; sent=true; lastSendMetadata=request.postDataJSON().p_metadata; return route.fulfill({status:200,headers,body:JSON.stringify({id:tradeFileId,operation_no:'TC-2026-000123',company_id:companyId,status:'sent_to_remitting',created_by:userId,created_at:'2026-09-12T08:00:00Z',sent_to_remitting_at:'2026-09-12T09:00:00Z',remitting_bank:'Abu Dhabi Islamic Bank',metadata:{currency:'USD'}})}); }
       if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200,headers,body:JSON.stringify([{id:companyId,name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}}])});
       if(url.pathname==='/rest/v1/trade_collection_files') return route.fulfill({status:200,headers,body:JSON.stringify(created?[{id:tradeFileId,operation_no:'TC-2026-000123',company_id:companyId,status:sent?'sent_to_remitting':'draft',created_by:userId,created_at:'2026-09-12T08:00:00Z',sent_to_remitting_at:sent?'2026-09-12T09:00:00Z':null,remitting_bank:sent?'Abu Dhabi Islamic Bank':null,metadata:{}}]:[])});
       if(url.pathname==='/rest/v1/trade_collection_file_shipments') return route.fulfill({status:200,headers,body:JSON.stringify(created?shipmentIds.map((shipment_id,index)=>({id:`66666666-6666-4666-8666-66666666666${index}`,trade_file_id:tradeFileId,shipment_id,created_at:'2026-09-12T08:00:00Z'})):[])});
       if(url.pathname==='/rest/v1/shipments'){
         const third=shipmentRow('11111111-1111-4111-8111-111111111113',3,'ready_for_finance');third.data.paymentTerm='DA (180) DAYS FROM B/L DATE';
-        const rows=shipmentIds.map((id,index)=>shipmentRow(id,index+1,sent?'sent_to_remitting':'ready_for_finance')).concat([third]);
-        const idFilter=url.searchParams.get('id');const picked=idFilter?.startsWith('in.(')?rows.filter(row=>idFilter.slice(4,-1).split(',').includes(row.id)):rows;
+        const rows=shipmentIds.map((id,index)=>shipmentRow(id,index+1,returned.has(id)?'operations_draft':sent?'sent_to_remitting':'ready_for_finance')).concat([third]);
+        const idFilter=url.searchParams.get('id');
+        if(idFilter?.startsWith('eq.'))return route.fulfill({status:200,headers,body:JSON.stringify(rows.find(row=>row.id===idFilter.slice(3)))});
+        const picked=idFilter?.startsWith('in.(')?rows.filter(row=>idFilter.slice(4,-1).split(',').includes(row.id)):rows;
         return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-${picked.length-1}/${picked.length}`},body:JSON.stringify(picked)});
       }
       if(request.method()==='HEAD') return route.fulfill({status:200,headers:{...headers,'Content-Range':'0-0/0'},body:''});
@@ -87,6 +98,18 @@ async function main(){
     assert.ok((await page.locator('#bsgtTradeSend').textContent()).includes('إرسال للإدارة'));
     revisionMode=true; await page.evaluate(()=>loadBsgtFinance()); await page.waitForTimeout(600);
     assert.strictEqual(await page.locator('#bsgtTradeSend').isDisabled(),false,'still enabled with approved operations revisions');
+    for(let cycle=0;cycle<2;cycle++){
+      await page.locator(`[data-revision-preview="${shipmentIds[0]}"]`).click();
+      const preview=page.locator('dialog[open]').last();
+      await preview.getByRole('button',{name:'إرجاع للعمليات',exact:true}).waitFor();
+      assert.equal(await preview.getByRole('button',{name:'فتح بوابة التحصيل',exact:true}).count(),0,'CAD return is independent of collection templates');
+      await preview.getByRole('button',{name:'إرجاع للعمليات',exact:true}).click();
+      const note=page.locator('dialog[open]').last();await note.locator('textarea').fill(`CAD correction ${cycle+1}`);
+      await note.locator('button[type="submit"]').click();await page.waitForFunction(()=>!document.querySelector('dialog[open]'));
+      assert.equal(returnCalls,cycle+1);
+      // Simulate Operations approving and sending its corrected revision back.
+      returned.clear();await page.evaluate(()=>loadBsgtFinance());await page.waitForTimeout(600);
+    }
     await page.locator('#bsgtTradeSend').click();
     await page.waitForFunction(()=>document.querySelector('.bsgt-finance-detail')?.textContent.includes('تم الإرسال للبنك المرسل'));
     assert.strictEqual(sendCalls,1);

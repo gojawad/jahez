@@ -134,6 +134,34 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     await assert.rejects(db.query("update trade_collection_files set status='sent_to_remitting' where id=$1",[tradeFile.id]),/stale operations revision/);
     await assert.rejects(db.query('select get_bsgt_finance_context($1)',[context]),/stale/);
     assert.equal(Number((await db.query('select count(*) as n from activity_log')).rows[0].n),6);
+    // Repeated CAD corrections use existing finance context RPCs; no migration
+    // or bypass of the immutable operations source guard is needed.
+    await db.exec('begin');
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/51_bsgt_cad_no_collection.sql'),'utf8').replace(/^begin;\r?$/m,'').replace(/^commit;\r?$/m,''));
+    let cadRevision=revision2;
+    for(let cycle=3;cycle<=5;cycle++){
+      await db.query('select return_bsgt_shipment_from_finance($1,$2,$3)',[id,cadRevision,`CAD correction ${cycle}`]);
+      await db.exec('savepoint duplicate_return');
+      await assert.rejects(db.query('select return_bsgt_shipment_from_finance($1,$2,$3)',[id,cadRevision,'duplicate']),/not in finance/);
+      await db.exec('rollback to duplicate_return');
+      await db.query("update shipments set data=data || jsonb_build_object('paymentTerm','CAD','invoiceNo',$1::text) where id=$2",[`CAD-${cycle}`,id]);
+      const next=`20000000-0000-4000-8000-00000000000${cycle}`;
+      await stage(next,await input());await db.query('select approve_bsgt_operations_revision($1)',[next]);
+      await db.query('select complete_bsgt_operations($1)',[id]);
+      await db.exec('savepoint stale_cad');
+      await assert.rejects(db.query('select send_bsgt_trade_file_to_remitting($1,$2,$3)',[tradeFile.id,'BANK',{collectionMode:'cad'}]),/stale operations revision/);
+      await db.exec('rollback to stale_cad');
+      const cadContext=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
+      assert.equal((await db.query('select open_bsgt_finance_context_trade_file($1) as f',[cadContext])).rows[0].f.id,tradeFile.id);
+      await db.query('select refresh_bsgt_finance_revision($1)',[cadContext]);
+      assert.equal((await db.query('select operations_revision_id from trade_collection_file_shipments where trade_file_id=$1',[tradeFile.id])).rows[0].operations_revision_id,next);
+      cadRevision=next;
+    }
+    const cadSent=(await db.query('select send_bsgt_trade_file_to_remitting($1,$2,$3) as f',[tradeFile.id,'BANK',{collectionMode:'cad',documentKinds:[]}])).rows[0].f;
+    assert.equal(cadSent.status,'sent_to_remitting');
+    assert.equal(Number((await db.query("select count(*) as n from shipment_comments where body like '%CAD correction%'")).rows[0].n),3);
+    assert.deepEqual((await db.query('select * from bsgt_operations_revisions where id=$1',[revision1])).rows[0],approved);
+    await db.exec('rollback');
     const freshContext=(await db.query('select create_bsgt_finance_context($1) as id',[[id]])).rows[0].id;
     await db.query('select open_bsgt_finance_context_trade_file($1)',[freshContext]);
     const refreshed=(await db.query('select refresh_bsgt_finance_revision($1) as f',[freshContext])).rows[0].f;

@@ -198,6 +198,14 @@
     const context=await rpc('create_bsgt_finance_context',{p_shipment_ids:ids});
     location.assign(`/experiments/bs-collection/?financeContext=${encodeURIComponent(context)}`);
   }
+  async function prepareCadSubmission(file,shipments){
+    if(!shipments.every(s=>s.operationsRevisionId))throw new Error('لا يمكن خلط شحنات قديمة وشحنات ذات مراجعات في ملف واحد.');
+    const context=await rpc('create_bsgt_finance_context',{p_shipment_ids:shipments.map(s=>s.id)});
+    const current=await rpc('open_bsgt_finance_context_trade_file',{p_context_id:context});
+    if(current.id!==file.id)throw new Error('تغير ارتباط الشحنات؛ أعد فتح الملف قبل الإرسال.');
+    // CAD skips collection templates, not validation of the latest source revisions.
+    await rpc('refresh_bsgt_finance_revision',{p_context_id:context});
+  }
   function updateFinanceSelection(){
     const button=$('bsgtFinancePortalSelection');if(!button)return;
     const rows=[...bsgtFinanceState.selected].map(id=>bsgtFinanceState.readyRows.find(row=>row.id===id));
@@ -244,8 +252,11 @@
       merged.textContent='فتح الملف المدموج كاملاً في تبويب';merged.title='يفتح الحزمة المدموجة في تبويب جديد بالمتصفح للمطابقة مع المستندات الأصلية';
       merged.onclick=()=>openMergedPackageTab(id);host.querySelector('[data-actions]').append(merged);
     }
-    if(shipment.bsgt_stage==='ready_for_finance'&&window.JahezBsgtFinance?.collectionMode?.(row)!=='cad'){
-      const actions=host.querySelector('[data-actions]'),open=document.createElement('button');open.className='btn btn-primary';open.textContent='فتح بوابة التحصيل';open.onclick=()=>run(()=>openFinance([id]));actions.append(open);
+    if(shipment.bsgt_stage==='ready_for_finance'){
+      const actions=host.querySelector('[data-actions]');
+      if(window.JahezBsgtFinance?.collectionMode?.(row)!=='cad'){
+        const open=document.createElement('button');open.className='btn btn-primary';open.textContent='فتح بوابة التحصيل';open.onclick=()=>run(()=>openFinance([id]));actions.append(open);
+      }
       if(bsgtFinancePermission(true)){
         const back=document.createElement('button');back.className='btn btn-ghost';back.textContent='إرجاع للعمليات';back.onclick=()=>returnToOperations(shipment,revision,node);actions.append(back);
       }
@@ -304,7 +315,12 @@
     const notes=[];
     const shipment=bundle.shipments.find(s=>s.shipment.id===shipmentId)?.shipment;
     const tasks=[];
-    if(shipment&&typeof prepareBaharContractClientAssets==='function'){
+    const relations=bundle.file.status==='final_accepted';
+    if(relations){
+      const result=await post('/api/bsgt-internal-document',{action:'signing-assets',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId});
+      Object.assign(sources,result.sources);notes.push(...(result.notes||[]));
+    }
+    if(!relations&&shipment&&typeof prepareBaharContractClientAssets==='function'){
       tasks.push(prepareBaharContractClientAssets(rowToRecord(shipment)).then(context=>{
         (context?.files||[]).filter(file=>file.signedUrl&&file.mime_type?.startsWith('image/')).forEach(file=>{
           const person=(context.signatories||[]).find(p=>p.id===file.signatory_id);
@@ -312,7 +328,7 @@
         });
       }).catch(error=>console.warn('buyer signature assets',error)));
     }
-    if(window.JahezCompanyProfile){
+    if(!relations&&window.JahezCompanyProfile){
       tasks.push(window.JahezCompanyProfile.signingAssets().then(async assets=>{
         if(assets.error)notes.push('تعذر قراءة بروفايل بحر سواكن ('+assets.error+') — تأكد من تشغيل ملف supabase/52.');
         else notes.push(`بروفايل بحر سواكن: ${assets.stamps.length} ختم، ${assets.signatures.length} توقيع${assets.skippedNonImages?` (تم تجاهل ${assets.skippedNonImages} ملف PDF — ارفع الختم/التوقيع كصورة PNG)`:''}.`);
@@ -446,5 +462,5 @@
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();
   }
-  window.JahezRevisionWorkflow={mergeOperations,previewOperations,closeOperationsPreview,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage};
+  window.JahezRevisionWorkflow={mergeOperations,previewOperations,closeOperationsPreview,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage,prepareCadSubmission};
 })();
