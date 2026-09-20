@@ -28,7 +28,7 @@ async function main(){
     await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'LOCAL ONLY BANK',address:'NOT A DATABASE VALUE'}]})));
     let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0;
     const attachments=[];
-    let revisionMode=false,signedDocument=null,signCalls=0;
+    let revisionMode=false,signedDocument=null,signCalls=0,reopenCalls=0;
     const signedPdfs=new Map(),signedReads=[];
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const testPdf=await PDFDocument.create();testPdf.addPage([595,842]);const testPdfBytes=Buffer.from(await testPdf.save());
@@ -46,6 +46,12 @@ async function main(){
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
       if(url.pathname==='/rest/v1/rpc/bsgt_internal_package')return route.fulfill({status:200,headers,body:JSON.stringify({file:file(),shipments:[shipmentId,secondShipmentId].map(id=>({shipment:{id,data:{operationNo:id}},revision:{id:'revision-'+id,revision_no:1,documents:[{kind:'contract',path:id+'/contract.pdf'},{kind:'invoice',path:id+'/invoice.pdf'}]}})),documents:signedDocument?[signedDocument]:[]})});
+      if(url.pathname==='/rest/v1/rpc/reopen_bsgt_relations_for_signing'){
+        const body=req.postDataJSON();assert.equal(body.p_trade_file_id,tradeId);assert.equal(body.p_revision_no,2);
+        assert.equal(body.p_expected_updated_at,file().updated_at);assert.deepEqual(body.p_shipment_ids.slice().sort(),[shipmentId,secondShipmentId].sort());
+        assert.ok(body.p_note.trim());assert.equal(status,'sent_to_collecting');reopenCalls++;status='final_accepted';
+        return route.fulfill({status:200,headers,body:'{"reopened":true}'});
+      }
       if(req.method()==='GET'&&url.pathname.includes('/trade-collection-documents/workflow/relations-signed-')){
         const path=url.pathname.split('/trade-collection-documents/')[1];signedReads.push(path);assert.ok(signedPdfs.has(path));
         return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:signedPdfs.get(path)});
@@ -196,6 +202,20 @@ async function main(){
     assert.strictEqual(await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').count(),1,'sent record still loaded, just not shown as a panel');
     assert.strictEqual(await page.locator('#bsgtRelationsConfirm').isVisible(),false);
     assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true);
+    assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'employee cannot reopen a dispatched file');
+    await page.evaluate(()=>{currentUser.role='admin';if(currentUser.profile)currentUser.profile.role='admin';syncCurrentPermissionContext();renderBsgtRelationsDetail();});
+    await page.locator('#bsgtRelationsReopenSigning').click();
+    const reopenDialog=page.locator('dialog[open]');
+    assert.match(await reopenDialog.innerText(),/TC-2026-000555/);assert.match(await reopenDialog.innerText(),/BSGTX-2026-0106/);
+    await reopenDialog.locator('[type="submit"]').click();assert.equal(reopenCalls,0,'reason required');
+    await reopenDialog.locator('[data-close]').click();assert.equal(reopenCalls,0,'cancel has no effect');
+    await page.locator('#bsgtRelationsReopenSigning').click();await reopenDialog.locator('textarea').fill('Missing buyer stamp');
+    const priorSigned=signedDocument.storage_path;
+    await reopenDialog.locator('[type="submit"]').click();
+    await page.locator('#bsgtRelationsSend').waitFor();
+    await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).first().waitFor();
+    assert.equal(reopenCalls,1);assert.equal(signedDocument.storage_path,priorSigned,'reopen keeps current signed version');
+    assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'reopened file cannot be reopened twice');
     await context.close();console.log('BSGT relations browser workflow: passed');
   }finally{if(browser)await browser.close();server.kill('SIGTERM');}
 }

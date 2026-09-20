@@ -10441,6 +10441,7 @@ function renderBsgtRelationsDetail(){
   host.querySelectorAll('[data-bsgt-relations-operation-file]').forEach(button=>button.addEventListener('click',()=>openShipmentFile(button.dataset.bsgtRelationsOperationFile,button.dataset.fileName)));
   host.querySelectorAll('[data-bsgt-relations-generated]').forEach(button=>button.addEventListener('click',()=>{const shipment=shipments.find(row=>row.id===button.dataset.shipmentId);if(shipment)openBsgtGeneratedDocument(shipment,button.dataset.bsgtRelationsGenerated);}));
   if(file.metadata?.operationsRevisionWorkflow) window.JahezRevisionWorkflow?.renderInternalPackage(host,file,'relations');
+  window.JahezRevisionWorkflow?.decorateRelationsReopen(host,file,shipments);
 }
 
 async function openBsgtRelationsFile(id){
@@ -22233,7 +22234,7 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260919-placement-2"></script>
 <script src="company-profile.js?v=20260919-placement-2"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260920-cumulative-signatures-5"></script>
+<script src="bsgt-revision-workflow.js?v=20260920-relations-reopen-6"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 <script src="bsgt-financial-center.js?v=20260920-phase1-1"></script>
 </body>

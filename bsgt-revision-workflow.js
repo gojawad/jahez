@@ -471,5 +471,39 @@
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();
   }
-  window.JahezRevisionWorkflow={mergeOperations,previewOperations,closeOperationsPreview,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage,prepareCadSubmission};
+  function decorateRelationsReopen(host,file,shipments){
+    host.querySelector('#bsgtRelationsReopenSigning')?.remove();
+    if(!isAdmin()||file.status!=='sent_to_collecting'||!file.metadata?.operationsRevisionWorkflow||!shipments.length)return;
+    const anchor=host.querySelector('#bsgtRelationsClose');if(!anchor)return;
+    const button=document.createElement('button');button.id='bsgtRelationsReopenSigning';button.type='button';button.className='btn btn-ghost';
+    button.textContent='إرجاع للعلاقات لاستكمال التوقيع';anchor.after(button);
+    button.onclick=()=>{
+      if(!isAdmin())return;
+      const node=dialog('إرجاع للعلاقات لاستكمال التوقيع'),body=node.querySelector('[data-content]');
+      body.innerHTML=`<p>الملف <b>${esc(file.operation_no)}</b> وجميع شحناته:</p>
+        <ul>${shipments.map(s=>`<li>${esc(s.operationNo||s.id)}</li>`).join('')}</ul>
+        <p>سيظل الاعتماد والمستندات والتوقيعات السابقة محفوظة. يمكن للعلاقات إضافة التوقيع والختم، وليس تغيير بيانات الشحنة. نفس QR يعرض توقيعات مستندات العمليات بعد حفظها.</p>
+        <p>لا يتم إرسال شيء للبنك تلقائيًا، ولا تتغير نسخة PDF التي سبق تنزيلها. بعد التوقيع استخدم الملف المحدث وأعد الإرسال حسب الإجراء المتبع.</p>
+        <form><label>سبب الإرجاع<textarea data-reopen-note required maxlength="10000" rows="3" style="width:100%"></textarea></label>
+        <p data-reopen-error role="alert"></p><button type="submit" class="btn btn-primary">تأكيد الإرجاع للعلاقات</button></form>`;
+      let saved=false;
+      body.querySelector('form').onsubmit=async event=>{
+        event.preventDefault();if(saved)return;
+        const note=body.querySelector('textarea').value.trim();if(!note)return;
+        const submit=body.querySelector('[type="submit"]'),error=body.querySelector('[data-reopen-error]');
+        submit.disabled=true;error.textContent='';
+        try{
+          await rpc('reopen_bsgt_relations_for_signing',{p_trade_file_id:file.id,p_revision_no:file.revision_no,
+            p_expected_updated_at:file.updated_at,p_shipment_ids:shipments.map(s=>s.id),p_note:note});
+          saved=true;node.close();
+          toast('أُعيد الملف للعلاقات لاستكمال التوقيع. الاعتماد والتوقيعات السابقة محفوظة.');
+          await loadBsgtRelations();await openBsgtRelationsFile(file.id);
+        }catch(err){
+          if(saved){toast('تم الإرجاع. حدّث صفحة العلاقات لعرض الملف.');return;}
+          error.textContent=err.code==='PGRST202'?'يلزم تفعيل تحديث الإرجاع للعلاقات SQL 59 أولًا.':(err.message||'تعذر إرجاع الملف. حدّث الصفحة وحاول مرة أخرى.');
+        }finally{submit.disabled=false;}
+      };
+    };
+  }
+  window.JahezRevisionWorkflow={mergeOperations,previewOperations,closeOperationsPreview,hasOperationsQrPackage,decorateOperations,decorateFinance,updateFinanceSelection,decorateTradeFile,renderInternalPackage,prepareCadSubmission,decorateRelationsReopen};
 })();
