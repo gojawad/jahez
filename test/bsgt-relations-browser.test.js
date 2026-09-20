@@ -203,7 +203,15 @@ async function main(){
     assert.strictEqual(await page.locator('#bsgtRelationsConfirm').isVisible(),false);
     assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true);
     assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'employee cannot reopen a dispatched file');
-    await page.evaluate(()=>{currentUser.role='admin';if(currentUser.profile)currentUser.profile.role='admin';syncCurrentPermissionContext();renderBsgtRelationsDetail();});
+    // Start from the actual admin landing page, not a programmatic detail open.
+    profile.role='admin';
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').waitFor();
+    assert.equal(await page.locator('#bsgtRelationsSent').isVisible(),true,'admin can reach dispatched files from the visible list');
+    assert.match(await page.locator('#bsgtRelationsSentTitle').innerText(),/المُرسلة للبنك/);
+    assert.equal(reopenCalls,0,'listing sent files does not return them');
+    await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').click();
+    await page.locator('#bsgtRelationsReopenSigning').waitFor();
     await page.locator('#bsgtRelationsReopenSigning').click();
     const reopenDialog=page.locator('dialog[open]');
     assert.match(await reopenDialog.innerText(),/TC-2026-000555/);assert.match(await reopenDialog.innerText(),/BSGTX-2026-0106/);

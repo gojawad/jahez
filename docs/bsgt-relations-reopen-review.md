@@ -37,6 +37,10 @@ Date: 2026-09-20. User explicitly approved production SQL 59 and the limited UI 
 
 ## Isolation and Rollback
 
+### Sent-list access follow-up
+
+The initial UI release placed the return button inside dispatched-file details, but the existing relations shell hid the sent-file list. The browser test opened details programmatically and missed this navigation gap. The follow-up exposes an explicitly titled sent-to-bank section to administrators only; employee navigation and all database states are unchanged. The updated browser test reloads as admin and reaches the return action by clicking a visible dispatched-file card, with no direct detail-opening shortcut. Relations browser, finance CAD browser, 29 smoke checks, 44 permission checks, JS syntax and 2 inline scripts passed again. No additional SQL is required. Follow-up source backup: `E:/jahez-backups/relations-reopen-20260920/before-sent-list-aa18aea.zip`.
+
 - Release baseline: `878813c995b70a855495a205fdb755e476bd9bcc`.
 - Source backup: `E:/jahez-backups/relations-reopen-20260920/before-878813c.zip`.
 - Isolated worktree: `E:/jahez-relations-reopen-release`; parallel worktrees were not staged or reverted.
