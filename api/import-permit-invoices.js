@@ -181,7 +181,9 @@ function assignProformaNumber(records, payload, existing) {
   }
   let maximum = 0n;
   for (const record of records) {
-    const match = String(record.data?.proformaNo || '').match(/^BSGTP-\d{2}-\d{2}-\d{4}-(\d+)$/i);
+    const number = String(record.data?.proformaNo || '');
+    const match = number.match(/^BSGTP\d{2}(\d{4,})$/i)
+      || number.match(/^BSGTP-\d{2}-\d{2}-\d{4}-(\d+)$/i);
     for (const value of [record.proformaSequence, match?.[1]]) {
       if (/^\d+$/.test(String(value ?? ''))) {
         const sequence = BigInt(value);
@@ -190,8 +192,8 @@ function assignProformaNumber(records, payload, existing) {
     }
   }
   const sequence = (maximum + 1n).toString();
-  const [year, month, day] = payload.proformaDate.split('-');
-  payload.proformaNo = `BSGTP-${month}-${day}-${year}-${sequence}`;
+  const year = payload.proformaDate.slice(2,4);
+  payload.proformaNo = `BSGTP${year}${sequence.padStart(4,'0')}`;
   // Keep the allocation even when its visible invoice number is later edited.
   return {proformaSequence:sequence};
 }

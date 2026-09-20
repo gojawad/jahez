@@ -96,7 +96,7 @@ async function main(){
     await page.waitForFunction(()=>document.getElementById('importPermitSaveState').textContent.includes('آخر حفظ'));
     assert.equal(saved.data.items[0].quantity,'18.17');assert.equal(saved.data.items[0].amount,'123.456789');assert.equal(saved.data.items[1].quantity,'0.000001');
     assert.equal(saved.data.aedRate,'');assert.equal(saved.data.currency,'Sudanese Pound');
-    assert.equal(saved.data.proformaNo,'BSGTP-09-20-2026-1');
+    assert.equal(saved.data.proformaNo,'BSGTP260001');
     assert.equal(await page.locator('#permit_proformaNo').inputValue(),saved.data.proformaNo,'generated number is reflected in the editable field');
     assert.equal(saved.data.items[0].description,'صقر وكري');assert.equal(saved.data.items[0].descriptionEn,'Wakri falcon');assert.equal(saved.data.items[0].unit,'رأس');
     assert.equal(saved.data.items[0].indicativePriceUsd,undefined,'reference price is not an invoice calculation');
@@ -111,7 +111,7 @@ async function main(){
     await page.waitForFunction(()=>!!window.__permitPrintedHtml);
     const printed=await page.evaluate(()=>window.__permitPrintedHtml);
     assert.match(printed,/WAKRI FALCON/);assert.match(printed,/HEAD/);assert.ok(!printed.includes('صقر وكري'));
-    assert.match(printed,/BSGTP-09-20-2026-1/);
+    assert.match(printed,/BSGTP260001/);
     assert.match(printed,/123\.456789/);assert.match(printed,/0\.000001/);assert.match(printed,/123\.45679/);assert.match(printed,/Sudanese Pound/i);
     const paper=await context.newPage();await paper.setContent(printed);assert.match(await paper.locator('body').innerText(),/0\.000001/);assert.ok((await paper.pdf({format:'A4'})).length>1000);await paper.close();
     await page.evaluate(()=>{window.__permitPrintedHtml='';});await page.locator('#importPermitPrintBtn').click();await page.locator('#docLangArBtn').click();
