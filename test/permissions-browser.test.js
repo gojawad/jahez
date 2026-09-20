@@ -102,6 +102,23 @@ async function main(){
     assert.ok(employeePage.url().includes('#v=dashboard'),'unassigned direct admin route is blocked');
     assert.strictEqual(await employeePage.locator('#navAdmin').isVisible(),false,'admin navigation never appears for an employee');
     await employeeFixture.context.close();
+    for(const permitAllowed of [false,true]){
+      const featureKeys=['bsgt.operations.view','bsgt.operations.edit','bsgt.operation_center.view','client_profiles.view','package.merge'];
+      if(permitAllowed)featureKeys.push('import_permit.view');
+      const bsgtFixture=await configureContext(browser,{role:'bsgt_user',userId:staffId,featureRows:featureKeys.map(permission_key=>({permission_key,allowed:true}))});
+      const bsgtPage=await bsgtFixture.context.newPage();
+      await bsgtPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace&section=operations`,{waitUntil:'domcontentloaded'});
+      await bsgtPage.locator('#employeeTopNav:not([hidden])').waitFor({timeout:20000});
+      const permitLink=bsgtPage.locator('#employeePortalLinks [data-portal-key="import_permit"]');
+      assert.strictEqual(await permitLink.isVisible(),permitAllowed,'import-permit shortcut follows the saved BSGT permission');
+      if(permitAllowed){
+        assert.strictEqual(await permitLink.getAttribute('href'),'/?portal=import-permit-records&permitView=history#v=bsgtWorkspace&section=operations');
+        await bsgtPage.reload({waitUntil:'domcontentloaded'});
+        await bsgtPage.locator('#employeeTopNav:not([hidden])').waitFor({timeout:20000});
+        assert.strictEqual(await permitLink.isVisible(),true,'shortcut stays visible after reload');
+      }
+      await bsgtFixture.context.close();
+    }
     console.log('Granular permission admin save, viewer boundary, and direct-route guard: passed');
   }finally{
     if(browser)await browser.close();

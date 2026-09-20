@@ -220,10 +220,10 @@
 /* Chrome trimmed around the workspace (CSS only; elements, handlers and permissions untouched):
    - the control-panel "جديد" button is hidden while the BSGT workspace view is active
      (Operations has its own "إنشاء شحنة" action),
-   - the top-bar portal shortcuts (بوابة التحصيل التجاري / فاتورة إذن الاستيراد) are hidden;
-     both portals stay reachable from inside the workspace. */
+   - keep the collection shortcut hidden, but show the import-permit shortcut
+     when the existing permission-aware navigation creates it. */
 body:has(#viewBsgtWorkspace.active) #newBtn { display: none !important; }
-#employeeTopNav #employeePortalLinks { display: none !important; }
+#employeeTopNav #employeePortalLinks a:not([data-portal-key="import_permit"]) { display: none !important; }
 
 /* Mobile app shell (mobile-app.css loads later): keep the compact header and a wrapping tab grid
    instead of the older horizontal scroll strip. */
