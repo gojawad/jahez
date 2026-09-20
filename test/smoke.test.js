@@ -290,13 +290,13 @@ async function main() {
       const translationSource = fs.readFileSync(path.join(__dirname, '..', 'baldna-commodity-translations.js'), 'utf8');
       const catalogJson = catalogSource.slice(catalogSource.indexOf('Object.freeze(') + 'Object.freeze('.length, catalogSource.lastIndexOf(');'));
       const catalog = JSON.parse(catalogJson);
-      const translationJson = translationSource.slice(translationSource.indexOf('Object.freeze(') + 'Object.freeze('.length, translationSource.lastIndexOf(');'));
+      const translationJson = translationSource.slice(translationSource.indexOf('Object.freeze(') + 'Object.freeze('.length, translationSource.indexOf(');'));
       const translations = JSON.parse(translationJson);
-      assert.strictEqual(catalog.length, 429);
-      assert.strictEqual(Object.keys(translations).length, 429);
+      assert.strictEqual(catalog.length, 1088);
+      assert.strictEqual(Object.keys(translations).length, 1088);
       assert.ok(catalog.every(item => translations[item.id] && !/[\u0600-\u06ff]/.test(translations[item.id])));
       assert.ok(catalog.every(item => item.id && item.category && item.name && /^\d{6,10}$/.test(item.hsCode) && item.unit));
-      assert.deepStrictEqual([...new Set(catalog.map(item => item.unit))].sort(), ['DZN','GRM','KGM','MTK','MTQ','PCE']);
+      assert.deepStrictEqual([...new Set(catalog.map(item => item.unit))].sort(), ['رأس','طن','كيلوجرام','دستة','قدم مربع','قطعة','جرام','لتر','متر مكعب','متر مربع'].sort());
       assert.ok(appHtml.includes('id="bsgtImportPermitBtn"'));
       assert.ok(appHtml.includes('id="importPermitOverlay"'));
       assert.ok(appHtml.includes('id="importPermitRecordsOverlay"'));

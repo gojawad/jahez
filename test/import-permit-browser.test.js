@@ -68,6 +68,10 @@ async function main(){
     await page.locator('#permit_proformaNo').fill('DECIMAL-TEST');
     const commodity=await page.locator('#permitCommodityOptions option').first().getAttribute('value');
     await page.locator('.permit-item-commodity').fill(commodity);
+    assert.equal(await page.locator('#permitCatalogCount').innerText(),'1088');
+    assert.match(await page.locator('.permit-item-reference').innerText(),/350 USD/);
+    assert.equal(await page.locator('.permit-item-amount').inputValue(),'','reference price must not fill invoice amount');
+    assert.equal(await page.locator('.permit-item-hs').inputValue(),'01063100','leading zero preserved');
     await page.locator('.permit-item-qty').fill('18.170');await page.locator('.permit-item-amount').fill('123.456789');
     await page.locator('#permit_currency').selectOption('__other__');await page.locator('#permit_customCurrency').fill('Sudanese Pound');
     assert.equal(await page.locator('#permit_customCurrencyField').isVisible(),true);
@@ -89,6 +93,8 @@ async function main(){
     await page.waitForFunction(()=>document.getElementById('importPermitSaveState').textContent.includes('آخر حفظ'));
     assert.equal(saved.data.items[0].quantity,'18.17');assert.equal(saved.data.items[0].amount,'123.456789');assert.equal(saved.data.items[1].quantity,'0.000001');
     assert.equal(saved.data.aedRate,'');assert.equal(saved.data.currency,'Sudanese Pound');
+    assert.equal(saved.data.items[0].description,'صقر وكري');assert.equal(saved.data.items[0].descriptionEn,'Wakri falcon');assert.equal(saved.data.items[0].unit,'رأس');
+    assert.equal(saved.data.items[0].indicativePriceUsd,undefined,'reference price is not an invoice calculation');
     await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);window.__permitUnloadPrevented=e.defaultPrevented;});assert.equal(await page.evaluate(()=>window.__permitUnloadPrevented),false);
     await page.evaluate(()=>openImportPermitHistory());await page.locator('[data-record-open="'+saved.id+'"]').first().waitFor();
     assert.match(await page.locator('#importPermitRecords').innerText(),/123\.45679/);
@@ -98,10 +104,16 @@ async function main(){
     await page.locator('#importPermitPrintBtn').click();await page.locator('#docLangEnBtn').click();
     await page.waitForFunction(()=>!!window.__permitPrintedHtml);
     const printed=await page.evaluate(()=>window.__permitPrintedHtml);
+    assert.match(printed,/Wakri falcon/);assert.match(printed,/Head/);assert.ok(!printed.includes('صقر وكري'));
     assert.match(printed,/123\.456789/);assert.match(printed,/0\.000001/);assert.match(printed,/123\.45679/);assert.match(printed,/Sudanese Pound/i);
     const paper=await context.newPage();await paper.setContent(printed);assert.match(await paper.locator('body').innerText(),/0\.000001/);assert.ok((await paper.pdf({format:'A4'})).length>1000);await paper.close();
+    await page.evaluate(()=>{window.__permitPrintedHtml='';});await page.locator('#importPermitPrintBtn').click();await page.locator('#docLangArBtn').click();
+    await page.waitForFunction(()=>!!window.__permitPrintedHtml);
+    const arabic=await page.evaluate(()=>window.__permitPrintedHtml);assert.match(arabic,/صقر وكري/);assert.match(arabic,/رأس/);assert.ok(!arabic.includes('Wakri falcon'));assert.match(arabic,/123\.456789/);
+    const arPaper=await context.newPage();await arPaper.setContent(arabic);assert.ok((await arPaper.pdf({format:'A4'})).length>1000);await arPaper.screenshot({path:path.join(__dirname,'output','permit-catalog-ar.png'),fullPage:true});await arPaper.close();
     await page.evaluate(()=>openImportPermitHistory());await page.locator('[data-record-open="legacy"]').first().click();
     assert.equal(await page.locator('.permit-item-qty').inputValue(),'18.17');assert.equal(await page.locator('#permit_aedRate').inputValue(),'3.67');
+    assert.equal(await page.locator('.permit-item-reference').isVisible(),false,'old invoices are not assigned reference prices from the new list');
     await page.locator('#permit_proformaNo').fill('LEGACY-EDIT');await page.locator('#importPermitSaveBtn').click();
     await page.waitForFunction(()=>document.getElementById('importPermitSaveState').textContent.includes('آخر حفظ'));
     assert.equal(JSON.parse(fs.readFileSync(store)).find(r=>r.id==='legacy').reference,legacy.reference);

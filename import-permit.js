@@ -43,7 +43,16 @@
     const value=byId('permit_currency').value==='__other__'?byId('permit_customCurrency').value.trim():byId('permit_currency').value;
     try{return decimal.currency(value);}catch{return value;}
   };
-  const commodityLabel = item => `${item.name} — ${item.category} — HS ${item.hsCode} — ${item.unit}`;
+  const referencePrice = item => item?.indicativePriceUsd !== undefined && decimal.valid(item.indicativePriceUsd)
+    ? `${item.indicativePriceUsd} USD / ${item.unit}` : '';
+  const commodityLabel = item => `${item.name} — ${item.category} — HS ${item.hsCode} — ${item.unit}${referencePrice(item)?` — مرجعي ${referencePrice(item)}`:''}`;
+  const printUnit = (unit,lang) => window.BALDNA_COMMODITY_UNIT_LABELS?.[unit]?.[lang] || unit;
+  function renderReferencePrice(row,item){
+    const label=row.querySelector('.permit-item-reference');
+    const price=referencePrice(item);
+    label.textContent=price?`السعر التأشيري: ${price} (مرجع فقط، لا يُضاف للفاتورة)`:'';
+    label.hidden=!price;
+  }
 
   function todayIso(){
     const date = new Date();
@@ -193,7 +202,7 @@
   }
 
   function itemRowTemplate(index){
-    return `<div class="field permit-commodity"><label>السلعة ${index} *</label><input type="text" class="permit-item-commodity" list="permitCommodityOptions" placeholder="ابحث باسم السلعة أو HS Code" autocomplete="off"></div>
+    return `<div class="field permit-commodity"><label>السلعة ${index} *</label><input type="text" class="permit-item-commodity" list="permitCommodityOptions" placeholder="ابحث باسم السلعة أو HS Code" autocomplete="off"><small class="permit-item-reference" hidden></small></div>
       <div class="field"><label>الكمية *</label><input type="text" class="permit-item-qty" inputmode="decimal"></div>
       <div class="field permit-unit"><label>الوحدة</label><input type="text" class="permit-item-unit" dir="ltr" readonly></div>
       <div class="field"><label>HS Code</label><input type="text" class="permit-item-hs" dir="ltr" readonly></div>
@@ -214,7 +223,8 @@
     if(prefill?.commodityId){
       const item = prefill.description?{
         id:prefill.commodityId,name:prefill.description,nameEn:prefill.descriptionEn||prefill.description,
-        category:prefill.category||'',hsCode:prefill.hsCode,unit:prefill.unit
+        category:prefill.category||'',hsCode:prefill.hsCode,unit:prefill.unit,
+        indicativePriceUsd:catalogById.get(String(prefill.commodityId))?.indicativePriceUsd
       }:catalogById.get(String(prefill.commodityId));
       if(item){
         row.dataset.savedCommodity=JSON.stringify(item);
@@ -222,6 +232,7 @@
         row.querySelector('.permit-item-commodity').value = commodityLabel(item);
         row.querySelector('.permit-item-unit').value = item.unit;
         row.querySelector('.permit-item-hs').value = item.hsCode;
+        renderReferencePrice(row,item);
       }
     }
     if(prefill?.quantity) row.querySelector('.permit-item-qty').value = prefill.quantity;
@@ -249,6 +260,7 @@
 
   function applyCommodity(row){
     const item = selectedCommodity(row);
+    renderReferencePrice(row,item);
     if(!item){
       delete row.dataset.commodityId;
       row.querySelector('.permit-item-unit').value = '';
@@ -467,7 +479,7 @@
           ? (item.descriptionEn || commodity?.nameEn || item.description)
           : (item.description || commodity?.name || item.descriptionEn),
         quantity,
-        unit: item.unit || commodity?.unit || '',
+        unit: printUnit(item.unit || commodity?.unit || '',printLanguage),
         hsCode: item.hsCode || commodity?.hsCode || '',
         amount: decimal.multiply(amount,rate),
         price: decimal.positive(quantity)?decimal.divide(decimal.multiply(amount,rate),quantity):'0'
