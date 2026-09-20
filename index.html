@@ -2499,6 +2499,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-financial-center.css?v=20260920-phase1-1">
   <link rel="stylesheet" href="bsgt-management.css?v=20260919-cad-1">
   <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
+  <link rel="stylesheet" href="bsgt-bank-sent.css?v=20260920-1">
   <link rel="stylesheet" href="archive.css?v=20260918-archive-1">
   <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
@@ -5874,7 +5875,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="permissions.js?v=20260920-financial-center-1"></script>
 <script src="portal-access.js?v=20260920-finance-readonly-1"></script>
 <script src="session-navigation.js?v=20260915-sending-master-1"></script>
-  <script src="bsgt-workspace.js?v=20260920-financial-center-2"></script>
+  <script src="bsgt-workspace.js?v=20260920-bank-sent-3"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260919-cad-1"></script>
@@ -10269,7 +10270,8 @@ function bsgtRelationsPermission(requireEdit=false){
 function renderBsgtRelationsShell(){
   return `<div class="bsgt-relations" id="bsgtRelationsRoot">
     <section class="bsgt-relations-lane bsgt-relations-ready-panel" aria-labelledby="bsgtRelationsReadyTitle"><header><div class="bsgt-relations-lane-title"><span class="bsgt-relations-lane-icon" aria-hidden="true">${icon('plane',18)}</span><div><h3 id="bsgtRelationsReadyTitle">جاهزة للإرسال للبنك المعني</h3><p>ملفات مقبولة نهائياً من الإدارة وجميع شحناتها جاهزة للإرسال.</p></div></div><span class="bsgt-relations-count" id="bsgtRelationsReadyCount" hidden></span></header><div class="bsgt-relations-list" id="bsgtRelationsReady"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>
-    ${isAdmin()?`<section class="bsgt-relations-lane" aria-labelledby="bsgtRelationsSentTitle"><header><div><h3 id="bsgtRelationsSentTitle">الملفات المُرسلة للبنك</h3><p>للمدير: افتح الملف المُرسل ثم اختر «إرجاع للعلاقات لاستكمال التوقيع». فتح الملف لا يغيّر حالته.</p></div></header><div class="bsgt-relations-list" id="bsgtRelationsSent"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>`:'<div id="bsgtRelationsSent" hidden aria-hidden="true"></div>'}
+    <a class="btn btn-ghost" href="/#v=bsgtWorkspace&section=bankSent">${icon('plane',14)} فتح بوابة الملفات المُرسلة للبنك</a>
+    <div id="bsgtRelationsSent" hidden aria-hidden="true"></div>
     <div class="bsgt-relations-pager" id="bsgtRelationsPager"></div>
     <div id="bsgtRelationsDetail"></div>
     <div class="bsgt-relations-modal" id="bsgtRelationsConfirm" hidden><div class="bsgt-relations-modal-card" role="dialog" aria-modal="true" aria-labelledby="bsgtRelationsConfirmTitle"><h3 id="bsgtRelationsConfirmTitle">تأكيد الإرسال للبنك المعني؟</h3><div id="bsgtRelationsConfirmMessage"></div><div class="bsgt-relations-modal-actions"><button type="button" class="btn btn-ghost" id="bsgtRelationsConfirmCancel">إلغاء</button><button type="button" class="btn bsgt-relations-primary" id="bsgtRelationsConfirmSubmit">${icon('plane',14)} تأكيد الإرسال</button></div></div></div>
@@ -10577,6 +10579,8 @@ function renderBsgtWorkspace(requestedSection){
     window.JahezBsgtFinancialCenter?.mount(content, {sb, toast, profile:currentAccessProfile(), formatDate:formatShipmentAuditDate});
   }else if(activeSection === 'tradeFiles'){
     window.JahezBsgtTradeFiles.mount(content);
+  }else if(activeSection === 'bankSent'){
+    window.JahezBsgtSentFiles.mount(content);
   }else if(activeSection === 'operationCenter'){
     content.innerHTML = '<div class="bsgt-operation-center-embed" aria-live="polite"><div class="operation-center-empty">جاري تحميل مركز عمليات BSGT…</div></div>';
     loadBsgtOperationCenter(content.querySelector('.bsgt-operation-center-embed'));
@@ -22234,7 +22238,8 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260919-placement-2"></script>
 <script src="company-profile.js?v=20260919-placement-2"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260920-relations-reopen-6"></script>
+<script src="bsgt-revision-workflow.js?v=20260920-bank-sent-7"></script>
+<script src="bsgt-bank-sent.js?v=20260920-1"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 <script src="bsgt-financial-center.js?v=20260920-phase1-1"></script>
 </body>

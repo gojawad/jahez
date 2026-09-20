@@ -28,7 +28,8 @@ async function main(){
     await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'LOCAL ONLY BANK',address:'NOT A DATABASE VALUE'}]})));
     let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0;
     const attachments=[];
-    let revisionMode=false,signedDocument=null,signCalls=0,reopenCalls=0;
+    let revisionMode=false,signedDocument=null,signCalls=0,reopenCalls=0,sentExtras=[],failSentList=false;
+    const sentReadOffsets=[];
     const signedPdfs=new Map(),signedReads=[];
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const testPdf=await PDFDocument.create();testPdf.addPage([595,842]);const testPdfBytes=Buffer.from(await testPdf.save());
@@ -65,8 +66,18 @@ async function main(){
       if(url.pathname==='/rest/v1/companies')return route.fulfill({status:200,headers,body:JSON.stringify([company])});
       if(url.pathname==='/rest/v1/bank_book')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'bank-1',nick:'COLLECTING BANK',body:'DUBAI'}])});
       if(url.pathname==='/rest/v1/lookups')return route.fulfill({status:200,headers,body:JSON.stringify([{id:'saved-bank',list_key:'collectionSending.collectingBankProfile',value:'COLLECTION SOURCE BANK|||PORT SUDAN SAVED ADDRESS',linked_address:'PORT SUDAN SAVED ADDRESS',active:true,sort_order:0}])});
-      if(url.pathname==='/rest/v1/trade_collection_files')return route.fulfill({status:200,headers,body:JSON.stringify(file())});
-      if(url.pathname==='/rest/v1/trade_collection_file_shipments')return route.fulfill({status:200,headers,body:JSON.stringify([shipmentId,secondShipmentId].map((id,index)=>({id:`link-${index}`,trade_file_id:tradeId,shipment_id:id})))});
+      if(url.pathname==='/rest/v1/trade_collection_files'){
+        const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||250);
+        if(!url.searchParams.has('id')){sentReadOffsets.push(offset);if(failSentList)return route.fulfill({status:403,headers,body:'{"message":"Synthetic read denied"}'});}
+        return route.fulfill({status:200,headers,body:JSON.stringify(url.searchParams.has('id')?file():(status==='sent_to_collecting'?[file(),...sentExtras].slice(offset,offset+limit):[]))});
+      }
+      if(url.pathname==='/rest/v1/trade_collection_file_shipments'){
+        const primary=[shipmentId,secondShipmentId].map((id,index)=>({id:`link-${index}`,trade_file_id:tradeId,shipment_id:id}));
+        const filter=url.searchParams.get('trade_file_id'),offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||250);
+        const ids=filter?.startsWith('in.')?filter.slice(4,-1).split(','):null;
+        const rows=ids?[...primary,...sentExtras.map((f,i)=>({id:`extra-link-${i}`,trade_file_id:f.id,shipment_id:shipmentId}))].filter(l=>ids.includes(l.trade_file_id)).slice(offset,offset+limit):primary;
+        return route.fulfill({status:200,headers,body:JSON.stringify(rows)});
+      }
       if(url.pathname==='/rest/v1/trade_collection_relations_attachments')return route.fulfill({status:200,headers,body:JSON.stringify(attachments)});
       if(url.pathname==='/rest/v1/trade_collection_file_events'||url.pathname==='/rest/v1/shipment_files')return route.fulfill({status:200,headers,body:'[]'});
       if(url.pathname==='/rest/v1/trade_collection_file_documents')return route.fulfill({status:200,headers,body:JSON.stringify(['letter','undertaking','exchange'].map((document_type,index)=>({id:`doc-${index}`,trade_file_id:tradeId,revision_no:2,document_type,storage_path:`${tradeId}/2/${document_type}/file.pdf`,file_name:`${document_type}.pdf`,is_active:true,uploaded_by:profile.id,created_at:'2026-09-12T10:30:00Z'})))});
@@ -205,13 +216,48 @@ async function main(){
     assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'employee cannot reopen a dispatched file');
     // Start from the actual admin landing page, not a programmatic detail open.
     profile.role='admin';
+    sentExtras=Array.from({length:12},(_,i)=>({...file(),id:`extra-${i}`,operation_no:`TC-2026-${String(601+i).padStart(6,'0')}`,collecting_bank:'SECOND BANK',sent_to_collecting_at:'2026-09-11T12:00:00Z'}));
     await page.reload({waitUntil:'domcontentloaded'});
-    await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').waitFor();
-    assert.equal(await page.locator('#bsgtRelationsSent').isVisible(),true,'admin can reach dispatched files from the visible list');
-    assert.match(await page.locator('#bsgtRelationsSentTitle').innerText(),/المُرسلة للبنك/);
+    await page.locator('[data-bsgt-section="bankSent"]').click();
+    await page.locator('#bsgtBankSent [data-open]').first().waitFor();
+    assert.ok(page.url().includes('section=bankSent'));
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#bsgtBankSent [data-open]').first().waitFor();
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),10);
+    await page.locator('#bsgtBankSent [data-pages]').getByRole('button',{name:'التالي',exact:true}).click();
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),3,'server records beyond page one remain reachable');
+    assert.match(await page.locator('#bsgtBankSent h2').innerText(),/المُرسلة للبنك/);
+    await page.locator('#bsgtBankSent [name="bank"]').selectOption('COLLECTING BANK');
+    await page.locator('#bsgtBankSent [name="client"]').selectOption('TEST CLIENT');
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),1,'combined bank and client filters match');
+    await page.locator('#bsgtBankSent [name="search"]').fill('not-present');
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),0);
+    await page.locator('#bsgtBankSent [type="reset"]').click();
+    await page.locator('#bsgtBankSent [data-open]').first().waitFor();
+    await page.evaluate(()=>window.scrollTo(0,0));
+    if(process.env.TEST_ARTIFACT_DIR){fs.mkdirSync(process.env.TEST_ARTIFACT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.TEST_ARTIFACT_DIR,'bank-sent-desktop.png'),fullPage:false});}
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.evaluate(()=>document.getElementById('bsgtBankSent').scrollWidth<=document.getElementById('bsgtBankSent').clientWidth),true,'mobile portal does not overflow');
+    if(process.env.TEST_ARTIFACT_DIR)await page.screenshot({path:path.join(process.env.TEST_ARTIFACT_DIR,'bank-sent-mobile.png'),fullPage:false});
+    await page.setViewportSize({width:1440,height:900});
+    sentExtras=Array.from({length:252},(_,i)=>({...file(),id:`extra-${i}`,operation_no:`TC-2026-${String(601+i).padStart(6,'0')}`,collecting_bank:'SECOND BANK',sent_to_collecting_at:'2026-09-11T12:00:00Z'}));
+    await page.locator('#bsgtBankSent [data-refresh]').click();
+    await page.waitForFunction(()=>document.querySelector('#bsgtBankSent [data-result]').textContent.startsWith('253 ملف'));
+    assert.ok(sentReadOffsets.includes(250),'reads beyond the first server batch');
+    await page.locator('#bsgtBankSent [name="search"]').fill('TC-2026-000852');
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),1,'last server page is searchable');
+    await page.locator('#bsgtBankSent [name="search"]').fill('');
+    failSentList=true;
+    await page.locator('#bsgtBankSent [data-refresh]').click();
+    await page.locator('#bsgtBankSent [role="alert"]').waitFor();
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),0,'failed refresh does not show stale sent files');
+    failSentList=false;
+    await page.locator('#bsgtBankSent [data-refresh]').click();
+    await page.locator(`#bsgtBankSent [data-open="${tradeId}"]`).waitFor();
     assert.equal(reopenCalls,0,'listing sent files does not return them');
-    await page.locator('#bsgtRelationsSent [data-bsgt-relations-open]').click();
+    await page.locator(`#bsgtBankSent [data-open="${tradeId}"]`).click();
     await page.locator('#bsgtRelationsReopenSigning').waitFor();
+    await checkUpdatedPreview([610,595]);
     await page.locator('#bsgtRelationsReopenSigning').click();
     const reopenDialog=page.locator('dialog[open]');
     assert.match(await reopenDialog.innerText(),/TC-2026-000555/);assert.match(await reopenDialog.innerText(),/BSGTX-2026-0106/);
@@ -223,6 +269,10 @@ async function main(){
     await page.locator('#bsgtRelationsSend').waitFor();
     await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).first().waitFor();
     assert.equal(reopenCalls,1);assert.equal(signedDocument.storage_path,priorSigned,'reopen keeps current signed version');
+    assert.ok(page.url().includes('section=relations'),'return navigates to the editable relations stage');
+    await page.locator('[data-bsgt-section="bankSent"]').click();
+    await page.locator('#bsgtBankSent .bsent-empty h4').waitFor();
+    assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),0,'returned file leaves sent list');
     assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'reopened file cannot be reopened twice');
     await context.close();console.log('BSGT relations browser workflow: passed');
   }finally{if(browser)await browser.close();server.kill('SIGTERM');}

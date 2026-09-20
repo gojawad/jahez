@@ -497,6 +497,7 @@
             p_expected_updated_at:file.updated_at,p_shipment_ids:shipments.map(s=>s.id),p_note:note});
           saved=true;node.close();
           toast('أُعيد الملف للعلاقات لاستكمال التوقيع. الاعتماد والتوقيعات السابقة محفوظة.');
+          if(document.getElementById('bsgtBankSent'))switchView('bsgtWorkspace',{section:'relations',history:'push'});
           await loadBsgtRelations();await openBsgtRelationsFile(file.id);
         }catch(err){
           if(saved){toast('تم الإرجاع. حدّث صفحة العلاقات لعرض الملف.');return;}
