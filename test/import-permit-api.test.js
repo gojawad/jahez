@@ -14,6 +14,19 @@ test('exact decimal calculations and currency validation',()=>{
   for(const value of ['','0','-1','Infinity','NaN','1e9999'])assert.equal(D.positive(value),false);
   assert.throws(()=>D.currency('<script>'));assert.throws(()=>D.currency('A'.repeat(65)));
 });
+test('unit-price display rounds only its quotient to two decimals using exact arithmetic',()=>{
+  assert.equal(D.unitPriceDisplay('73400','538'),'136.43');
+  assert.equal(D.unitPriceDisplay(D.multiply('20000','3.67'),'538'),'136.43');
+  assert.equal(D.unitPriceDisplay('1','8'),'0.13');
+  assert.equal(D.unitPriceDisplay('1','3'),'0.33');
+  assert.equal(D.unitPriceDisplay('1.999','1'),'2.00');
+  assert.equal(D.unitPriceDisplay('0.000001','1'),'0.00');
+  assert.equal(D.unitPriceDisplay('0.000001','0.000001'),'1.00');
+  assert.equal(D.unitPriceDisplay('9007199254740993.125','1'),'9007199254740993.13');
+  assert.throws(()=>D.unitPriceDisplay('1','0'));
+  assert.equal(D.divide('73400','538'),'36700 / 269','exact calculation remains unchanged');
+});
+
 test('permit API preserves legacy records, decimals, references, authorization and archive pages',async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'permit-api-'));
   const oldEnv={dir:process.env.JAHEZ_DATA_DIR,key:process.env.SUPABASE_SERVICE_ROLE_KEY};

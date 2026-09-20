@@ -1093,66 +1093,70 @@ window.BALDNA_COMMODITY_TRANSLATIONS = Object.freeze({
 window.BALDNA_COMMODITY_UNIT_LABELS = Object.freeze({
   "رأس": {
     "ar": "رأس",
-    "en": "Head"
+    "en": "HEAD"
   },
   "طن": {
     "ar": "طن",
-    "en": "Metric ton"
+    "en": "METRIC TON"
   },
   "كيلوجرام": {
     "ar": "كيلوجرام",
-    "en": "kg"
+    "en": "KILOGRAM"
   },
   "دستة": {
     "ar": "دستة",
-    "en": "Dozen"
+    "en": "DOZEN"
   },
   "قدم مربع": {
     "ar": "قدم مربع",
-    "en": "sq ft"
+    "en": "SQUARE FOOT"
   },
   "قطعة": {
     "ar": "قطعة",
-    "en": "Piece"
+    "en": "PIECE"
   },
   "جرام": {
     "ar": "جرام",
-    "en": "g"
+    "en": "GRAM"
   },
   "لتر": {
     "ar": "لتر",
-    "en": "Litre"
+    "en": "LITRE"
   },
   "متر مكعب": {
     "ar": "متر مكعب",
-    "en": "m3"
+    "en": "CUBIC METRE"
   },
   "متر مربع": {
     "ar": "متر مربع",
-    "en": "m2"
+    "en": "SQUARE METRE"
   },
   "PCE": {
     "ar": "قطعة",
-    "en": "PCE"
+    "en": "PIECE"
   },
   "KGM": {
     "ar": "كيلوجرام",
-    "en": "KGM"
+    "en": "KILOGRAM"
+  },
+  "KG": {
+    "ar": "كيلوجرام",
+    "en": "KILOGRAM"
   },
   "DZN": {
     "ar": "دستة",
-    "en": "DZN"
+    "en": "DOZEN"
   },
   "MTQ": {
     "ar": "متر مكعب",
-    "en": "MTQ"
+    "en": "CUBIC METRE"
   },
   "MTK": {
     "ar": "متر مربع",
-    "en": "MTK"
+    "en": "SQUARE METRE"
   },
   "GRM": {
     "ar": "جرام",
-    "en": "GRM"
+    "en": "GRAM"
   }
 });

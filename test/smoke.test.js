@@ -337,7 +337,8 @@ async function main() {
       assert.ok(appHtml.includes("const amountCurrency = String(r.permitInvoiceCurrency || 'AED')"));
       assert.ok(appHtml.includes("record[firstItemKey('Unit')] || record.qtyUnit"));
       assert.ok(permitSource.includes('chooseDocLang(record, lang =>'));
-      assert.ok(permitSource.includes("buildSheet(portalRecord(lang), 'proforma', lang)"));
+      assert.ok(permitSource.includes('buildPermitSheet(portalRecord(lang), lang)'));
+      assert.ok(permitSource.includes("template.innerHTML=buildSheet(record, 'proforma', lang)"));
       assert.ok(permitSource.includes("item.descriptionEn || commodity?.nameEn || item.description"));
       assert.ok(permitSource.includes('descriptionEn: commodity?.nameEn'));
       assert.ok(companyWizard.includes("packaging: record.itemUnit || record.qtyUnit || ''"));

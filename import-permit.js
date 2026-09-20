@@ -46,7 +46,7 @@
   const referencePrice = item => item?.indicativePriceUsd !== undefined && decimal.valid(item.indicativePriceUsd)
     ? `${item.indicativePriceUsd} USD / ${item.unit}` : '';
   const commodityLabel = item => `${item.name} — ${item.category} — HS ${item.hsCode} — ${item.unit}${referencePrice(item)?` — مرجعي ${referencePrice(item)}`:''}`;
-  const printUnit = (unit,lang) => window.BALDNA_COMMODITY_UNIT_LABELS?.[unit]?.[lang] || unit;
+  const printUnit = (unit,lang) => (window.BALDNA_COMMODITY_UNIT_LABELS?.[unit] || window.BALDNA_COMMODITY_UNIT_LABELS?.[String(unit).trim().toUpperCase()])?.[lang] || unit;
   function renderReferencePrice(row,item){
     const label=row.querySelector('.permit-item-reference');
     const price=referencePrice(item);
@@ -276,7 +276,7 @@
     const quantity = numeric(row.querySelector('.permit-item-qty').value);
     const amount = numeric(row.querySelector('.permit-item-amount').value);
     row.querySelector('.permit-item-price').value = decimal.positive(quantity) && decimal.positive(amount)
-      ? decimal.divide(amount, quantity)
+      ? decimal.unitPriceDisplay(amount, quantity)
       : '';
     recalculateGrandTotal();
   }
@@ -482,7 +482,7 @@
         unit: printUnit(item.unit || commodity?.unit || '',printLanguage),
         hsCode: item.hsCode || commodity?.hsCode || '',
         amount: decimal.multiply(amount,rate),
-        price: decimal.positive(quantity)?decimal.divide(decimal.multiply(amount,rate),quantity):'0'
+        price: decimal.positive(quantity)?decimal.unitPriceDisplay(decimal.multiply(amount,rate),quantity):'0.00'
       };
     });
     const currencyValue = value => `${currency} ${money(value)}`;
@@ -688,7 +688,7 @@
 
   function buildSavedRecordSheet(record, lang){
     try{
-      return buildSheet(portalRecordFromData(record.data || {}, record.reference || '', lang), 'proforma', lang);
+      return buildPermitSheet(portalRecordFromData(record.data || {}, record.reference || '', lang), lang);
     }catch(error){
       console.error('import permit saved invoice render', error);
       toast('تعذر تجهيز الفاتورة للمعاينة', 'err');
@@ -790,6 +790,19 @@
     if(!confirmLeave())return;
     if(window.opener){try{window.close();}catch(error){}}
     setTimeout(()=>{if(!window.closed)location.assign('/'+portalHash);},100);
+  }
+
+  function buildPermitSheet(record, lang){
+    const template=document.createElement('template');
+    template.innerHTML=buildSheet(record, 'proforma', lang);
+    const walker=document.createTreeWalker(template.content,NodeFilter.SHOW_TEXT);
+    // Uppercase visible invoice text only, never stored data, styles, or asset URLs.
+    while(walker.nextNode()){
+      if(!walker.currentNode.parentElement?.closest('style,script')){
+        walker.currentNode.nodeValue=walker.currentNode.nodeValue.toUpperCase();
+      }
+    }
+    return template.innerHTML;
   }
 
   function openRecordsInNewTab(){
@@ -1027,7 +1040,7 @@
     if(languageLayer.parentElement !== document.documentElement) document.documentElement.appendChild(languageLayer);
     languageLayer.classList.add('import-permit-preview-layer');
     chooseDocLang(record, lang => {
-      openPrintWindow(buildSheet(portalRecord(lang), 'proforma', lang));
+      openPrintWindow(buildPermitSheet(portalRecord(lang), lang));
     });
   });
 

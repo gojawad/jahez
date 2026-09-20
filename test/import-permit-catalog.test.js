@@ -27,3 +27,10 @@ test('distinct source reference prices stay distinguishable and missing prices s
   const keys=rows.map(x=>JSON.stringify([x.category,x.name,x.hsCode,x.unit,x.indicativePriceUsd]));
   assert.equal(new Set(keys).size,rows.length);
 });
+test('print units expand workbook and legacy abbreviations',()=>{
+  for(const unit of ['كيلوجرام','KGM','KG']){
+    assert.equal(units[unit].en,'KILOGRAM');assert.equal(units[unit].ar,'كيلوجرام');
+  }
+  for(const entry of Object.values(units))assert.equal(entry.en,entry.en.toUpperCase());
+  assert.equal(units.PCE.en,'PIECE');assert.equal(units.MTK.en,'SQUARE METRE');
+});
