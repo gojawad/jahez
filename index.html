@@ -16397,7 +16397,7 @@ function findDuplicateBsgtBill(value, excludeId = bsgtShipEditId){
   const normalized = normalizeBsgtBillNumber(value);
   if(!normalized) return null;
   return records.find(record =>
-    isBsgtRecord(record) && record.id !== excludeId &&
+    isBsgtRecord(record) && !record.archivedAt && record.id !== excludeId &&
     normalizeBsgtBillNumber(record.billNo) === normalized
   ) || null;
 }
@@ -16437,9 +16437,10 @@ function updateBsgtBillDuplicate(){
 async function findDuplicateBsgtBillOnServer(companyId, value, excludeId = bsgtShipEditId){
   const normalized = normalizeBsgtBillNumber(value);
   if(!normalized) return null;
-  const {data, error} = await sb.from('shipments')
+  await window.JahezArchive.ready();
+  const {data, error} = await window.JahezArchive.active(sb.from('shipments')
     .select('id,status,owner_id,company_id,review_note,due_date,credit_days,due_from,bol_template_id,created_at,updated_at,data')
-    .eq('company_id', companyId);
+    .eq('company_id', companyId));
   if(error) throw error;
   const row = (data || []).find(item =>
     item.id !== excludeId && normalizeBsgtBillNumber(item.data?.billNo) === normalized

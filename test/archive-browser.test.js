@@ -32,6 +32,10 @@ async function main(){
       [archivedId]:{id:archivedId,status:'draft',owner_id:profile.id,company_id:company.id,bsgt_stage:'operations_draft',archived_at:'2026-09-15T09:00:00Z',archived_by:profile.id,created_at:'2026-09-10T09:00:00Z',updated_at:'2026-09-10T09:00:00Z',data:{operationNo:'BSGTX-2026-TEST',consignee:'TEST CLIENT',itemDesc:'TEST GOODS',shipType:'sea'}}
     };
     const tradeFile=()=>({id:tradeId,operation_no:'TC-2026-000009',company_id:company.id,status:'draft',revision_no:1,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',collecting_bank:null,archived_at:shipments[liveId].archived_at,metadata:{}});
+    shipments[liveId].data.billNo='ACTIVE-BL-001';
+    shipments[archivedId].data.billNo='CULVSHK2638759';
+    const archivedBefore=JSON.stringify(shipments[archivedId]);
+    const duplicateQueries=[];
     const filtered=(rows,url)=>{const flag=url.searchParams.get('archived_at');if(flag==='is.null')return rows.filter(row=>!row.archived_at);if(flag==='not.is.null')return rows.filter(row=>row.archived_at);return rows;};
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
@@ -41,6 +45,7 @@ async function main(){
         if(body.p_kind==='shipment'){shipments[body.p_id].archived_at=stamp;return route.fulfill({status:200,headers,body:JSON.stringify({kind:'shipment',id:body.p_id,archived:body.p_archived,tradeFileIds:[]})});}
         shipments[liveId].archived_at=stamp;return route.fulfill({status:200,headers,body:JSON.stringify({kind:'trade_file',id:body.p_id,archived:body.p_archived,shipmentIds:[liveId]})});}
       if(url.pathname==='/rest/v1/shipments'){
+        if(url.searchParams.get('select')?.startsWith('id,status,owner_id'))duplicateQueries.push(url);
         const rows=filtered(Object.values(shipments),url);
         if(req.method()==='HEAD')return route.fulfill({status:200,headers:{...headers,'Content-Range':`0-${Math.max(rows.length-1,0)}/${rows.length}`},body:''});
         const single=String(req.headers().accept||'').includes('vnd.pgrst.object');
@@ -59,6 +64,32 @@ async function main(){
     const loaded=await page.evaluate(()=>records.map(row=>row.operationNo));
     assert.deepStrictEqual(loaded,['BSGTX-2026-0001'],'archived shipment must not be loaded');
     assert.strictEqual(await page.evaluate(()=>window.JahezArchive.isSupported()),true);
+    duplicateQueries.length=0;
+    // Both duplicate checks ignore archived bills, including a cached archived record.
+    const billChecks=await page.evaluate(async({companyId,liveId,archivedRow})=>{
+      records.push(rowToRecord(archivedRow));
+      try{
+        document.getElementById('bsgt_billNo').value='culvshk-2638759';
+        updateBsgtBillDuplicate();
+        return {
+          localArchived:findDuplicateBsgtBill('culvshk-2638759'),
+          serverArchived:await findDuplicateBsgtBillOnServer(companyId,'culvshk-2638759'),
+          archivedAlert:document.getElementById('bsgtBillDuplicateAlert').classList.contains('show'),
+          localActive:findDuplicateBsgtBill(' active / bl_001 ')?.id,
+          serverActive:(await findDuplicateBsgtBillOnServer(companyId,' active / bl_001 '))?.id,
+          localSelf:findDuplicateBsgtBill('ACTIVE-BL-001',liveId),
+          serverSelf:await findDuplicateBsgtBillOnServer(companyId,'ACTIVE-BL-001',liveId),
+          blank:await findDuplicateBsgtBillOnServer(companyId,'')
+        };
+      }finally{records=records.filter(row=>row.id!==archivedRow.id);}
+    },{companyId:company.id,liveId,archivedRow:shipments[archivedId]});
+    assert.deepStrictEqual(billChecks,{localArchived:null,serverArchived:null,archivedAlert:false,localActive:liveId,serverActive:liveId,localSelf:null,serverSelf:null,blank:null});
+    assert.strictEqual(duplicateQueries.length,3);
+    for(const query of duplicateQueries){
+      assert.strictEqual(query.searchParams.get('archived_at'),'is.null','duplicate query excludes archived shipments at source');
+      assert.strictEqual(query.searchParams.get('company_id'),`eq.${company.id}`,'company scope is preserved');
+    }
+    assert.strictEqual(JSON.stringify(shipments[archivedId]),archivedBefore,'checking a reusable bill does not modify the archived shipment');
     // 2. Archive browser lists it and restores it.
     await page.locator('#archiveBtn').waitFor({state:'visible'});
     await page.locator('#archiveBtn').click();
@@ -67,6 +98,8 @@ async function main(){
     assert.match(await page.locator('#jahezArchiveList').innerText(),/BSGTX-2026-TEST/);
     await page.locator('#jahezArchiveList [data-jahez-unarchive]').click();
     await page.waitForFunction(()=>records.length===2,null,{timeout:10000});
+    assert.strictEqual(await page.evaluate(()=>findDuplicateBsgtBill('CULVSHK2638759')?.id),archivedId,'restored shipment participates in duplicate checks again');
+    assert.strictEqual(await page.evaluate(async companyId=>(await findDuplicateBsgtBillOnServer(companyId,'CULVSHK2638759'))?.id,company.id),archivedId,'server also detects restored shipment');
     assert.deepStrictEqual(archiveCalls.at(-1),{p_kind:'shipment',p_id:archivedId,p_archived:false});
     await page.locator('#jahezArchiveClose').click();
     // 3. Archive from the shipment page.
