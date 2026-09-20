@@ -31,6 +31,16 @@ async function main(){
     let revisionMode=false,signedDocument=null;
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
     const testPdf=await PDFDocument.create();testPdf.addPage([595,842]);const testPdfBytes=Buffer.from(await testPdf.save());
+    const updatedPdf=await PDFDocument.create();updatedPdf.addPage([610,842]);const updatedPdfBytes=Buffer.from(await updatedPdf.save());
+    const bundleRequests=[];
+    await context.route(`${APP}/api/bsgt-trade-file-preview`,async route=>{
+      const body=route.request().postDataJSON();bundleRequests.push(body);
+      assert.equal(body.fileId,tradeId);assert.equal(body.source,'shipment');assert.equal(body.mode,'current');
+      assert.ok([shipmentId,secondShipmentId].includes(body.documentId));
+      assert.match(route.request().headers().authorization,/^Bearer /);
+      const bytes=signedDocument&&body.documentId===shipmentId?updatedPdfBytes:testPdfBytes;
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({base64:bytes.toString('base64'),sourceCount:1,pageCount:1})});
+    });
     const file=()=>({id:tradeId,operation_no:'TC-2026-000555',company_id:company.id,status,revision_no:2,created_by:profile.id,created_at:'2026-09-12T10:00:00Z',updated_at:'2026-09-12T10:00:00Z',remitting_bank:'ADIB',collecting_bank:'COLLECTING BANK',final_accepted_at:'2026-09-12T11:00:00Z',final_accepted_by:profile.id,sent_to_collecting_at:status==='sent_to_collecting'?'2026-09-12T12:00:00Z':null,metadata:{operationsRevisionWorkflow:revisionMode,documentKinds:['letter','undertaking','exchange'],currency:'USD',collectingBankAddress:'DUBAI'}});
     await context.route(`${SUPABASE}/**`,async route=>{const req=route.request(),url=new URL(req.url()),headers={'Access-Control-Allow-Origin':APP,'Access-Control-Allow-Headers':'authorization, apikey, content-type, prefer, x-client-info','Access-Control-Allow-Methods':'GET, HEAD, POST, PATCH, DELETE, OPTIONS','Content-Type':'application/json'};if(req.method()==='OPTIONS')return route.fulfill({status:204,headers,body:''});
       if(url.pathname==='/rest/v1/profiles')return route.fulfill({status:200,headers,body:JSON.stringify([profile])});
@@ -92,6 +102,19 @@ async function main(){
     });
     revisionMode=true;
     await page.evaluate(()=>loadBsgtRelationsDetail('10000000-0000-4000-8000-000000000005'));
+    async function checkUpdatedPreview(widths){
+      const before=bundleRequests.length;
+      await page.locator('#bsgtRelationsUpdatedFile').click();
+      await page.locator('#bsgtManagementBundleActions').waitFor();
+      await page.waitForFunction(()=>document.getElementById('bsgtRelationsUpdatedFile')?.dataset.busy==='false');
+      const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await(await fetch(document.querySelector('#bsgtManagementBundleActions a[download]').href)).arrayBuffer())));
+      assert.deepEqual((await PDFDocument.load(Uint8Array.from(bytes))).getPages().map(p=>p.getWidth()),widths,'preview and download use the latest versions for both linked shipments');
+      assert.equal(bundleRequests.length-before,2,'each click reads current documents again');
+      assert.equal(await page.locator('#bsgtManagementBundleActions button').filter({hasText:'طباعة الملف كاملاً'}).count(),1);
+      assert.equal(await page.locator('#bsgtRelationsBundlePreview').count(),1,'existing print button remains');
+      await page.evaluate(()=>closePdfPreview());
+    }
+    await checkUpdatedPreview([595,595]);
     await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).first().click();
     const signDialog=page.locator('dialog[open]');
     await page.waitForFunction(()=>{const buttons=[...document.querySelectorAll('dialog[open] [data-auto-pick]')];return buttons.length===4&&buttons.every(b=>!b.disabled);});
@@ -107,6 +130,8 @@ async function main(){
     await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'معاينة الموقّع'}).waitFor();
     assert.ok(signedDocument);assert.equal(await page.locator('[data-bsgt-relations-generated]').count(),8,'previous previews remain');
     assert.equal(await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).count(),4,'remaining originals do not require signing');
+    await checkUpdatedPreview([610,595]);
+    await checkUpdatedPreview([610,595]);
     assert.strictEqual(await page.locator('#bsgtRelationsBank option[value="COLLECTING BANK"]').count(),0,'bank_book entries are not choices');
     assert.strictEqual(await page.locator('#bsgtRelationsBank option').filter({hasText:'LOCAL ONLY BANK'}).count(),0,'database is authoritative, not this browser');
     const bankKey='COLLECTION SOURCE BANK|||PORT SUDAN SAVED ADDRESS';
@@ -126,6 +151,7 @@ async function main(){
     assert.strictEqual(await page.locator('[data-bsgt-relations-upload]').count(),0);
     await page.evaluate(()=>JahezRevisionWorkflow.renderInternalPackage(document.getElementById('bsgtRelationsDetail'),bsgtRelationsState.detail.file,'relations'));
     assert.equal(await page.locator('#bsgtRelationsDetail [data-packages] button').filter({hasText:'إضافة توقيع'}).count(),0,'view-only cannot sign');
+    await checkUpdatedPreview([610,595]);
     canEditPermission=true;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#bsgtRelationsReady [data-bsgt-relations-open]').click();await page.locator('#bsgtRelationsSend').waitFor();
     assert.strictEqual(await page.locator('[data-bsgt-relations-preview="relations/legacy/file.pdf"]').count(),1,'old file still accessible without reparenting');
     assert.strictEqual(attachments.find(a=>a.id==='legacy').shipment_id,secondShipmentId);

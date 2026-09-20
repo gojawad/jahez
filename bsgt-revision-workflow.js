@@ -286,7 +286,7 @@
       if(relations&&!sections.length){const section=document.createElement('section');section.className='bsgt-relations-section';host.querySelector('.bsgt-relations-detail').append(section);sections.push(section);}
       if(!sections.length)return;
       const section=sections[0];sections.slice(1).forEach(s=>s.remove());
-      section.innerHTML='<header><h4>حزمة المستندات الداخلية</h4><small>الأصول محفوظة · التوقيع اختياري · لا يؤثر على QR</small></header><div data-packages></div>';
+      section.innerHTML='<header><h4>حزمة المستندات الداخلية</h4><small>الأصول محفوظة · التوقيع اختياري · رابط QR ثابت ويعرض أحدث توقيعات مستندات العمليات فقط</small></header><div data-packages></div>';
       const root=section.querySelector('[data-packages]');
       for(const entry of bundle.shipments){
         const shipment=entry.shipment,ops=entry.revision;
@@ -457,7 +457,7 @@
     host.querySelector('[data-save]').onclick=()=>run(async()=>{
       if(!placements.length)throw new Error('أضف التوقيع قبل الحفظ.');
       const button=host.querySelector('[data-save]');button.disabled=true;
-      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,image:(placements[0].image||image).split(',')[1],placements:placements.map(({page,x,y,width,height,cloned,image:own})=>({page,x,y,width,height,cloned,image:(own||image).split(',')[1]}))});node.close();await onSaved();toast('حُفظت النسخة الموقعة داخلياً. الأصل وQR لم يتغيرا.');}
+      try{await post('/api/bsgt-internal-document',{action:'sign',tradeFileId:bundle.file.id,revisionNo:bundle.file.revision_no,shipmentId,kind:source.kind,image:(placements[0].image||image).split(',')[1],placements:placements.map(({page,x,y,width,height,cloned,image:own})=>({page,x,y,width,height,cloned,image:(own||image).split(',')[1]}))});node.close();await onSaved();toast('حُفظت النسخة الموقعة. أعد فتح الملف المحدث لمعاينتها؛ الأصل محفوظ ورابط QR ثابت.');}
       finally{button.disabled=false;}
     });
     node.addEventListener('close',()=>{rendering?.cancel();pdf.destroy();},{once:true});await render();

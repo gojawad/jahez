@@ -141,6 +141,9 @@ test('current mode bundles one up-to-date copy of each document with signed vers
   assert.ok(!reads.some(r=>r[1]==='operations.pdf'),'the historical merged package is not duplicated in current mode');
   assert.ok(!reads.some(r=>r[1]==='signed/contract-old.pdf'),'only the newest active signed version is used');
   assert.deepEqual(reads.filter(r=>r[1].startsWith('signed/')).map(r=>r[0]),['trade-collection-documents','trade-collection-documents']);
+  const {buildSignedOperationsPackage,pickSignedRows}=require('../api/qr-signed-package');
+  const qr=await buildSignedOperationsPackage({documents:revision.documents,signedRows:pickSignedRows(documents,{shipmentId,revisionId:documentId,revisionNo:2}),download});
+  assert.deepEqual((await PDFDocument.load(qr.bytes)).getPages().map(p=>p.getWidth()),[401,202],'QR and updated internal preview use identical signed operations documents; finance remains private');
   const historical=await buildShipmentBundle({file,link,shipment,revision,documents,attachments,download});
   assert.equal((await PDFDocument.load(historical.bytes)).getPage(0).getWidth(),100,'default mode still starts with the historical package');
 });

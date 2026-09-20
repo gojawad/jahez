@@ -10421,6 +10421,14 @@ function renderBsgtRelationsDetail(){
   </section>`;
   document.getElementById('bsgtRelationsClose')?.addEventListener('click',()=>{bsgtRelationsState.detailId=null;bsgtRelationsState.detail=null;host.replaceChildren();});
   document.getElementById('bsgtRelationsBundlePreview')?.addEventListener('click',()=>previewBsgtFullBundle(file,shipments,{button:document.getElementById('bsgtRelationsBundlePreview'),print:true,title:'الملف الكامل للطباعة',logAction:'relations_full_bundle_previewed'}));
+  const bundlePreview=document.getElementById('bsgtRelationsBundlePreview');
+  if(bundlePreview){
+    const updated=document.createElement('button');updated.type='button';updated.id='bsgtRelationsUpdatedFile';updated.className='btn btn-ghost';
+    updated.innerHTML=`${icon('refresh',14)} الملف المحدث`;
+    updated.title='جلب أحدث النسخ الموقعة للمعاينة والطباعة والتنزيل؛ مستندات التحصيل داخلية ولا تظهر في QR';
+    updated.addEventListener('click',()=>previewBsgtFullBundle(file,shipments,{button:updated,print:true,title:'الملف المحدث',logAction:'relations_updated_bundle_previewed'}));
+    bundlePreview.before(updated);
+  }
   const fillBankAddress=()=>{document.getElementById('bsgtRelationsBankAddress').value=bsgtRelationsSelectedBank()?.address||'';};
   document.getElementById('bsgtRelationsBankAddress').readOnly=true;
   if(editable&&bsgtRelationsSelectedBank())fillBankAddress();
@@ -22225,7 +22233,7 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260919-placement-2"></script>
 <script src="company-profile.js?v=20260919-placement-2"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260920-assets-cad-3"></script>
+<script src="bsgt-revision-workflow.js?v=20260920-updated-file-4"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 <script src="bsgt-financial-center.js?v=20260920-phase1-1"></script>
 </body>
