@@ -350,7 +350,7 @@
     const missing = [];
     const elements = [];
     [
-      ['permit_proformaNo','رقم الفاتورة المبدئية'], ['permit_proformaDate','تاريخ الفاتورة'],
+      ['permit_proformaDate','تاريخ الفاتورة'],
       ['permit_consignee','المرسل إليه'], ['permit_consigneeAddress','عنوان المرسل إليه'],
       ['permit_portDischarge','جهة الوصول'], ['permit_countryOrigin','بلد المنشأ'],
       ['permit_currency','عملة الفاتورة'], ['permit_incoterm','نوع التأمين'],
@@ -453,17 +453,23 @@
     const original = button.textContent;
     button.textContent = 'جاري الحفظ...';
     const submittedSnapshot=snapshot();
+    const submittedData=formPayload();
     try{
       const result = await portalApi('/api/import-permit-invoices', {
         method:'POST',
-        body:JSON.stringify({id:currentRecordId || undefined, data:formPayload()})
+        body:JSON.stringify({id:currentRecordId || undefined, data:submittedData})
       });
       const saved = result.record;
       const index = savedRecords.findIndex(record => record.id === saved.id);
       if(index >= 0) savedRecords[index] = saved;
       else savedRecords.unshift(saved);
       savedRecords.sort((a,b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-      setCurrentRecord(saved,submittedSnapshot);
+      let savedSnapshot=submittedSnapshot;
+      if(!submittedData.proformaNo){
+        if(!byId('permit_proformaNo').value.trim()) byId('permit_proformaNo').value=saved.data.proformaNo;
+        savedSnapshot=JSON.stringify(JSON.parse(submittedSnapshot).map(entry=>Array.isArray(entry)&&entry[0]==='permit_proformaNo'?[entry[0],saved.data.proformaNo]:entry));
+      }
+      setCurrentRecord(saved,savedSnapshot);
       toast(`تم حفظ الفاتورة بالمرجع ${saved.reference}`);
       return saved;
     }catch(error){

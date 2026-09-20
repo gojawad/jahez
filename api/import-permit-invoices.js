@@ -118,8 +118,8 @@ function normalizePayload(input) {
     quantity: cleanDecimal(item.quantity),
     amount: cleanDecimal(item.amount)
   })) : [];
-  if (!cleanText(data.proformaNo, 50) || !/^\d{4}-\d{2}-\d{2}$/.test(cleanText(data.proformaDate, 10))) {
-    throw Object.assign(new Error('رقم وتاريخ الفاتورة مطلوبان.'), { status: 400 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanText(data.proformaDate, 10))) {
+    throw Object.assign(new Error('تاريخ الفاتورة مطلوب.'), { status: 400 });
   }
   if (!cleanText(data.consignee) || !cleanText(data.consigneeAddress) || !cleanText(data.portDischarge) || !cleanText(data.countryOrigin)) {
     throw Object.assign(new Error('بيانات المرسل إليه والوصول وبلد المنشأ مطلوبة.'), { status: 400 });
@@ -171,6 +171,29 @@ function publicRecord(record) {
     archivedByName: record.archivedByName || '',
     data: record.data
   };
+}
+
+function assignProformaNumber(records, payload, existing) {
+  if (payload.proformaNo) return {};
+  if (existing?.data?.proformaNo) {
+    payload.proformaNo = existing.data.proformaNo;
+    return {};
+  }
+  let maximum = 0n;
+  for (const record of records) {
+    const match = String(record.data?.proformaNo || '').match(/^BSGTP-\d{2}-\d{2}-\d{4}-(\d+)$/i);
+    for (const value of [record.proformaSequence, match?.[1]]) {
+      if (/^\d+$/.test(String(value ?? ''))) {
+        const sequence = BigInt(value);
+        if (sequence > maximum) maximum = sequence;
+      }
+    }
+  }
+  const sequence = (maximum + 1n).toString();
+  const [year, month, day] = payload.proformaDate.split('-');
+  payload.proformaNo = `BSGTP-${month}-${day}-${year}-${sequence}`;
+  // Keep the allocation even when its visible invoice number is later edited.
+  return {proformaSequence:sequence};
 }
 
 function listInvoices(records, profile, query = {}) {
@@ -250,10 +273,12 @@ async function saveInvoice(profile, body) {
       if (records[index].archivedAt) {
         throw Object.assign(new Error('استرجع الفاتورة من الأرشيف قبل تعديلها.'), { status: 409 });
       }
-      records[index] = { ...records[index], data: payload, updatedAt: now };
+      const numbering = assignProformaNumber(records, payload, records[index]);
+      records[index] = { ...records[index], ...numbering, data: payload, updatedAt: now };
       result = publicRecord(records[index]);
     } else {
       const record = {
+        ...assignProformaNumber(records, payload),
         id: globalThis.crypto.randomUUID(),
         reference: nextReference(records),
         ownerId: profile.id,
