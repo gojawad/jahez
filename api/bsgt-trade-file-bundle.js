@@ -1,12 +1,15 @@
 'use strict';
 const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');
+const {createHash}=require('node:crypto');
+const {createPreviewCache}=require('./bsgt-preview-cache');
+const previewCache=createPreviewCache();
 const order=['contract','proforma','invoice','packing','import_permit','certificate_of_origin','bill_of_lading','letter','undertaking','exchange'];
 
 // A transient, internal preview only. Never publish this bundle to the shipment QR.
 // mode 'current': one up-to-date copy of each document — every operations and
 // finance document is replaced by its active administration-signed version when
 // one exists (no duplicates). Default mode keeps the historical layout.
-async function buildShipmentBundle({file,link,shipment,revision,documents,attachments,download,mode}){
+async function buildShipmentBundle({file,link,shipment,revision,documents,attachments,download,mode,cacheScope,optimized=true}){
   if(!file||!link||link.trade_file_id!==file.id||link.shipment_id!==shipment?.id)throw new Error('Shipment is outside this trade file');
   let baseline;
   if(link.operations_revision_id){
@@ -33,12 +36,33 @@ async function buildShipmentBundle({file,link,shipment,revision,documents,attach
   }else{
     sources=[baseline,...finance.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...signed.map(row=>({bucket:'trade-collection-documents',path:row.storage_path})),...relations.map(row=>({bucket:'trade-collection-documents',path:row.storage_path}))];
   }
-  const merged=await PDFDocument.create(),seen=new Set();let totalBytes=0;
+  const seen=new Set(),unique=[];
   for(const source of sources){
     if(!source.path)throw new Error('Stored document path is missing');
     const key=`${source.bucket}/${source.path}`;if(seen.has(key))continue;seen.add(key);
-    const bytes=await download(source.bucket,source.path);totalBytes+=bytes.length;
-    if(totalBytes>64*1024*1024)throw new Error('Bundle too large');
+    unique.push(source);
+  }
+  // Read every source using the caller's current Storage authorization, including
+  // cache hits. Content hashes detect replacements even at an unchanged path.
+  const loaded=[];let totalBytes=0;
+  const concurrency=optimized?3:1;
+  for(let start=0;start<unique.length;start+=concurrency){
+    const batch=await Promise.allSettled(unique.slice(start,start+concurrency).map(async source=>{
+      const bytes=await download(source.bucket,source.path);totalBytes+=bytes.length;
+      if(totalBytes>64*1024*1024)throw new Error('Bundle too large');
+      return {source,bytes};
+    }));
+    const failed=batch.find(result=>result.status==='rejected');if(failed)throw failed.reason;
+    loaded.push(...batch.map(result=>result.value));
+  }
+  let cacheKey;
+  if(optimized&&cacheScope){
+    cacheKey=createHash('sha256').update(JSON.stringify({version:1,cacheScope,file,link,shipment,revision,documents,attachments,mode,
+      sources:loaded.map(({source,bytes})=>[source.bucket,source.path,createHash('sha256').update(bytes).digest('hex')])})).digest('hex');
+    const cached=previewCache.get(cacheKey);if(cached)return {...cached,cacheHit:true};
+  }
+  const merged=await PDFDocument.create();
+  for(const {source,bytes} of loaded){
     if(bytes.subarray(0,5).toString()==='%PDF-'){
       const pdf=await PDFDocument.load(bytes);if(!pdf.getPageCount())throw new Error('Empty document');
       for(const page of await merged.copyPages(pdf,pdf.getPageIndices()))merged.addPage(page);
@@ -52,6 +76,8 @@ async function buildShipmentBundle({file,link,shipment,revision,documents,attach
     }
     if(merged.getPageCount()>500)throw new Error('Bundle has too many pages');
   }
-  return {bytes:Buffer.from(await merged.save()),pageCount:merged.getPageCount(),sourceCount:seen.size};
+  const result={bytes:Buffer.from(await merged.save()),pageCount:merged.getPageCount(),sourceCount:seen.size};
+  if(cacheKey)previewCache.set(cacheKey,result);
+  return result;
 }
 module.exports={buildShipmentBundle};

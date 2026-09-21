@@ -3,6 +3,7 @@
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BYTES=64*1024*1024;
 const {buildShipmentBundle}=require('./bsgt-trade-file-bundle');
+const {createHash}=require('node:crypto');
 module.exports=async function(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({error:'POST required'});
@@ -22,13 +23,19 @@ module.exports=async function(req,res){
     const result=[];
     for(let offset=0;;offset+=500){const batch=await rows(`${path}&order=id&limit=500&offset=${offset}`);result.push(...batch);if(batch.length<500)return result;}
   }
+  let downloadedBytes=0;
   async function download(bucket,path){
     if(!path||path.split('/').some(part=>!part||part==='..'||part==='.')||path.includes('\\'))throw new Error('Invalid stored path');
     const response=await fetch(`${base}/storage/v1/object/authenticated/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,{headers,signal:AbortSignal.timeout(60000)});
     if(!response.ok)throw new Error('Storage access denied');
     if(Number(response.headers.get('content-length'))>MAX_BYTES)throw new Error('File too large');
     const chunks=[];let size=0;
-    for await(const chunk of response.body){size+=chunk.length;if(size>MAX_BYTES)throw new Error('File too large');chunks.push(Buffer.from(chunk));}
+    for await(const chunk of response.body){
+      size+=chunk.length;downloadedBytes+=chunk.length;
+      if(size>MAX_BYTES)throw new Error('File too large');
+      if(downloadedBytes>MAX_BYTES)throw new Error('Bundle too large');
+      chunks.push(Buffer.from(chunk));
+    }
     return Buffer.concat(chunks);
   }
   try{
@@ -50,7 +57,9 @@ module.exports=async function(req,res){
       const scope=`trade_file_id=eq.${fileId}&revision_no=eq.${Number(files[0].revision_no)||1}&is_active=eq.true&or=(shipment_id.is.null,shipment_id.eq.${documentId})`;
       const documents=await allRows(`trade_collection_file_documents?${scope}&select=*`);
       const attachments=await allRows(`trade_collection_relations_attachments?${scope}&select=*`);
-      const bundle=await buildShipmentBundle({file:files[0],link,shipment:shipments[0],revision:revisions[0],documents,attachments,download,mode});
+      const cacheScope=createHash('sha256').update(`${base}\0${authorization}`).digest('hex');
+      const bundle=await buildShipmentBundle({file:files[0],link,shipment:shipments[0],revision:revisions[0],documents,attachments,download,mode,
+        cacheScope,optimized:process.env.BSGT_PREVIEW_OPTIMIZATIONS!=='0'});
       return res.status(200).json({mimeType:'application/pdf',base64:bundle.bytes.toString('base64'),pageCount:bundle.pageCount,sourceCount:bundle.sourceCount});
     }
     let bucket,path;

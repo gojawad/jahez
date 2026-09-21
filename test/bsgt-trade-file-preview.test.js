@@ -87,12 +87,12 @@ test('shipment bundle preserves ordered stages, current revisions and shipment b
 
 test('complete shipment API resolves authorized stored paths and blocks unrelated shipments',async()=>{
   const savedFetch=global.fetch,savedKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
-  process.env.SUPABASE_SERVICE_ROLE_KEY='test-key';let linked=true,storageReads=0,legacy=false,missing=false;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='test-key';let linked=true,storageReads=0,legacy=false,missing=false,fileAccess=true,storageAccess=true;
   const pdf=await pageBytes(230);
   global.fetch=async(url,options)=>{
     assert.equal(options.method||'GET','GET');assert.equal(options.headers.Authorization,'Bearer employee-token');
     const parsed=new URL(url),table=parsed.pathname.split('/').pop(),params=parsed.searchParams;
-    if(table==='trade_collection_files')return Response.json([{id:fileId,revision_no:2}]);
+    if(table==='trade_collection_files')return Response.json(fileAccess?[{id:fileId,revision_no:2}]:[]);
     if(table==='trade_collection_file_shipments'){
       assert.equal(params.get('trade_file_id'),`eq.${fileId}`);assert.equal(params.get('shipment_id'),`eq.${shipmentId}`);
       return Response.json(linked?[{trade_file_id:fileId,shipment_id:shipmentId,operations_revision_id:legacy?null:documentId}]:[]);
@@ -107,13 +107,17 @@ test('complete shipment API resolves authorized stored paths and blocks unrelate
       assert.equal(params.get('or'),`(shipment_id.is.null,shipment_id.eq.${shipmentId})`);return Response.json([]);
     }
     assert.ok(url.includes('/storage/v1/object/authenticated/'));assert.ok(!url.includes('attacker'));storageReads++;
-    return new Response(pdf);
+    return new Response(storageAccess?pdf:'Forbidden',{status:storageAccess?200:403});
   };
   async function invoke(){const res={setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
     await handler({method:'POST',headers:{authorization:'Bearer employee-token'},body:{fileId,source:'shipment',documentId:shipmentId,path:'attacker.pdf'}},res);return res;}
   try{
     const result=await invoke();assert.equal(result.code,200);assert.equal(result.body.pageCount,1);
     assert.equal((await PDFDocument.load(Buffer.from(result.body.base64,'base64'))).getPageCount(),1);
+    assert.equal((await invoke()).body.base64,result.body.base64,'warm cache keeps identical PDF bytes');
+    assert.equal(storageReads,2,'warm cache rechecks Storage access');
+    fileAccess=false;let readsBefore=storageReads;assert.equal((await invoke()).code,403);assert.equal(storageReads,readsBefore);fileAccess=true;
+    storageAccess=false;assert.equal((await invoke()).code,403,'revoked Storage access cannot retrieve cached PDF');storageAccess=true;
     linked=false;const before=storageReads;assert.equal((await invoke()).code,403);assert.equal(storageReads,before);
     linked=true;legacy=true;assert.equal((await invoke()).code,200);
     missing=true;assert.equal((await invoke()).code,409);
