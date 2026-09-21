@@ -38,6 +38,7 @@
         Object.freeze({key:'bsgt.management.view', label:'عرض الإدارة', description:'مشاهدة مرحلة الإدارة والاعتماد.'}),
         Object.freeze({key:'bsgt.management.edit', label:'تعديل واعتماد الإدارة', description:'تنفيذ إجراءات الإدارة والاعتماد.', dependsOn:Object.freeze(['bsgt.management.view'])}),
         Object.freeze({key:'bsgt.relations.view', label:'عرض العلاقات التجارية', description:'مشاهدة مرحلة العلاقات التجارية.'}),
+        Object.freeze({key:'bsgt.bank_sent.view', label:'عرض الملفات المُرسلة للبنك', description:'عرض سجل الإرسال والبحث ومعاينة وطباعة مستنداته فقط، دون تعديل أو توقيع أو إرجاع.'}),
         Object.freeze({key:'bsgt.relations.edit', label:'تعديل العلاقات التجارية', description:'تنفيذ إجراءات العلاقات التجارية.', dependsOn:Object.freeze(['bsgt.relations.view'])}),
         Object.freeze({key:'bsgt.financial_center.view', label:'عرض المركز المالي', description:'مشاهدة الملفات المالية للعمليات وتكاليفها وسجل أحداثها.'}),
         Object.freeze({key:'bsgt.financial_center.edit', label:'إدخال وتعديل الملفات المالية', description:'إنشاء الملفات المالية وإدخال المبالغ والتعرفات وإذن الاستيراد قبل الاعتماد.', dependsOn:Object.freeze(['bsgt.financial_center.view'])}),

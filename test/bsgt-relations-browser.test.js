@@ -26,7 +26,7 @@ async function main(){
     const context=await browser.newContext({viewport:{width:1440,height:900}});const exp=Math.floor(Date.now()/1000)+3600;
     await context.addInitScript(({profile,exp,token})=>localStorage.setItem('shipdocs-auth',JSON.stringify({access_token:token,refresh_token:'r',expires_at:exp,expires_in:3600,token_type:'bearer',user:{id:profile.id,email:profile.email,aud:'authenticated',role:'authenticated'}})),{profile,exp,token:jwt()});
     await context.addInitScript(()=>localStorage.setItem('bsCollectionDataLists',JSON.stringify({collectingBankProfile:[{bank:'LOCAL ONLY BANK',address:'NOT A DATABASE VALUE'}]})));
-    let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0;
+    let status='final_accepted',sendCalls=0,canEditPermission=true,uploadCalls=0,registrations=0,bankSentOnly=false;
     const attachments=[];
     let revisionMode=false,signedDocument=null,signCalls=0,reopenCalls=0,sentExtras=[],failSentList=false;
     const sentReadOffsets=[];
@@ -58,7 +58,8 @@ async function main(){
         return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:signedPdfs.get(path)});
       }
       if(url.pathname.includes('/storage/v1/object/')&&url.pathname.includes('/bsgt-operations-packages/'))return route.fulfill({status:200,headers:{...headers,'Content-Type':'application/pdf'},body:testPdfBytes});
-      if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions')return route.fulfill({status:200,headers,body:JSON.stringify([{section:'relations',can_view:true,can_edit:canEditPermission}])});
+      if(url.pathname==='/rest/v1/rpc/get_user_feature_permissions')return route.fulfill({status:200,headers,body:JSON.stringify(bankSentOnly?[{permission_key:'bsgt.bank_sent.view',allowed:true}]:[])});
+      if(url.pathname==='/rest/v1/rpc/get_bsgt_workspace_permissions')return route.fulfill({status:200,headers,body:JSON.stringify(bankSentOnly?[]:[{section:'relations',can_view:true,can_edit:canEditPermission}])});
       if(url.pathname==='/rest/v1/rpc/get_bsgt_relations_trade_files')return route.fulfill({status:200,headers,body:JSON.stringify([{...file(),shipment_count:2,missing_optional_count:2-new Set(attachments.filter(a=>a.is_active).map(a=>a.attachment_type)).size,total_count:1}])});
       if(url.pathname==='/rest/v1/rpc/send_bsgt_trade_file_to_collecting'){const body=req.postDataJSON();assert.strictEqual(body.p_trade_file_id,tradeId);assert.strictEqual(body.p_collecting_bank,'COLLECTION SOURCE BANK');assert.strictEqual(body.p_collecting_bank_address,'PORT SUDAN SAVED ADDRESS');sendCalls++;status='sent_to_collecting';return route.fulfill({status:200,headers,body:JSON.stringify(file())});}
       if(url.pathname.startsWith('/storage/v1/object/trade-collection-documents/')){uploadCalls++;assert.ok(url.pathname.includes(`/relations/${tradeId}/2/case/company_letter/`));return route.fulfill({status:200,headers,body:'{}'});}
@@ -214,6 +215,21 @@ async function main(){
     assert.strictEqual(await page.locator('#bsgtRelationsConfirm').isVisible(),false);
     assert.strictEqual(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),true);
     assert.equal(await page.locator('#bsgtRelationsReopenSigning').count(),0,'employee cannot reopen a dispatched file');
+    assert.equal(await page.locator('[data-bsgt-section="bankSent"]').count(),0,'relations alone does not grant the new portal');
+    assert.equal(await page.locator('a[href="/#v=bsgtWorkspace&section=bankSent"]').count(),0,'shortcut also respects the new permission');
+    bankSentOnly=true;
+    await page.goto(`${APP}/#v=bsgtWorkspace&section=bankSent`);await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#bsgtBankSent [data-open]').first().waitFor();
+    assert.equal(await page.locator('[data-bsgt-section="relations"]').count(),0,'bank-sent reader gets no relations section');
+    assert.equal(await page.locator('[data-bsgt-section="finance"]').count(),0);
+    await page.locator('#bsgtBankSent [data-open]').first().click();
+    await page.locator('#bsgtRelationsDetail [data-packages]').waitFor();
+    assert.equal(await page.locator('#bsgtRelationsReopenSigning, #bsgtRelationsSend, [data-bsgt-relations-upload]').count(),0);
+    assert.equal(await page.locator('#bsgtRelationsDetail button').filter({hasText:'إضافة توقيع'}).count(),0);
+    await checkUpdatedPreview([610,595]);
+    bankSentOnly=false;await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('#bsgtRelationsRoot').waitFor();
+    assert.equal(await page.locator('#bsgtBankSent').count(),0,'revoked assignment cannot reopen via direct hash');
     // Start from the actual admin landing page, not a programmatic detail open.
     profile.role='admin';
     sentExtras=Array.from({length:12},(_,i)=>({...file(),id:`extra-${i}`,operation_no:`TC-2026-${String(601+i).padStart(6,'0')}`,collecting_bank:'SECOND BANK',sent_to_collecting_at:'2026-09-11T12:00:00Z'}));

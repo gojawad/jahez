@@ -1,0 +1,81 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+module.exports=async(db,{id,tradeFile,revision2})=>{
+  const sql=fs.readFileSync(path.join(__dirname,'../supabase/60_bsgt_bank_sent_permission.sql'),'utf8');
+  const reader='00000000-0000-4000-8000-000000000060';
+  await db.exec(`
+    alter table profiles add column role text default 'staff', add column active boolean default true,
+      add column feature_permissions_initialized boolean default true;
+    create table feature_permission_catalog(permission_key text primary key,group_key text,label_ar text,depends_on text[]);
+    create table user_feature_permissions(user_id uuid,permission_key text,allowed boolean,updated_at timestamptz,
+      constraint user_feature_permissions_user_key unique(user_id,permission_key));
+    create table user_portal_permissions(user_id uuid,portal_key text,can_view boolean,unique(user_id,portal_key));
+    create table bsgt_workspace_permissions(user_id uuid,section text,can_view boolean,can_edit boolean,unique(user_id,section));
+    alter table trade_collection_files add column archived_at timestamptz;
+    insert into profiles(id) values('${reader}');
+    create or replace function is_active() returns boolean language sql security definer as $$select exists(select 1 from profiles where id=auth.uid() and active)$$;
+    create or replace function is_admin() returns boolean language sql security definer as $$select exists(select 1 from profiles where id=auth.uid() and active and role='admin')$$;
+    create or replace function is_bsgt_user() returns boolean language sql as $$select false$$;
+    create or replace function has_bsgt_workspace_permission(text,boolean) returns boolean language sql as $$select has_feature_permission('bsgt.'||$1||case when $2 then '.edit' else '.view' end)$$;
+  `);
+  const authoritative=fs.readFileSync(path.join(__dirname,'../supabase/39_authoritative_feature_permissions.sql'),'utf8');
+  await db.exec(authoritative.slice(authoritative.indexOf('create or replace function public.has_feature_permission'),authoritative.indexOf('create or replace function public.get_user_feature_permissions')));
+  const tables=['shipments','shipment_files','trade_collection_files','trade_collection_file_shipments','trade_collection_file_documents','trade_collection_relations_attachments','trade_collection_file_events','bsgt_operations_revisions','storage.objects','user_feature_permissions'];
+  const snapshot=async()=>{const out=[];for(const t of tables)out.push((await db.query(`select to_jsonb(t) j from ${t} t order by to_jsonb(t)::text`)).rows);return out;};
+  const before=await snapshot();await db.exec(sql);await db.exec(sql);
+  assert.deepEqual(await snapshot(),before,'60 is idempotent and does not change records or employee grants');
+  const originalGate=await db.query("select pg_get_functiondef('register_bsgt_internal_signature(uuid,integer,uuid,text,text,text,jsonb)'::regprocedure) d");
+  assert.doesNotMatch(originalGate.rows[0].d,/bank_sent/,'no signing scope extension');
+  // The fixture uses real feature authorization and authenticated RLS, not owner queries.
+  for(const t of tables.filter(t=>t!=='user_feature_permissions'))await db.exec(`alter table ${t} enable row level security; grant select,insert,update,delete on ${t} to authenticated;`);
+  await db.exec('grant usage on schema auth,storage to authenticated');
+  await db.query("update trade_collection_files set status='sent_to_collecting',revision_no=2 where id=$1",[tradeFile.id]);
+  await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/40_fix_feature_permission_conflict.sql'),'utf8'));
+  await db.exec("update profiles set role='admin' where id=auth.uid()");
+  const assignment=(await db.query('select * from set_user_feature_permissions($1,$2)',[reader,['bsgt.bank_sent.view']])).rows;
+  assert.deepEqual(assignment,[{permission_key:'bsgt.bank_sent.view',allowed:true}],'existing admin RPC accepts the new catalog key without dependencies');
+  const foreign='40000000-0000-4000-8000-000000000060';
+  await db.query("insert into trade_collection_files(id,company_id,status) values($1,$1,'sent_to_collecting')",[foreign]);
+  const attachmentPath=`relations/${tradeFile.id}/2/case/company_letter/read.pdf`;
+  await db.query("insert into trade_collection_relations_attachments(trade_file_id,shipment_id,attachment_type,original_name,storage_path,revision_no,uploaded_by) values($1,null,'company_letter','read.pdf',$2,2,$3)",[tradeFile.id,attachmentPath,reader]);
+  await db.query("insert into storage.objects values('trade-collection-documents',$1),('trade-collection-documents','unregistered.pdf'),('client-profile-files','stamp.png'),('shipment-files','import_permit.pdf')",[attachmentPath]);
+  await db.exec(`set app.uid='${reader}'; set role authenticated`);
+  await assert.rejects(db.query('select * from set_user_feature_permissions($1,$2)',[reader,['bsgt.relations.edit']]),/Admin permission/,'employee cannot self-escalate');
+  const visible=async(file)=>Boolean((await db.query('select id from trade_collection_files where id=$1',[file])).rows.length);
+  const hasObject=async(bucket,name)=>Boolean((await db.query('select name from storage.objects where bucket_id=$1 and name=$2',[bucket,name])).rows.length);
+  assert.equal(await visible(tradeFile.id),true);
+  assert.equal(await visible(foreign),false,'other company denied');
+  assert.equal((await db.query('select id from shipments where id=$1',[id])).rows.length,1);
+  assert.equal((await db.query('select id from bsgt_operations_revisions where id=$1',[revision2])).rows.length,1);
+  const bundle=(await db.query('select bsgt_internal_package($1) b',[tradeFile.id])).rows[0].b;
+  assert.equal(bundle.file.id,tradeFile.id);assert.ok(bundle.documents.length);
+  assert.equal(await hasObject('bsgt-operations-packages',`${id}/${revision2}/package.pdf`),true,'approved operations package storage');
+  assert.equal(await hasObject('trade-collection-documents',attachmentPath),true,'relations attachment storage');
+  const signed=bundle.documents.find(d=>d.document_variant==='administration_signed');
+  assert.ok(signed);assert.equal(await hasObject('trade-collection-documents',signed.storage_path),true,'signed document storage');
+  assert.equal(await hasObject('shipment-files','import_permit.pdf'),true,'shipment attachment storage');
+  assert.equal(await hasObject('trade-collection-documents','unregistered.pdf'),false);
+  assert.equal(await hasObject('client-profile-files','stamp.png'),false,'does not grant client asset access');
+  assert.equal((await db.query("update trade_collection_files set collecting_bank='DENIED' where id=$1 returning id",[tradeFile.id])).rows.length,0);
+  assert.equal((await db.query('delete from trade_collection_files where id=$1 returning id',[tradeFile.id])).rows.length,0);
+  await assert.rejects(db.query("insert into storage.objects values('trade-collection-documents','denied.pdf')"),/row-level security/);
+  await assert.rejects(db.query("select register_bsgt_internal_signature($1,2,$2,'invoice','x','x','[]')",[tradeFile.id,id]),/permission required/i);
+  await assert.rejects(db.query("select reopen_bsgt_relations_for_signing($1,2,now(),$2,'test')",[tradeFile.id,[id]]),/administrator/i);
+  await assert.rejects(db.query('select send_bsgt_trade_file_to_collecting($1,$2,$3)',[tradeFile.id,'X','Y']),/permission/i);
+  for(const mutation of ["status='draft'","status='final_accepted'","status='sent_to_collecting',archived_at=now()"]){
+    await db.exec('reset role');await db.query(`update trade_collection_files set ${mutation} where id=$1`,[tradeFile.id]);await db.exec('set role authenticated');
+    assert.equal(await visible(tradeFile.id),false,mutation);
+    assert.equal(await hasObject('trade-collection-documents',attachmentPath),false);
+    assert.equal(await hasObject('bsgt-operations-packages',`${id}/${revision2}/package.pdf`),false);
+    await assert.rejects(db.query('select bsgt_internal_package($1)',[tradeFile.id]),/permission required/i);
+  }
+  await db.exec('reset role');await db.query("update trade_collection_files set status='sent_to_collecting',archived_at=null where id=$1",[tradeFile.id]);
+  await db.query('update user_feature_permissions set allowed=false where user_id=$1',[reader]);await db.exec('set role authenticated');
+  assert.equal(await visible(tradeFile.id),false,'revocation takes effect immediately');
+  await db.exec('reset role');await db.query('update user_feature_permissions set allowed=true where user_id=$1',[reader]);await db.query('update profiles set active=false where id=$1',[reader]);await db.exec('set role authenticated');
+  assert.equal(await visible(tradeFile.id),false,'inactive user denied');
+  assert.equal((await db.query("select has_function_privilege('anon','bsgt_bank_sent_can_read(uuid)','execute') ok")).rows[0].ok,false);
+  await db.exec('reset role');
+  console.log('SQL 60: idempotent/no data or grants changed; explicit assignment, sent/company scope, RLS/RPC/registered storage, no writes/sign/reopen/send, revocation/inactive: passed');
+};

@@ -88,6 +88,12 @@ async function main(){
     await staffRow.locator('.save-feature-permissions').click();
     await saveResponse;
     assert.deepStrictEqual(adminFixture.getSavePayload(),{p_user_id:staffId,p_permission_keys:['import_permit.view']});
+    await staffRow.locator('.user-permissions:not([open])').waitFor();
+    await staffRow.locator('.user-permissions>summary').click();
+    await staffRow.locator('[data-permission-key="bsgt.bank_sent.view"]').check();
+    const bankSentSave=adminPage.waitForResponse(response=>new URL(response.url()).pathname==='/rest/v1/rpc/set_user_feature_permissions');
+    await staffRow.locator('.save-feature-permissions').click();await bankSentSave;
+    assert.deepStrictEqual(adminFixture.getSavePayload(),{p_user_id:staffId,p_permission_keys:['import_permit.view','bsgt.bank_sent.view']},'new read checkbox preserves other assignments and adds no relations permissions');
     assert.doesNotMatch(await adminPage.locator('body').textContent(),/ليس لديك الصلاحية/);
     const viewerRow=adminPage.locator(`.user-row[data-uid="${viewerId}"]`);
     await viewerRow.locator('.user-permissions>summary').click();

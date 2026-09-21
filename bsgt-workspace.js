@@ -57,7 +57,7 @@
       key: 'bankSent',
       label: 'الملفات المُرسلة للبنك',
       icon: 'plane',
-      permissionKey: 'bsgt.relations.view',
+      permissionKey: 'bsgt.bank_sent.view',
       message: 'سجل الإرسال للبنك والبحث حسب البنك والعميل.'
     }),
     Object.freeze({
@@ -114,7 +114,6 @@
     if (['finance','management','relations'].some(section => bySection.has(section))) {
       bySection.set('tradeFiles', Object.freeze({section:'tradeFiles',canView:true,canEdit:false}));
     }
-    if (bySection.has('relations')) bySection.set('bankSent', Object.freeze({section:'bankSent',canView:true,canEdit:false}));
     return Object.freeze(SECTION_KEYS.map(section => bySection.get(section)).filter(Boolean));
   }
 

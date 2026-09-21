@@ -24,6 +24,16 @@ const admin = {id:'admin', role:'admin', active:true};
 const allow = (...keys) => keys.map(permission_key => ({permission_key, allowed:true}));
 
 const tests = [
+  ['bank-sent access is an independent read-only assignment', () => {
+    const ctx=context(initializedStaff,allow('bsgt.bank_sent.view'));
+    assert.deepEqual(ctx.allowedKeys(),['bsgt.bank_sent.view']);
+    assert.deepEqual(workspace.allowedSections(initializedStaff,[],{featureKeys:ctx.allowedKeys()}).map(s=>s.key),['bankSent']);
+    assert.equal(context({...staff,role:'viewer'},allow('bsgt.bank_sent.view')).can('bsgt.bank_sent.view'),true);
+    assert.equal(context({...staff,active:false},allow('bsgt.bank_sent.view')).can('bsgt.bank_sent.view'),false);
+    assert.equal(context(staff,[],[],[{section:'relations',can_view:true,can_edit:true}]).can('bsgt.bank_sent.view'),false);
+    assert.equal(context(initializedStaff,[{permission_key:'bsgt.bank_sent.view',allowed:false}]).can('bsgt.bank_sent.view'),false);
+    assert.ok(Object.values(permissions.PRESETS).every(p=>!p.keys.includes('bsgt.bank_sent.view')));
+  }],
   ['admin has every permission without rows', () => assert.equal(context(admin).allowedKeys().length, permissions.ALL_KEYS.length)],
   ['admin cannot be restricted by false rows', () => assert.equal(context(admin, [{permission_key:'package.merge',allowed:false}]).can('package.merge'), true)],
   ['initialized staff does not inherit legacy portal access', () => assert.deepEqual(context(initializedStaff, [], ['import_permit']).allowedKeys(), [])],

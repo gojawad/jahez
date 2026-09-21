@@ -5872,10 +5872,10 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="permissions.js?v=20260920-financial-center-1"></script>
+<script src="permissions.js?v=20260921-bank-sent-permission-1"></script>
 <script src="portal-access.js?v=20260920-finance-readonly-1"></script>
 <script src="session-navigation.js?v=20260915-sending-master-1"></script>
-  <script src="bsgt-workspace.js?v=20260920-bank-sent-3"></script>
+  <script src="bsgt-workspace.js?v=20260921-bank-sent-permission-1"></script>
 <script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260919-cad-1"></script>
@@ -10270,7 +10270,7 @@ function bsgtRelationsPermission(requireEdit=false){
 function renderBsgtRelationsShell(){
   return `<div class="bsgt-relations" id="bsgtRelationsRoot">
     <section class="bsgt-relations-lane bsgt-relations-ready-panel" aria-labelledby="bsgtRelationsReadyTitle"><header><div class="bsgt-relations-lane-title"><span class="bsgt-relations-lane-icon" aria-hidden="true">${icon('plane',18)}</span><div><h3 id="bsgtRelationsReadyTitle">جاهزة للإرسال للبنك المعني</h3><p>ملفات مقبولة نهائياً من الإدارة وجميع شحناتها جاهزة للإرسال.</p></div></div><span class="bsgt-relations-count" id="bsgtRelationsReadyCount" hidden></span></header><div class="bsgt-relations-list" id="bsgtRelationsReady"><div class="bsgt-relations-loading">جاري التحميل…</div></div></section>
-    <a class="btn btn-ghost" href="/#v=bsgtWorkspace&section=bankSent">${icon('plane',14)} فتح بوابة الملفات المُرسلة للبنك</a>
+    ${bsgtWorkspaceSections().some(section=>section.key==='bankSent')?`<a class="btn btn-ghost" href="/#v=bsgtWorkspace&section=bankSent">${icon('plane',14)} فتح بوابة الملفات المُرسلة للبنك</a>`:''}
     <div id="bsgtRelationsSent" hidden aria-hidden="true"></div>
     <div class="bsgt-relations-pager" id="bsgtRelationsPager"></div>
     <div id="bsgtRelationsDetail"></div>
