@@ -1,4 +1,4 @@
-/* BSGT workspace — «المركز المالي» (phase 1).
+/* BSGT workspace — «المركز المالي» (phase 1 + phase 2 tabs).
    One financial file per trade file: list (keyset, 10 per page), creation from an eligible
    trade file, details (client, invoices, tariffs, import permit, bank documents), computed
    costs read back from the database, event log and status transitions.
@@ -40,8 +40,10 @@
   const INVOICE_COLUMNS = 'id,financial_file_id,shipment_id,invoice_no_snapshot,currency_snapshot,amount_source_text,amount_usd::text,amount_usd_basis,amount_confirmed_at,amount_confirmed_by,detached_at,detached_by,created_at';
   const MONEY_FIELDS = ['invoice_total_usd','documents_value_aed','bank_tariff_per_1000_sdg','bsgt_tariff_per_1000_sdg','bank_cost_sdg','bsgt_commission_sdg','import_permit_cost_sdg','client_total_sdg','amount_usd'];
 
+  const TABS = Object.freeze({files:'الملفات المالية', vouchers:'السندات', accounts:'الحسابات', reports:'التقارير'});
+  const ledger = () => globalThis.JahezBsgtFinancialLedger || null;
   const state = {
-    container:null, view:'list', busy:false,
+    container:null, view:'list', tab:'files', busy:false, ledger:null,
     filters:{status:'', search:'', closed:''},
     page:{rows:[], cursors:[], next:null},          // cursors: stack of {updated_at,id} for the previous pages
     file:null, invoices:[], events:[], names:new Map(), listRow:null,
@@ -103,22 +105,32 @@
         <div><h3 id="bsgtFinancialCenterTitle">${TITLE}</h3><p>${DESCRIPTION}</p></div>
         <div class="fc-head-actions" data-head-actions></div>
       </header>
+      <nav class="fc-tabs" data-fc-tabs aria-label="أقسام المركز المالي">${Object.entries(TABS).map(([k, t]) => `<button type="button" class="fc-tab ${k === 'files' ? 'is-active' : ''}" data-tab="${k}" ${k !== 'files' && !ledger() ? 'hidden' : ''}>${t}</button>`).join('')}</nav>
       <div class="bsgt-financial-center-body" data-body aria-live="polite"></div>
     </section>`;
   }
   function mount(container, options = {}) {
     if (!container) return null;
     Object.assign(deps, {sb:options.sb || null, toast:options.toast || null, profile:options.profile || null, formatDate:options.formatDate || null});
+    ledger()?.configure({...deps, fmtDecimal, normalizeDecimalInput, rpcError});
     state.container = container;
     container.innerHTML = shell();
     if (!can(KEYS.view)) {
       container.querySelector('[data-body]').innerHTML = '<div class="fc-empty">ليس لديك صلاحية عرض المركز المالي.</div>';
       return container.querySelector('#bsgtFinancialCenter');
     }
-    state.view = 'list'; state.file = null; state.page = {rows:[], cursors:[], next:null};
+    state.view = 'list'; state.tab = 'files'; state.file = null; state.page = {rows:[], cursors:[], next:null};
+    container.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => selectTab(btn.dataset.tab)));
     renderList();
     loadPage(null);
     return container.querySelector('#bsgtFinancialCenter');
+  }
+  function selectTab(tab) {
+    state.tab = tab; state.file = null; state.view = tab === 'files' ? 'list' : tab;
+    state.container.querySelectorAll('[data-tab]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.tab === tab));
+    if (tab === 'files') { headActions().innerHTML = ''; renderList(); loadPage(null); return; }
+    headActions().innerHTML = '';
+    ledger()?.mount(body(), tab, {...deps, fmtDecimal, normalizeDecimalInput, rpcError});
   }
   const body = () => state.container?.querySelector('[data-body]');
   const headActions = () => state.container?.querySelector('[data-head-actions]');
@@ -255,6 +267,8 @@
       state.invoices = (invRes.data || []).map(assertStrings);
     } catch (error) { body().innerHTML = `<div class="fc-error fc-panel">${esc(error.message)}</div>`; return; }
     state.events = evRes.data || [];
+    state.ledger = null;
+    if (ledger()) { try { state.ledger = await ledger().loadFileLedger(id); } catch (error) { state.ledger = {error: error.message}; } }
     await loadNames();
     if (!state.listRow || state.listRow.id !== id) {
       const {data} = await client.from('trade_collection_files').select('id,operation_no,status,archived_at').eq('id', state.file.trade_file_id).maybeSingle();
@@ -280,13 +294,18 @@
     if (!can(KEYS.approve) || f.closed_at) return [];
     const list = [];
     const add = (action, text, cls = 'btn-primary', needsNote = false) => list.push({action, text, cls, needsNote});
+    const ledgerMode = state.ledger?.state?.ledger_mode === 'ledger';   // (55) ملف دفتر: الدفع والتسليم ممكنان قبل تحويل العميل، والختم يُسجَّل لاحقاً
     switch (f.status) {
       case 'draft': add('approve', 'اعتماد التكلفة'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
-      case 'pending_client_transfer': add('confirm_client_transfer', 'تأكيد تحويل العميل'); add('reopen', 'إعادة فتح المسودة', 'btn-ghost'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
+      case 'pending_client_transfer': add('confirm_client_transfer', 'تأكيد تحويل العميل'); if (ledgerMode) add('confirm_bank_payment', 'تأكيد دفع البنك (قبل التحويل)', 'btn-ghost'); add('reopen', 'إعادة فتح المسودة', 'btn-ghost'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
       case 'client_transferred': add('confirm_bank_payment', 'تأكيد دفع البنك'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
-      case 'bank_paid': add('complete', 'إكمال العملية'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
-      case 'completed': add('close', 'إقفال الملف', 'btn-ghost'); break;
-      case 'failed': if (f.client_transferred_at) add('start_refund', 'بدء الاسترداد الكامل'); else add('close', 'إقفال الملف', 'btn-ghost'); break;
+      case 'bank_paid': add('complete', 'إكمال العملية'); if (ledgerMode && !f.client_transferred_at) add('confirm_client_transfer', 'تسجيل تحويل العميل', 'btn-ghost'); add('fail', 'تسجيل إخفاق', 'btn-ghost fc-danger', true); break;
+      case 'completed': if (ledgerMode && !f.client_transferred_at) add('confirm_client_transfer', 'تسجيل تحويل العميل', 'btn-ghost'); add('close', 'إقفال الملف', 'btn-ghost'); break;
+      case 'failed': {
+        const due = state.ledger?.refund?.refund_total_due_sdg;                             // (55) الاستحقاق الكلي (اللقطة + القبض بعد الإخفاق) لملفات الدفتر الكامل
+        const ledgerFile = state.ledger?.state?.ledger_mode === 'ledger';
+        if (ledgerFile ? (due && !ledger().isZero(due)) : f.client_transferred_at) add('start_refund', 'بدء الاسترداد الكامل'); else add('close', 'إقفال الملف', 'btn-ghost');
+        break; }
       case 'refund_in_progress': add('confirm_refund', 'تأكيد الاسترداد الكامل'); break;
       case 'refunded': add('close', 'إقفال الملف', 'btn-ghost'); break;
     }
@@ -312,6 +331,7 @@
         ${f.failure_reason ? `<div class="fc-failure">سبب الإخفاق: ${esc(f.failure_reason)}</div>` : ''}
         <div class="fc-actions" data-actions>${actionsFor(f).map(a => `<button type="button" class="btn ${a.cls} btn-small" data-transition="${a.action}" data-needs-note="${a.needsNote}">${a.text}</button>`).join('')}</div>
       </section>
+      <div data-ledger-host>${state.ledger?.error ? `<div class="fc-error fc-panel">تعذر تحميل الدفتر: ${esc(state.ledger.error)} <button type="button" class="btn btn-ghost btn-small" data-action="retry-ledger">إعادة المحاولة</button></div>` : ''}</div>
 
       <div class="fc-grid">
         <section class="fc-panel">
@@ -410,6 +430,8 @@
     b.querySelector('[data-action="client-search"]')?.addEventListener('click', searchClients);
     b.querySelector('[data-client-search]')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchClients(); } });
     b.querySelectorAll('[data-transition]').forEach(btn => btn.addEventListener('click', () => transition(btn.dataset.transition, btn.dataset.needsNote === 'true')));
+    b.querySelector('[data-action="retry-ledger"]')?.addEventListener('click', () => reload(f.id));
+    if (ledger() && state.ledger && !state.ledger.error) ledger().renderFileCard(b.querySelector('[data-ledger-host]'), {file: f, ledger: state.ledger, operationNo: state.listRow?.operation_no || '', onChange: () => reload(f.id)});
   }
 
   // ---------------------------------------------------------------- writes (all through RPCs, one lock_version each)
@@ -504,5 +526,5 @@
     finally { setBusy(false); await reload(state.file.id); }
   }
 
-  return Object.freeze({TITLE, DESCRIPTION, KEYS, STATUS, PAGE_SIZE, FILE_COLUMNS, INVOICE_COLUMNS, shell, mount, fmtDecimal, normalizeDecimalInput, actionsFor, state});
+  return Object.freeze({TITLE, DESCRIPTION, KEYS, STATUS, TABS, PAGE_SIZE, FILE_COLUMNS, INVOICE_COLUMNS, shell, mount, selectTab, fmtDecimal, normalizeDecimalInput, rpcError, actionsFor, state});
 });
