@@ -1,5 +1,11 @@
 # BSGT Bank-Sent Portal
 
+## Approved Compact Layout Follow-up
+
+On 2026-09-21 the user approved the compact-table mockup. The large cards were replaced with one semantic row per file, a compact heading/summary, and smaller filter spacing. Every filter remains. Client, bank, sending timestamp, document mode and revision remain visible; native expandable shipment cells retain every linked shipment number. Mobile reflows into dense labeled rows without horizontal overflow. The existing file-opening, latest-PDF, print/download and admin-return handlers are unchanged. No API, database, permissions or QR changes.
+
+Source rollback archive: `E:/jahez-backups/relations-reopen-20260920/before-compact-table-8bb3159.zip`. Baseline: `8bb31592b21920c6ef3591114b394a9bc0ee2462`. The browser suite verifies ten table rows, compact desktop height, expanding two linked shipments, filters, 253-record server pagination, updated PDF and return flow; desktop/mobile screenshots are in `E:/jahez-backups/bank-sent-compact-review/`. Filters unit tests, smoke (29), permissions (44), and CAD browser regression passed. Assets have a new cache version for existing sessions after refresh.
+
 Date: 2026-09-21. Scope: independent navigation and presentation of files currently sent to the collecting bank. No SQL, API, storage, invoice, document-generation or QR changes.
 
 ## Implementation

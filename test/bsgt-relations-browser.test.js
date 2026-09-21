@@ -224,6 +224,11 @@ async function main(){
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('#bsgtBankSent [data-open]').first().waitFor();
     assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),10);
+    assert.equal(await page.locator('#bsgtBankSent .bsent-table tbody tr').count(),10,'one compact table row per file');
+    assert.ok((await page.locator('#bsgtBankSent .bsent-row').first().boundingBox()).height<95,'desktop rows stay compact');
+    await page.locator('#bsgtBankSent .bsent-row summary').first().click();
+    assert.equal(await page.locator('#bsgtBankSent .bsent-row details[open] .bsent-shipments span').count(),2,'linked shipment numbers remain available');
+    await page.locator('#bsgtBankSent .bsent-row summary').first().click();
     await page.locator('#bsgtBankSent [data-pages]').getByRole('button',{name:'التالي',exact:true}).click();
     assert.equal(await page.locator('#bsgtBankSent [data-open]').count(),3,'server records beyond page one remain reachable');
     assert.match(await page.locator('#bsgtBankSent h2').innerText(),/المُرسلة للبنك/);
@@ -239,6 +244,9 @@ async function main(){
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.getElementById('bsgtBankSent').scrollWidth<=document.getElementById('bsgtBankSent').clientWidth),true,'mobile portal does not overflow');
     if(process.env.TEST_ARTIFACT_DIR)await page.screenshot({path:path.join(process.env.TEST_ARTIFACT_DIR,'bank-sent-mobile.png'),fullPage:false});
+    await page.locator('#bsgtBankSent .bsent-row').first().scrollIntoViewIfNeeded();
+    assert.equal(await page.locator(`#bsgtBankSent [data-open="${tradeId}"]`).isVisible(),true,'mobile keeps the file action visible');
+    if(process.env.TEST_ARTIFACT_DIR)await page.screenshot({path:path.join(process.env.TEST_ARTIFACT_DIR,'bank-sent-mobile-rows.png'),fullPage:false});
     await page.setViewportSize({width:1440,height:900});
     sentExtras=Array.from({length:252},(_,i)=>({...file(),id:`extra-${i}`,operation_no:`TC-2026-${String(601+i).padStart(6,'0')}`,collecting_bank:'SECOND BANK',sent_to_collecting_at:'2026-09-11T12:00:00Z'}));
     await page.locator('#bsgtBankSent [data-refresh]').click();

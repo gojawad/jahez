@@ -48,8 +48,7 @@
     const esc=value=>escapeHtml(text(value));
     bsgtRelationsState.detailId=null;bsgtRelationsState.detail=null;
     container.innerHTML=`<div id="bsgtBankSent" dir="rtl">
-      <header class="bsent-hero"><div><span class="bsent-eyebrow">BSGT / سجل الإرسال</span><h2>الملفات المُرسلة للبنك</h2><p>كل إرسال في مكانه. ابحث، راجع المستندات، وتابع آخر نسخة بثقة.</p></div><div class="bsent-hero-mark" aria-hidden="true">${icon('plane',34)}</div></header>
-      <section class="bsent-stats" aria-label="ملخص نتائج البحث" data-stats></section>
+      <header class="bsent-heading"><div><h2>الملفات المُرسلة للبنك</h2><p>سجل موحّد للإرسال والمستندات</p></div><div class="bsent-stats" aria-label="ملخص نتائج البحث" data-stats></div></header>
       <section class="bsent-panel"><header class="bsent-section-head"><div><h3>سجل الملفات</h3><p>البنك المعني هو البنك المحصل المسجل عند الإرسال. الأحدث أولاً.</p></div><button type="button" class="btn btn-ghost" data-refresh>${icon('refresh',14)} تحديث السجل</button></header>
         <form class="bsent-filters" data-filters><label class="bsent-search">بحث سريع<input name="search" type="search" placeholder="رقم الملف، الشحنة، الفاتورة أو البوليصة…"></label>
           <label>البنك المعني<select name="bank"><option value="">كل البنوك</option></select></label><label>العميل<select name="client"><option value="">كل العملاء</option></select></label>
@@ -66,17 +65,20 @@
       if(!live())return;
       const values=filters(),invalid=values.from&&values.to&&values.from>values.to;
       const matches=invalid?[]:filterFiles(files,values),stats=summary(matches);
-      root.querySelector('[data-stats]').innerHTML=[['files','ملف مُرسل','briefcase'],['shipments','شحنة مرتبطة','ship'],['banks','بنك ضمن النتائج','bank'],['clients','عميل ضمن النتائج','users']].map(([key,label,symbol])=>`<div class="bsent-stat"><span aria-hidden="true">${icon(symbol,21)}</span><div><strong>${stats[key]}</strong><small>${label}</small></div></div>`).join('');
+      root.querySelector('[data-stats]').innerHTML=[['files','ملف'],['shipments','شحنة'],['banks','بنك'],['clients','عميل']].map(([key,label])=>`<span class="bsent-stat"><strong>${stats[key]}</strong> ${label}</span>`).join('');
       const pages=Math.max(1,Math.ceil(matches.length/PAGE_SIZE));page=Math.min(page,pages);
       root.querySelector('[data-result]').textContent=invalid?'تاريخ البداية يجب ألا يكون بعد تاريخ النهاية.':`${matches.length} ملف من ${files.length} · صفحة ${page} من ${pages}`;
-      list.innerHTML=matches.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(file=>{
+      const rows=matches.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(file=>{
         const clients=customers(file),shipments=file.shipments||[];
-        return `<article class="bsent-card${selected===file.id?' is-selected':''}" data-card="${esc(file.id)}"><div class="bsent-card-top"><span class="bsent-sent">${icon('check',13)} تم الإرسال للبنك</span><span class="bsent-mode">${file.metadata?.collectionMode==='cad'?'CAD · بدون تحصيل':'تحصيل مستندي'}</span></div>
-          <h4 dir="ltr">${esc(file.operation_no)}</h4><p class="bsent-client">${esc(clients.join(' / ')||'العميل غير متاح')}</p>
-          <dl><div><dt>${icon('bank',14)} البنك المعني</dt><dd>${esc(bank(file))}</dd></div><div><dt>${icon('calendarIcon',14)} تاريخ الإرسال</dt><dd>${esc(formatShipmentAuditDate(file.sent_to_collecting_at)||'غير مسجل')}</dd></div></dl>
-          <div class="bsent-shipments">${shipments.map(s=>`<span dir="ltr">${esc(s.data?.operationNo||s.id)}</span>`).join('')||'<span>لا توجد شحنات متاحة للعرض</span>'}</div>
-          <footer><small>${shipments.length} شحنة · المراجعة ${esc(file.revision_no||1)}</small><button type="button" class="btn btn-ghost" data-open="${esc(file.id)}">${icon('eye',14)} فتح الملف والمستندات</button></footer></article>`;
-      }).join('')||`<div class="bsent-empty">${icon('folder',30)}<h4>${files.length?'لا توجد نتائج مطابقة':'لا توجد ملفات مُرسلة للبنك حاليًا'}</h4><p>${files.length?'جرّب تغيير البنك أو العميل أو مسح الفلاتر.':'ستظهر الملفات هنا بعد تسجيل إرسالها للبنك.'}</p></div>`;
+        return `<tr class="bsent-row${selected===file.id?' is-selected':''}">
+          <th scope="row"><b class="bsent-file-number" dir="ltr">${esc(file.operation_no)}</b><span class="bsent-mode">${file.metadata?.collectionMode==='cad'?'CAD · بدون تحصيل':'تحصيل مستندي'} · م${esc(file.revision_no||1)}</span></th>
+          <td class="bsent-client" data-label="العميل"><span dir="auto">${esc(clients.join(' / ')||'العميل غير متاح')}</span></td>
+          <td class="bsent-bank" data-label="البنك المعني"><span dir="auto">${esc(bank(file))}</span></td>
+          <td class="bsent-date" data-label="تاريخ الإرسال">${esc(formatShipmentAuditDate(file.sent_to_collecting_at)||'غير مسجل')}</td>
+          <td class="bsent-shipment-cell"><details><summary aria-label="عرض الشحنات المرتبطة بالملف ${esc(file.operation_no)}">${shipments.length} <span>شحنة</span></summary><div class="bsent-shipments">${shipments.map(s=>`<span dir="ltr">${esc(s.data?.operationNo||s.id)}</span>`).join('')||'<span>لا توجد شحنات متاحة للعرض</span>'}</div></details></td>
+          <td class="bsent-row-action"><button type="button" class="btn btn-ghost" data-open="${esc(file.id)}" aria-label="فتح الملف والمستندات ${esc(file.operation_no)}">${icon('eye',14)} فتح</button></td></tr>`;
+      }).join('');
+      list.innerHTML=rows?`<table class="bsent-table" aria-label="الملفات المُرسلة للبنك"><thead><tr><th scope="col">رقم الملف / النوع</th><th scope="col">العميل</th><th scope="col">البنك المعني</th><th scope="col">تاريخ الإرسال</th><th scope="col">الشحنات</th><th scope="col">الملف</th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="bsent-empty">${icon('folder',30)}<h4>${files.length?'لا توجد نتائج مطابقة':'لا توجد ملفات مُرسلة للبنك حاليًا'}</h4><p>${files.length?'جرّب تغيير البنك أو العميل أو مسح الفلاتر.':'ستظهر الملفات هنا بعد تسجيل إرسالها للبنك.'}</p></div>`;
       const buttons=new Set([1,pages,page-1,page,page+1]);let previous=0;
       root.querySelector('[data-pages]').innerHTML=`<button type="button" data-page="${page-1}" ${page===1?'disabled':''}>السابق</button><div>${[...buttons].filter(n=>n>0&&n<=pages).sort((a,b)=>a-b).map(n=>{const dots=previous&&n-previous>1?'<span>…</span>':'';previous=n;return `${dots}<button type="button" data-page="${n}" ${n===page?'aria-current="page"':''}>${n}</button>`;}).join('')}</div><button type="button" data-page="${page+1}" ${page===pages?'disabled':''}>التالي</button>`;
     }
