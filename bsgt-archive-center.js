@@ -13,7 +13,8 @@
 
   const TITLE = 'مركز الأرشيف';
   const DESCRIPTION = 'الشحنات والملفات التجارية والمستندات الموقّعة المؤرشفة — بلا حذف، وقابلة للاستعادة.';
-  const PERMISSION_KEY = 'shipments.delete';
+  const PERMISSION_KEY = 'bsgt.archive.view';   // من يرى البوابة
+  const RESTORE_KEY = 'shipments.delete';       // من يستعيد منها (صلاحية الأرشفة القائمة)
   const PAGE_SIZE = 20;
   const BUCKET = 'trade-collection-documents';
   const SHIPMENT_BUCKET = 'shipment-files';
@@ -70,6 +71,7 @@
   const can = key => Boolean(globalThis.JahezPermissions?.can(key));
   const isAdmin = () => deps.profile?.role === 'admin';
   const canUse = () => isAdmin() || can(PERMISSION_KEY);
+  const canRestore = () => isAdmin() || can(RESTORE_KEY);
   const notify = (text, kind) => {
     const fn = deps.toast || globalThis.toast;
     if (typeof fn === 'function') fn(text, kind);
@@ -175,7 +177,7 @@
   }
 
   async function restore(kind, id, name) {
-    if (!canUse()) return notify('ليس لديك صلاحية الاستعادة من الأرشيف.', 'err');
+    if (!canRestore()) return notify('ليس لديك صلاحية الاستعادة من الأرشيف.', 'err');
     const what = kind === 'shipment' ? 'الشحنة' : 'الملف التجاري';
     const extra = kind === 'trade_file'
       ? '\n\nستُستعاد معه كل الشحنات المرتبطة به.'
@@ -233,7 +235,7 @@
       <td>${esc(fmtDate(row.archived_at))}<small>${dash(row.archived_by_name)}</small></td>
       <td class="ac-actions">
         <button type="button" class="btn btn-ghost btn-small" data-open-shipment="${esc(row.id)}">عرض</button>
-        ${canUse()
+        ${canRestore()
           ? `<button type="button" class="btn btn-ghost btn-small" data-restore="shipment" data-id="${esc(row.id)}" data-name="${esc(row.operation_no || '')}">استعادة</button>`
           : ''}</td>
     </tr>`;
@@ -248,7 +250,7 @@
       <td>${esc(String(row.shipment_count ?? 0))}</td>
       <td>${esc(String(row.document_count ?? 0))}</td>
       <td>${esc(fmtDate(row.archived_at))}<small>${dash(row.archived_by_name)}</small></td>
-      <td class="ac-actions">${canUse()
+      <td class="ac-actions">${canRestore()
         ? `<button type="button" class="btn btn-ghost btn-small" data-restore="trade_file" data-id="${esc(row.id)}" data-name="${esc(row.operation_no || '')}">استعادة</button>`
         : ''}</td>
     </tr>`;
@@ -442,5 +444,5 @@
     reload();
   }
 
-  return Object.freeze({ TITLE, DESCRIPTION, PERMISSION_KEY, PAGE_SIZE, TABS, RPC, DATA_LABEL, configure, mount, fmtSize });
+  return Object.freeze({ TITLE, DESCRIPTION, PERMISSION_KEY, RESTORE_KEY, PAGE_SIZE, TABS, RPC, DATA_LABEL, configure, mount, fmtSize });
 });

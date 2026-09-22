@@ -42,7 +42,8 @@
         Object.freeze({key:'bsgt.relations.edit', label:'تعديل العلاقات التجارية', description:'تنفيذ إجراءات العلاقات التجارية.', dependsOn:Object.freeze(['bsgt.relations.view'])}),
         Object.freeze({key:'bsgt.financial_center.view', label:'عرض المركز المالي', description:'مشاهدة الملفات المالية للعمليات وتكاليفها وسجل أحداثها.'}),
         Object.freeze({key:'bsgt.financial_center.edit', label:'إدخال وتعديل الملفات المالية', description:'إنشاء الملفات المالية وإدخال المبالغ والتعرفات وإذن الاستيراد قبل الاعتماد.', dependsOn:Object.freeze(['bsgt.financial_center.view'])}),
-        Object.freeze({key:'bsgt.financial_center.approve', label:'اعتماد وإقفال الملفات المالية', description:'اعتماد التكلفة وتأكيد التحويل ودفع البنك والإكمال والإخفاق والاسترداد والإقفال.', dependsOn:Object.freeze(['bsgt.financial_center.view','bsgt.financial_center.edit'])})
+        Object.freeze({key:'bsgt.financial_center.approve', label:'اعتماد وإقفال الملفات المالية', description:'اعتماد التكلفة وتأكيد التحويل ودفع البنك والإكمال والإخفاق والاسترداد والإقفال.', dependsOn:Object.freeze(['bsgt.financial_center.view','bsgt.financial_center.edit'])}),
+        Object.freeze({key:'bsgt.archive.view', label:'عرض بوابة الأرشيف', description:'مشاهدة الشحنات والملفات التجارية والمستندات المؤرشفة ومعاينتها. الاستعادة من الأرشيف تبقى بصلاحية الأرشفة.'})
       ])
     }),
     Object.freeze({

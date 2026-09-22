@@ -71,8 +71,7 @@
       key: 'archiveCenter',
       label: 'مركز الأرشيف',
       icon: 'archive',
-      // Reuses the existing archive permission; no new permission key is introduced.
-      permissionKey: 'shipments.delete',
+      permissionKey: 'bsgt.archive.view',
       message: 'الشحنات والملفات التجارية والمستندات الموقّعة المؤرشفة، بلا حذف وقابلة للاستعادة.'
     })
   ]);

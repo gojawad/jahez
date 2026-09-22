@@ -195,16 +195,16 @@ async function main(){
       args:['--no-sandbox', '--disable-gpu', '--host-resolver-rules=MAP jahez.test 127.0.0.1']});
 
     // ---------------------------------------------------------- 1) بلا صلاحية
-    const plain = await createContext(browser, {role:'staff', featureKeys:['shipments.view','bsgt.operations.view']});
+    const plain = await createContext(browser, {role:'staff', featureKeys:['shipments.view','bsgt.operations.view','shipments.delete']});
     const plainPage = await plain.newPage();
     await plainPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await plainPage.locator('#viewBsgtWorkspace.active').waitFor({timeout:20000});
     assert.strictEqual(await plainPage.locator('.bsgt-workspace-tab', {hasText:'مركز الأرشيف'}).count(), 0,
-      'archive tab hidden without the archive permission');
+      'archive tab hidden for a user who has the archive permission but not the new view key');
     await plain.close();
 
     // ---------------------------------------------------------- 2) صلاحية الأرشفة، بلا صلاحية إدارة
-    const archiver = await createContext(browser, {role:'staff', featureKeys:['shipments.delete'], canPreview:false});
+    const archiver = await createContext(browser, {role:'staff', featureKeys:['bsgt.archive.view','shipments.delete'], canPreview:false});
     const page = await archiver.newPage();
     await page.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await page.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
@@ -340,7 +340,7 @@ async function main(){
       file_size:34567, revision_no:2, is_active:true, document_archived_at:'2026-09-02T12:00:00Z',
       file_archived_at:null, uploaded_by_name:'ARCH MANAGER', created_at:'2026-08-20T09:00:00Z'});
     const manager = await createContext(browser, {role:'staff',
-      featureKeys:['shipments.delete', 'bsgt.management.view'], canPreview:true});
+      featureKeys:['bsgt.archive.view','shipments.delete','bsgt.management.view'], canPreview:true});
     const managerPage = await manager.newPage();
     await openArchive(managerPage);
     await managerPage.click('.ac-tab[data-tab="documents"]');
@@ -362,6 +362,21 @@ async function main(){
     assert.ok(adminPage.url().includes('section=operations'),
       'archive center never becomes the default landing section');
     await admin.close();
+
+    // ---------------------------------------------------------- 5) عرض بلا استعادة
+    db.shipments.push({id:SHIP_A, operation_no:'ARCH-0001', consignee:'ALPHA TRADING', item_desc:'SUGAR',
+      invoice_no:'AINV-1', bsgt_stage:'final_accepted', archived_at:'2026-09-01T10:00:00Z',
+      archived_by_name:'ARCHIVER', trade_file_id:FILE_A, trade_file_operation_no:'TC-2026-000901'});
+    const viewer = await createContext(browser, {role:'staff', featureKeys:['bsgt.archive.view'], canPreview:true});
+    const viewerPage = await viewer.newPage();
+    await openArchive(viewerPage);
+    await viewerPage.locator('.ac-table tbody tr').first().waitFor({timeout:10000});
+    assert.ok(await viewerPage.locator('.ac-table tbody tr').count() > 0, 'view-only user sees the archive');
+    assert.strictEqual(await viewerPage.locator('[data-restore]').count(), 0,
+      'view-only user gets no restore button');
+    assert.ok(await viewerPage.locator('[data-open-shipment]').count() > 0,
+      'view-only user can still open the shipment card');
+    await viewer.close();
 
     console.log('BSGT archive center browser: passed');
   } finally {

@@ -22,9 +22,11 @@ const ROOT = path.join(__dirname, '..');
 const MIGRATION = path.join(ROOT, 'supabase', '58_bsgt_archive_center.sql');
 const MIGRATION60 = path.join(ROOT, 'supabase', '60_bsgt_archive_center_preview.sql');
 const MIGRATION61 = path.join(ROOT, 'supabase', '61_bsgt_archived_shipment_details.sql');
+const MIGRATION62 = path.join(ROOT, 'supabase', '62_bsgt_archive_view_permission.sql');
 const SUITE = path.join(__dirname, 'bsgt-archive-center.test.sql');
 const SUITE60 = path.join(__dirname, 'bsgt-archive-center-preview.test.sql');
 const SUITE61 = path.join(__dirname, 'bsgt-archived-shipment-details.test.sql');
+const SUITE62 = path.join(__dirname, 'bsgt-archive-view-permission.test.sql');
 const stamp = Date.now().toString(36);
 const DB1 = `jahez_ac_${stamp}_a`, DB2 = `jahez_ac_${stamp}_b`;
 
@@ -120,9 +122,25 @@ try {
   console.log(`shipment detail suite: ${rows61.length - failed61.length}/${rows61.length} checks passed`);
   for (const row of failed61) console.log(`  FAIL ${row.name}: ${row.detail}`);
 
+  // ---- 1د) هجرة مفتاح الصلاحية 62 + مجموعتها (تُطبَّق أخيراً لأنها تغيّر من يرى البوابة)
+  const catalogBefore = Number(scalar(DB1, 'select count(*) from public.feature_permission_catalog'));
+  psql(DB1, ['-f', MIGRATION62]);
+  assert.equal(Number(scalar(DB1, 'select count(*) from public.feature_permission_catalog')), catalogBefore + 1,
+    'migration 62 adds exactly one permission key');
+  assert.equal(scalar(DB1, "select count(*) from pg_tables where schemaname = 'public'"),
+    scalar(TEMPLATE, "select count(*) from pg_tables where schemaname = 'public'"), 'no table added');
+  psql(DB1, ['-f', SUITE62]);
+  const rows62 = psql(DB1, ['-Atc', "select ok, name, coalesce(detail,'') from acv.results order by n"]).stdout.trim()
+    .split('\n').filter(Boolean)
+    .map(line => { const [ok, name, detail] = line.split('|'); return {ok: ok === 't', name, detail}; });
+  const failed62 = rows62.filter(row => !row.ok);
+  console.log(`archive permission suite: ${rows62.length - failed62.length}/${rows62.length} checks passed`);
+  for (const row of failed62) console.log(`  FAIL ${row.name}: ${row.detail}`);
+
   // ---- 2) إعادة التطبيق على قاعدة مُهاجَرة: create or replace ⇒ تنجح بلا تغيير
   const rerunShape = shape(DB1);
   psql(DB1, ['-f', MIGRATION]);
+  psql(DB1, ['-f', MIGRATION62]);   // 58 يُعيد الحارس القديم، و62 يُعيد الجديد
   assert.equal(ownFunctionCount(DB1), String(OWN_FUNCTIONS.length), 're-apply keeps exactly five functions');
   assert.equal(shape(DB1), rerunShape, 're-apply changes nothing');
   console.log('re-apply on a migrated database: idempotent (ok)');
@@ -142,7 +160,7 @@ try {
   assert.equal(ownFunctionCount(DB2), String(OWN_FUNCTIONS.length), 're-applied after rollback');
   console.log('rollback: own functions removed, everything else kept, re-apply succeeded (ok)');
 
-  if (failed.length || failed60.length || failed61.length) { process.exitCode = 1; console.log('BSGT archive center SQL: FAILED'); }
+  if (failed.length || failed60.length || failed61.length || failed62.length) { process.exitCode = 1; console.log('BSGT archive center SQL: FAILED'); }
   else console.log('BSGT archive center SQL: passed');
 } finally {
   if (!process.env.KEEP_TEST_DBS) for (const db of created) psql(TEMPLATE, ['-c', `drop database if exists ${db}`], {allowFail: true});
