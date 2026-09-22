@@ -21,8 +21,10 @@ const TEMPLATE = process.env.JAHEZ_PG_TEMPLATE || 'jahez';
 const ROOT = path.join(__dirname, '..');
 const MIGRATION = path.join(ROOT, 'supabase', '58_bsgt_archive_center.sql');
 const MIGRATION60 = path.join(ROOT, 'supabase', '60_bsgt_archive_center_preview.sql');
+const MIGRATION61 = path.join(ROOT, 'supabase', '61_bsgt_archived_shipment_details.sql');
 const SUITE = path.join(__dirname, 'bsgt-archive-center.test.sql');
 const SUITE60 = path.join(__dirname, 'bsgt-archive-center-preview.test.sql');
+const SUITE61 = path.join(__dirname, 'bsgt-archived-shipment-details.test.sql');
 const stamp = Date.now().toString(36);
 const DB1 = `jahez_ac_${stamp}_a`, DB2 = `jahez_ac_${stamp}_b`;
 
@@ -106,6 +108,18 @@ try {
   console.log(`preview suite: ${rows60.length - failed60.length}/${rows60.length} checks passed`);
   for (const row of failed60) console.log(`  FAIL ${row.name}: ${row.detail}`);
 
+  // ---- 1ج) هجرة بطاقة الشحنة 61 + مجموعتها
+  const shapeBefore61 = shape(DB1);
+  psql(DB1, ['-f', MIGRATION61]);
+  assert.equal(shape(DB1), shapeBefore61, 'migration 61 adds no table, column or permission key');
+  psql(DB1, ['-f', SUITE61]);
+  const rows61 = psql(DB1, ['-Atc', "select ok, name, coalesce(detail,'') from acs.results order by n"]).stdout.trim()
+    .split('\n').filter(Boolean)
+    .map(line => { const [ok, name, detail] = line.split('|'); return {ok: ok === 't', name, detail}; });
+  const failed61 = rows61.filter(row => !row.ok);
+  console.log(`shipment detail suite: ${rows61.length - failed61.length}/${rows61.length} checks passed`);
+  for (const row of failed61) console.log(`  FAIL ${row.name}: ${row.detail}`);
+
   // ---- 2) إعادة التطبيق على قاعدة مُهاجَرة: create or replace ⇒ تنجح بلا تغيير
   const rerunShape = shape(DB1);
   psql(DB1, ['-f', MIGRATION]);
@@ -128,7 +142,7 @@ try {
   assert.equal(ownFunctionCount(DB2), String(OWN_FUNCTIONS.length), 're-applied after rollback');
   console.log('rollback: own functions removed, everything else kept, re-apply succeeded (ok)');
 
-  if (failed.length || failed60.length) { process.exitCode = 1; console.log('BSGT archive center SQL: FAILED'); }
+  if (failed.length || failed60.length || failed61.length) { process.exitCode = 1; console.log('BSGT archive center SQL: FAILED'); }
   else console.log('BSGT archive center SQL: passed');
 } finally {
   if (!process.env.KEEP_TEST_DBS) for (const db of created) psql(TEMPLATE, ['-c', `drop database if exists ${db}`], {allowFail: true});

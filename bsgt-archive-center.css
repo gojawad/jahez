@@ -54,3 +54,21 @@
   .ac-search input[type="search"] { min-width: 0; flex: 1 1 100%; }
   .ac-table { font-size: .8rem; }
 }
+
+/* لوحة تفاصيل الشحنة المؤرشفة */
+.ac-detail {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, .28); background: rgba(127, 127, 127, .06);
+}
+.ac-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ac-detail-head h3 { margin: 0; font-size: 1rem; }
+.ac-detail h4 { margin: 4px 0 0; font-size: .86rem; opacity: .8; }
+.ac-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.ac-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ac-field span { font-size: .74rem; opacity: .68; }
+.ac-field b { font-size: .86rem; overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  .ac-fields { grid-template-columns: 1fr 1fr; }
+}

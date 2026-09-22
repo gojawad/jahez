@@ -63,7 +63,25 @@ const db = {
      uploaded_by_name:'ARCH MANAGER', created_at:'2026-08-20T09:00:00Z'}
   ]
 };
-const calls = {restore:[], signedUrl:[], lists:[]};
+db.shipmentCards = {
+  [SHIP_A]: {id:SHIP_A, operation_no:'ARCH-0001', consignee:'ALPHA TRADING', item_desc:'SUGAR',
+    invoice_no:'AINV-1', bsgt_stage:'final_accepted', status:'sent', workflow_stage:'accepted',
+    data:{operationNo:'ARCH-0001', consignee:'ALPHA TRADING', itemDesc:'SUGAR', invoiceNo:'AINV-1',
+      currency:'USD', totalAmount:'USD 1,000.00', paymentTerm:'D/A 90 DAYS', vessel:'MV TEST'},
+    archived_at:'2026-09-01T10:00:00Z', archived_by_name:'ARCHIVER',
+    created_at:'2026-08-01T10:00:00Z', updated_at:'2026-09-01T10:00:00Z',
+    trade_file_id:FILE_A, trade_file_operation_no:'TC-2026-000901', trade_file_status:'final_accepted',
+    trade_file_archived_at:'2026-09-02T12:00:00Z', file_count:2}
+};
+db.shipmentFiles = {
+  [SHIP_A]: [
+    {id:'f1', name:'فاتورة مختومة.pdf', path:`${SHIP_A}/invoice-stamped.pdf`, mime:'application/pdf',
+     size_bytes:45678, label:null, uploaded_by_name:'ARCH MANAGER', created_at:'2026-08-26T09:00:00Z'},
+    {id:'f2', name:'بوليصة موقّعة.pdf', path:`${SHIP_A}/bl-signed.pdf`, mime:'application/pdf',
+     size_bytes:91011, label:'بوليصة الشحن الموقّعة', uploaded_by_name:'ARCH MANAGER', created_at:'2026-08-25T09:00:00Z'}
+  ]
+};
+const calls = {restore:[], signedUrl:[], lists:[], detail:[]};
 let listFailsOnce = false;
 
 function match(rows, search, fields){
@@ -105,6 +123,19 @@ async function createContext(browser, {role = 'staff', featureKeys = [], canPrev
 
     if(p === '/rest/v1/rpc/bsgt_archive_center_summary'){
       return json([{archived_shipments:db.shipments.length, archived_trade_files:db.files.length, archived_documents:db.documents.length}]);
+    }
+    if(p === '/rest/v1/rpc/get_bsgt_archived_shipment'){
+      const id = (request.postDataJSON() || {}).p_shipment_id;
+      calls.detail.push({rpc:'card', id});
+      const card = db.shipmentCards[id];
+      if(!card) return route.fulfill({status:400, headers, body:JSON.stringify({message:'Archived shipment is not available'})});
+      return json([card]);
+    }
+    if(p === '/rest/v1/rpc/list_bsgt_archived_shipment_files'){
+      const id = (request.postDataJSON() || {}).p_shipment_id;
+      calls.detail.push({rpc:'files', id});
+      if(!db.shipmentCards[id]) return route.fulfill({status:400, headers, body:JSON.stringify({message:'Archived shipment is not available'})});
+      return json(db.shipmentFiles[id] || []);
     }
     if(p.startsWith('/rest/v1/rpc/list_bsgt_archived_')){
       const body = request.postDataJSON() || {};
@@ -226,6 +257,51 @@ async function main(){
     await page.click('.ac-error [data-action="retry"]');
     await page.waitForFunction(() => document.querySelectorAll('.ac-table tbody tr').length === 2);
     assert.strictEqual(await page.locator('.ac-error').count(), 0, 'retry recovers');
+
+    // بطاقة تفاصيل الشحنة المؤرشفة
+    await page.click('.ac-table tbody tr:nth-child(2) [data-open-shipment]');
+    await page.locator('.ac-detail .ac-fields').first().waitFor({timeout:10000});
+    assert.deepStrictEqual(calls.detail.slice(-2).map(c => c.rpc).sort(), ['card','files'],
+      'the card and its attachments are fetched together');
+    const detailText = await page.locator('.ac-detail').textContent();
+    assert.ok(detailText.includes('ARCH-0001') && detailText.includes('ALPHA TRADING'), 'identifying fields shown');
+    assert.ok(detailText.includes('TC-2026-000901'), 'linked trade file shown');
+    assert.ok(detailText.includes('D/A 90 DAYS') && detailText.includes('MV TEST'),
+      'every field of the shipment payload is rendered');
+    assert.ok(detailText.includes('شرط الدفع') && detailText.includes('الباخرة'),
+      'known payload keys get their Arabic labels');
+    assert.strictEqual(await page.locator('[data-preview-shipment-file]').count(), 2, 'both attachments listed');
+    assert.ok(detailText.includes('بوليصة الشحن الموقّعة'), 'attachment label shown');
+
+    // معاينة مرفق الشحنة تطلب رابطاً موقّعاً من دلو الشحنات
+    const signedBefore = calls.signedUrl.length;
+    const shipmentPopup = page.waitForEvent('popup').catch(() => null);
+    await page.click('[data-preview-shipment-file]');
+    await shipmentPopup;
+    assert.ok(calls.signedUrl.length > signedBefore, 'a signed url was requested');
+    assert.ok(calls.signedUrl.at(-1).includes('shipment-files/'),
+      'the attachment comes from the shipment-files bucket');
+    assert.ok(calls.signedUrl.at(-1).includes('invoice-stamped.pdf'), 'for that exact attachment path');
+
+    // الإغلاق
+    await page.click('[data-action="close-detail"]');
+    assert.strictEqual(await page.locator('.ac-detail').count(), 0, 'closing hides the card');
+
+    // تبديل التبويب يغلق البطاقة تلقائياً
+    await page.click('.ac-table tbody tr:nth-child(2) [data-open-shipment]');
+    await page.locator('.ac-detail .ac-fields').first().waitFor({timeout:10000});
+    await page.click('.ac-tab[data-tab="files"]');
+    await page.waitForFunction(() => document.querySelector('.ac-table th')?.textContent.trim() === 'الملف');
+    assert.strictEqual(await page.locator('.ac-detail').count(), 0, 'switching tab closes the card');
+    await page.click('.ac-tab[data-tab="shipments"]');
+    await page.waitForFunction(() => document.querySelectorAll('.ac-table tbody tr').length === 2);
+
+    // شحنة بلا بطاقة ⇒ رسالة خطأ داخل اللوحة وزر إعادة محاولة
+    await page.click('.ac-table tbody tr:nth-child(1) [data-open-shipment]');
+    await page.locator('.ac-detail .ac-error').waitFor({timeout:10000});
+    assert.ok((await page.locator('.ac-detail .ac-error').textContent()).includes('Archived shipment is not available'),
+      'a refused card surfaces the server message');
+    await page.click('[data-action="close-detail"]');
 
     // استعادة شحنة
     page.once('dialog', dialog => dialog.accept());

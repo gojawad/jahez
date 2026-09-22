@@ -16,6 +16,7 @@
   const PERMISSION_KEY = 'shipments.delete';
   const PAGE_SIZE = 20;
   const BUCKET = 'trade-collection-documents';
+  const SHIPMENT_BUCKET = 'shipment-files';
 
   const TABS = Object.freeze({
     shipments: 'الشحنات المؤرشفة',
@@ -36,6 +37,16 @@
     management_review: 'مراجعة الإدارة', final_accepted: 'قبول نهائي', sent_to_collecting: 'أُرسلت للبنك المحصل'
   });
   const DOC_TYPE = Object.freeze({ letter: 'خطاب التحصيل', undertaking: 'التعهد', exchange: 'الكمبيالة' });
+  // تسميات عربية لمفاتيح بيانات الشحنة المعروفة؛ أي مفتاح آخر يُعرض باسمه كما هو.
+  const DATA_LABEL = Object.freeze({
+    operationNo:'رقم العملية', consignee:'المرسل إليه', consigneeAddress:'عنوان المرسل إليه',
+    shipper:'المرسِل', itemDesc:'الصنف', invoiceNo:'رقم الفاتورة', proformaNo:'رقم الفاتورة المبدئية',
+    currency:'العملة', totalAmount:'القيمة', quantity:'الكمية', unit:'الوحدة', hsCode:'البند الجمركي',
+    paymentTerm:'شرط الدفع', creditDays:'أيام الأجل', blNo:'رقم البوليصة', containerNo:'رقم الحاوية',
+    vessel:'الباخرة', portOfLoading:'ميناء الشحن', portOfDischarge:'ميناء التفريغ',
+    originCountry:'بلد المنشأ', destination:'الوجهة', bank:'البنك', remittingBank:'البنك المرسل',
+    collectingBank:'البنك المحصل', notes:'ملاحظات', date:'التاريخ'
+  });
 
   // index.html يعرّف sb و toast كمتغيرات لغوية لا كخصائص على window،
   // لذلك renderBsgtWorkspace يمرّرها إلى mount(container, deps).
@@ -50,7 +61,8 @@
     page: 1,
     rows: [],
     total: 0,
-    error: null
+    error: null,
+    detail: null   // {id, loading, error, shipment, files}
   };
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -106,10 +118,39 @@
     return { rows, total: rows.length ? Number(rows[0].total_count) || rows.length : 0 };
   }
 
+  async function loadShipmentDetail(id) {
+    const [card, files] = await Promise.all([
+      sb().rpc('get_bsgt_archived_shipment', { p_shipment_id: id }),
+      sb().rpc('list_bsgt_archived_shipment_files', { p_shipment_id: id })
+    ]);
+    if (card.error) throw card.error;
+    if (files.error) throw files.error;
+    const row = Array.isArray(card.data) ? card.data[0] : card.data;
+    if (!row) throw new Error('لم تُعثر هذه الشحنة في الأرشيف.');
+    return { shipment: row, files: Array.isArray(files.data) ? files.data : [] };
+  }
+
+  async function openDetail(id) {
+    state.detail = { id, loading: true, error: null, shipment: null, files: [] };
+    render();
+    try {
+      const loaded = await loadShipmentDetail(id);
+      if (state.detail?.id !== id) return;
+      state.detail = { id, loading: false, error: null, shipment: loaded.shipment, files: loaded.files };
+    } catch (error) {
+      if (state.detail?.id !== id) return;
+      state.detail = { id, loading: false, error: rpcError(error), shipment: null, files: [] };
+    }
+    render();
+  }
+
+  function closeDetail() { state.detail = null; render(); }
+
   async function reload({ withSummary = true } = {}) {
     if (!state.container) return;
     state.busy = true;
     // تُفرَّغ الصفوف أولاً: لولا ذلك لظهرت صفوف التبويب السابق تحت عناوين التبويب الجديد.
+    state.detail = null;
     state.rows = [];
     state.total = 0;
     state.error = null;
@@ -150,9 +191,9 @@
     }
   }
 
-  async function preview(path) {
+  async function preview(path, bucket) {
     try {
-      const { data, error } = await sb().storage.from(BUCKET).createSignedUrl(path, 300);
+      const { data, error } = await sb().storage.from(bucket || BUCKET).createSignedUrl(path, 300);
       if (error) throw error;
       globalThis.open(data.signedUrl, '_blank', 'noopener');
     } catch (error) {
@@ -190,9 +231,11 @@
       <td>${esc(label(STAGE, row.bsgt_stage))}</td>
       <td>${row.trade_file_operation_no ? esc(row.trade_file_operation_no) : '<span class="ac-muted">غير مرتبطة</span>'}</td>
       <td>${esc(fmtDate(row.archived_at))}<small>${dash(row.archived_by_name)}</small></td>
-      <td class="ac-actions">${canUse()
-        ? `<button type="button" class="btn btn-ghost btn-small" data-restore="shipment" data-id="${esc(row.id)}" data-name="${esc(row.operation_no || '')}">استعادة</button>`
-        : ''}</td>
+      <td class="ac-actions">
+        <button type="button" class="btn btn-ghost btn-small" data-open-shipment="${esc(row.id)}">عرض</button>
+        ${canUse()
+          ? `<button type="button" class="btn btn-ghost btn-small" data-restore="shipment" data-id="${esc(row.id)}" data-name="${esc(row.operation_no || '')}">استعادة</button>`
+          : ''}</td>
     </tr>`;
   }
 
@@ -249,6 +292,62 @@
       <tbody>${state.rows.map(rowHtml).join('')}</tbody></table></div>`;
   }
 
+  function detailFieldsHtml(data) {
+    if (!data || typeof data !== 'object') return '';
+    const cells = Object.keys(data).map(key => {
+      const raw = data[key];
+      if (raw === null || raw === undefined || raw === '') return '';
+      const value = (typeof raw === 'object') ? JSON.stringify(raw) : String(raw);
+      if (!value.trim()) return '';
+      return `<div class="ac-field"><span>${esc(DATA_LABEL[key] || key)}</span><b>${esc(value)}</b></div>`;
+    }).filter(Boolean).join('');
+    return cells ? `<div class="ac-fields">${cells}</div>` : '<p class="ac-muted">لا توجد بيانات مسجّلة لهذه الشحنة.</p>';
+  }
+
+  function detailFilesHtml(files) {
+    if (!files.length) return '<p class="ac-muted">لا توجد مرفقات مرفوعة لهذه الشحنة.</p>';
+    return `<div class="ac-table-wrap"><table class="ac-table"><thead><tr>
+        <th scope="col">المرفق</th><th scope="col">الوصف</th><th scope="col">الحجم</th><th scope="col">الرفع</th><th scope="col"></th>
+      </tr></thead><tbody>${files.map(file => `<tr>
+        <td><b>${dash(file.name)}</b><small dir="ltr">${dash(file.mime)}</small></td>
+        <td>${dash(file.label)}</td>
+        <td>${esc(fmtSize(file.size_bytes))}</td>
+        <td>${esc(fmtDate(file.created_at))}<small>${dash(file.uploaded_by_name)}</small></td>
+        <td class="ac-actions"><button type="button" class="btn btn-ghost btn-small"
+          data-preview-shipment-file="${esc(file.path)}">معاينة</button></td>
+      </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  function detailHtml() {
+    const detail = state.detail;
+    if (!detail) return '';
+    const head = `<header class="ac-detail-head"><h3>تفاصيل الشحنة المؤرشفة</h3>
+      <button type="button" class="btn btn-ghost btn-small" data-action="close-detail">إغلاق</button></header>`;
+    if (detail.loading) return `<section class="ac-detail">${head}<div class="ac-empty">جاري التحميل…</div></section>`;
+    if (detail.error) {
+      return `<section class="ac-detail">${head}<div class="ac-error" role="alert">تعذّر فتح الشحنة: ${esc(detail.error)}
+        <button type="button" class="btn btn-ghost btn-small" data-retry-shipment="${esc(detail.id)}">إعادة المحاولة</button></div></section>`;
+    }
+    const s0 = detail.shipment || {};
+    const stamp = `<div class="ac-fields">
+      <div class="ac-field"><span>رقم العملية</span><b>${dash(s0.operation_no)}</b></div>
+      <div class="ac-field"><span>المرحلة</span><b>${esc(label(STAGE, s0.bsgt_stage))}</b></div>
+      <div class="ac-field"><span>تاريخ الأرشفة</span><b>${esc(fmtDate(s0.archived_at))}</b></div>
+      <div class="ac-field"><span>أرشفها</span><b>${dash(s0.archived_by_name)}</b></div>
+      <div class="ac-field"><span>الملف التجاري</span><b>${s0.trade_file_operation_no
+        ? esc(s0.trade_file_operation_no) + ' · ' + esc(label(TRADE_STATUS, s0.trade_file_status))
+        : 'غير مرتبطة'}</b></div>
+      <div class="ac-field"><span>المرفقات</span><b>${esc(String(s0.file_count ?? 0))}</b></div>
+    </div>`;
+    return `<section class="ac-detail">${head}
+      ${stamp}
+      <h4>بيانات الشحنة</h4>
+      ${detailFieldsHtml(s0.data)}
+      <h4>مرفقات الشحنة</h4>
+      ${detailFilesHtml(detail.files || [])}
+    </section>`;
+  }
+
   function pagerHtml() {
     if (state.error || state.total <= PAGE_SIZE) return '';
     const pages = Math.ceil(state.total / PAGE_SIZE);
@@ -274,6 +373,7 @@
       </header>
       ${summaryHtml()}
       ${tabsHtml()}
+      ${detailHtml()}
       ${tableHtml()}
       ${pagerHtml()}
       <p class="ac-note">الأرشفة لا تحذف شيئاً: السجلات ومستنداتها وأحداثها وروابط QR محفوظة، والاستعادة متاحة في أي وقت.</p>
@@ -312,6 +412,13 @@
       restore(button.dataset.restore, button.dataset.id, button.dataset.name)));
     host.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () =>
       preview(button.dataset.preview)));
+    host.querySelectorAll('[data-open-shipment]').forEach(button => button.addEventListener('click', () =>
+      openDetail(button.dataset.openShipment)));
+    host.querySelector('[data-action="close-detail"]')?.addEventListener('click', closeDetail);
+    host.querySelector('[data-retry-shipment]')?.addEventListener('click', event =>
+      openDetail(event.currentTarget.dataset.retryShipment));
+    host.querySelectorAll('[data-preview-shipment-file]').forEach(button => button.addEventListener('click', () =>
+      preview(button.dataset.previewShipmentFile, SHIPMENT_BUCKET)));
   }
 
   function mount(container, options) {
@@ -325,6 +432,7 @@
     state.error = null;
     state.summary = null;
     state.summaryError = null;
+    state.detail = null;
     if (!container) return;
     if (!canUse()) {
       container.innerHTML = `<section class="ac-shell"><div class="ac-empty">ليس لديك صلاحية الاطلاع على الأرشيف.</div></section>`;
@@ -334,5 +442,5 @@
     reload();
   }
 
-  return Object.freeze({ TITLE, DESCRIPTION, PERMISSION_KEY, PAGE_SIZE, TABS, RPC, configure, mount, fmtSize });
+  return Object.freeze({ TITLE, DESCRIPTION, PERMISSION_KEY, PAGE_SIZE, TABS, RPC, DATA_LABEL, configure, mount, fmtSize });
 });
