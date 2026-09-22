@@ -77,8 +77,8 @@ async function main(){
     const adminPage = await adminContext.newPage();
     await adminPage.goto(`${APP_ORIGIN}/#v=bsgtWorkspace`, {waitUntil:'domcontentloaded'});
     await adminPage.locator('#viewBsgtWorkspace.active .bsgt-workspace-tab').first().waitFor({timeout:20000});
-    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 8);
-    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المركز المالي','المالية','الإدارة','العلاقات التجارية','ملفات العمليات التجارية','الملفات المُرسلة للبنك','مركز العمليات']);
+    assert.strictEqual(await adminPage.locator('.bsgt-workspace-tab').count(), 9);
+    assert.deepStrictEqual(await adminPage.locator('.bsgt-workspace-tab').allTextContents(), ['العمليات','المركز المالي','المالية','الإدارة','العلاقات التجارية','ملفات العمليات التجارية','الملفات المُرسلة للبنك','مركز العمليات','مركز الأرشيف']);
     assert.strictEqual((await adminPage.locator('#navBsgt').textContent()).trim(), 'مساحة BSGT');
     assert.ok(adminPage.url().includes('section=operations'));
     const fileId='11111111-1111-4111-8111-111111111111',shipmentId='22222222-2222-4222-8222-222222222222',revisionId='33333333-3333-4333-8333-333333333333';

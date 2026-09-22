@@ -66,9 +66,20 @@
       icon: 'folder',
       permissionKey: 'bsgt.operation_center.view',
       message: 'متابعة عمليات بحر سواكن من مركز العمليات الموحد.'
+    }),
+    Object.freeze({
+      key: 'archiveCenter',
+      label: 'مركز الأرشيف',
+      icon: 'archive',
+      // Reuses the existing archive permission; no new permission key is introduced.
+      permissionKey: 'shipments.delete',
+      message: 'الشحنات والملفات التجارية والمستندات الموقّعة المؤرشفة، بلا حذف وقابلة للاستعادة.'
     })
   ]);
   const SECTION_KEYS = Object.freeze(SECTIONS.map(section => section.key));
+  // Sections that never become the default landing section: users keep opening the
+  // same first section as before when anything else is available to them.
+  const NON_DEFAULT_SECTION_KEYS = Object.freeze(['financialCenter', 'archiveCenter']);
   const LEGACY_SECTION_KEYS = Object.freeze(['operations', 'finance', 'management', 'relations']);
 
   function normalizePermission(row) {
@@ -132,7 +143,7 @@
     // The financial center never becomes the default landing section when another
     // section is available: users keep opening the same first section as before.
     return allowed.find(section => section.key === requested)?.key
-      || allowed.find(section => section.key !== 'financialCenter')?.key
+      || allowed.find(section => !NON_DEFAULT_SECTION_KEYS.includes(section.key))?.key
       || allowed[0].key;
   }
 
@@ -150,6 +161,7 @@
   return Object.freeze({
     SECTIONS,
     SECTION_KEYS,
+    NON_DEFAULT_SECTION_KEYS,
     LEGACY_SECTION_KEYS,
     normalizePermission,
     resolvePermissions,

@@ -215,7 +215,7 @@ async function main(){
     const dialogs=[];apage.on('dialog',async d=>{dialogs.push({type:d.type(),message:d.message()});if(d.type()==='prompt')await d.accept('حالة طارئة: مدير المالية في إجازة');else await d.accept();});
     await apage.goto(`${APP}/#v=bsgtWorkspace&section=financialCenter`,{waitUntil:'domcontentloaded'});
     await apage.locator('#bsgtFinancialCenter [data-list-rows] tr[data-open]').first().waitFor({timeout:20000});
-    assert.strictEqual(await apage.locator('.bsgt-workspace-tab').count(),7,'admin still sees all seven sections');
+    assert.strictEqual(await apage.locator('.bsgt-workspace-tab').count(),9,'admin still sees all nine sections');
     await apage.locator('[data-list-rows] tr[data-open]').first().click();
     await apage.locator('.fc-summary').waitFor({timeout:10000});
     assert.deepStrictEqual(await apage.locator('[data-transition]').evaluateAll(list=>list.map(b=>b.dataset.transition)),['approve','fail']);

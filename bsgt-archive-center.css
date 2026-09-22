@@ -1,0 +1,56 @@
+/* BSGT workspace — مركز الأرشيف. لا يعدّل أي قاعدة قائمة: كل المحددات تحت .ac-shell. */
+
+.ac-shell { display: flex; flex-direction: column; gap: 14px; }
+.ac-shell.is-busy { opacity: .72; }
+
+.ac-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
+.ac-head h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.ac-head p { margin: 0; font-size: .82rem; opacity: .75; max-width: 54ch; }
+
+.ac-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ac-search { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ac-search input[type="search"] {
+  min-width: 260px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid rgba(127, 127, 127, .35); background: transparent; color: inherit; font: inherit;
+}
+
+.ac-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+.ac-stat {
+  flex: 1 1 160px; display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(127, 127, 127, .22);
+}
+.ac-stat span { font-size: .76rem; opacity: .7; }
+.ac-stat b { font-size: 1.2rem; }
+.ac-summary-error, .ac-error {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px 12px; border-radius: 10px; font-size: .84rem;
+  border: 1px solid rgba(200, 80, 80, .45); background: rgba(200, 80, 80, .08);
+}
+
+.ac-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-tab {
+  padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: .85rem;
+  border: 1px solid rgba(127, 127, 127, .3); background: transparent; color: inherit;
+}
+.ac-tab.is-active { border-color: currentColor; font-weight: 600; background: rgba(127, 127, 127, .12); }
+
+.ac-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(127, 127, 127, .22); }
+.ac-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.ac-table th, .ac-table td { padding: 9px 10px; text-align: right; vertical-align: top; }
+.ac-table thead th { font-size: .76rem; opacity: .72; font-weight: 600; border-bottom: 1px solid rgba(127, 127, 127, .25); }
+.ac-table tbody tr + tr td { border-top: 1px solid rgba(127, 127, 127, .14); }
+.ac-table small { display: block; margin-top: 2px; font-size: .74rem; opacity: .65; }
+.ac-table td.ac-actions { text-align: left; white-space: nowrap; }
+.ac-muted { opacity: .6; font-size: .76rem; }
+
+.ac-empty { padding: 22px 12px; text-align: center; font-size: .86rem; opacity: .72;
+  border-radius: 10px; border: 1px dashed rgba(127, 127, 127, .3); }
+
+.ac-pager { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; font-size: .8rem; }
+.ac-note { margin: 0; font-size: .78rem; opacity: .68; }
+
+@media (max-width: 720px) {
+  .ac-head { align-items: stretch; }
+  .ac-search input[type="search"] { min-width: 0; flex: 1 1 100%; }
+  .ac-table { font-size: .8rem; }
+}

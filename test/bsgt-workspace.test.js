@@ -14,7 +14,16 @@ const editor = {id:'editor-1', role:'editor', active:true};
 const viewer = {id:'viewer-1', role:'viewer', active:true};
 const financeOnly = [{section:'finance', can_view:true, can_edit:true}];
 
-assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'financialCenter', 'finance', 'management', 'relations', 'tradeFiles', 'bankSent', 'operationCenter']);
+assert.deepStrictEqual(workspace.SECTION_KEYS, ['operations', 'financialCenter', 'finance', 'management', 'relations', 'tradeFiles', 'bankSent', 'operationCenter', 'archiveCenter']);
+// مركز الأرشيف يعيد استعمال صلاحية الأرشفة القائمة ولا يصير القسم الافتراضي عند الدخول
+assert.deepStrictEqual(workspace.NON_DEFAULT_SECTION_KEYS, ['financialCenter', 'archiveCenter']);
+assert.strictEqual(workspace.SECTIONS.find(section => section.key === 'archiveCenter').permissionKey, 'shipments.delete');
+assert.strictEqual(workspace.SECTIONS.find(section => section.key === 'archiveCenter').editPermissionKey, undefined);
+assert.deepStrictEqual(workspace.allowedSections({role:'editor',active:true}, [], {featureKeys:['shipments.delete']}).map(item=>item.key), ['archiveCenter']);
+assert.strictEqual(workspace.permissionFor('archiveCenter', {role:'editor',active:true}, [], {featureKeys:['shipments.delete']}).canEdit, false);
+assert.strictEqual(workspace.permissionFor('archiveCenter', {role:'editor',active:true}, [], {featureKeys:['bsgt.bank_sent.view']}), null);
+assert.strictEqual(workspace.resolveSection(null, {role:'editor',active:true}, [], {featureKeys:['shipments.delete']}), 'archiveCenter');
+assert.strictEqual(workspace.resolveSection(null, {role:'editor',active:true}, [], {featureKeys:['shipments.delete','bsgt.operations.view']}), 'operations');
 assert.strictEqual(workspace.permissionFor('bankSent',editor,[],{featureKeys:['bsgt.relations.view']}),null);
 assert.strictEqual(workspace.permissionFor('bankSent',editor,[],{featureKeys:['bsgt.bank_sent.view']}).canEdit,false);
 assert.deepStrictEqual(workspace.allowedSections(editor,[],{featureKeys:['bsgt.bank_sent.view']}).map(s=>s.key),['bankSent']);
@@ -45,7 +54,7 @@ assert.strictEqual(workspace.resolveSection('finance', editor, financeOnly), 'fi
 assert.strictEqual(workspace.resolveSection('operations', editor, []), null);
 assert.strictEqual(workspace.normalizePermission({section:'operationCenter',can_view:true}), null);
 assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operation_center.view']}).map(item=>item.key), ['operationCenter']);
-assert.strictEqual(workspace.SECTIONS.at(-1).permissionKey, 'bsgt.operation_center.view');
+assert.strictEqual(workspace.SECTIONS.find(section => section.key === 'operationCenter').permissionKey, 'bsgt.operation_center.view');
 assert.strictEqual(workspace.permissionFor('operationCenter', editor, [], {featureKeys:['bsgt.operation_center.view']}).canEdit, false);
 assert.deepStrictEqual(workspace.allowedSections(editor, [], {featureKeys:['bsgt.operations.view']}).map(item=>item.key), ['operations']);
 assert.strictEqual(workspace.resolveBsgtCompanyId([
