@@ -248,7 +248,7 @@ async function main(){
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-route-art-1')), 'operations CSS invalidates the prior overview layout');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260923-optional-requirements-1')), 'operations JS invalidates the mandatory-requirements cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260920-optional-signing-1')), 'management JS invalidates the mandatory-signature cached version');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260915-merge-routing-1')), 'company wizard invalidates the legacy merge click interceptor');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260923-currency-words-1')), 'company wizard invalidates the legacy merge click interceptor');
     assert.ok(assetState.assets.some(asset=>asset?.includes('commodity-images.js?v=20260913-wide-images-1')), 'commodity images use the repaired cache version');
     const operationsFonts=await page.locator('.bsgt-operations h3, .bsgt-operations input, .bsgt-operations select, .bsgt-operations button').evaluateAll(elements=>elements.map(element=>getComputedStyle(element).fontFamily));
     assert.ok(operationsFonts.length>0&&operationsFonts.every(font=>font.includes('IBM Plex Sans Arabic')), 'all Operations text controls use IBM Plex Sans Arabic');

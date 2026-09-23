@@ -834,7 +834,7 @@ function amountWords(number){
 }
 // Currency unit names for the amount-in-words line: [major singular, major plural, minor singular, minor plural].
 const CURRENCY_WORDS={
-  AED:['UAE DIRHAM','UAE DIRHAMS','FIL','FILS'],
+  AED:['UAE DIRHAM','UAE DIRHAMS','FILS','FILS'],
   USD:['US DOLLAR','US DOLLARS','CENT','CENTS'],
   SAR:['SAUDI RIYAL','SAUDI RIYALS','HALALA','HALALAS'],
   EUR:['EURO','EUROS','CENT','CENTS'],

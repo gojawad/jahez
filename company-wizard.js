@@ -1167,8 +1167,8 @@
     }
   };
 
-  // Spells an amount like "AED 44,040.00" out as words, e.g. "AED FORTY-FOUR
-  // THOUSAND AND FORTY ONLY", for the invoice's amount-in-words line.
+  // Spells an amount like "AED 44,040.00" out as words, e.g. "FORTY-FOUR
+  // THOUSAND AND FORTY UAE DIRHAMS ONLY", for the invoice's amount-in-words line.
   const numberToWords = (() => {
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -1196,14 +1196,31 @@
       return last.value < 100 ? head + ' and ' + last.text : head + ' ' + last.text;
     };
   })();
+  // [major singular, major plural, minor singular, minor plural]; other currencies keep the generic wording.
+  const INVOICE_CURRENCY_WORDS = {
+    AED: ['UAE DIRHAM', 'UAE DIRHAMS', 'FILS', 'FILS'],
+    USD: ['US DOLLAR', 'US DOLLARS', 'CENT', 'CENTS'],
+    SAR: ['SAUDI RIYAL', 'SAUDI RIYALS', 'HALALA', 'HALALAS'],
+    EUR: ['EURO', 'EUROS', 'CENT', 'CENTS'],
+    SDG: ['SUDANESE POUND', 'SUDANESE POUNDS', 'PIASTRE', 'PIASTRES']
+  };
   const amountInWordsLine = amountText => {
     const text = String(amountText || '').trim();
     if (!text) return '';
     const currency = (text.match(/[A-Za-z]{2,3}/) || [''])[0].toUpperCase();
     const numeric = parseFloat(text.replace(/[A-Za-z]/g, '').replace(/,/g, '').trim());
     if (!Number.isFinite(numeric)) return '';
-    const whole = Math.floor(numeric);
-    const cents = Math.round((numeric - whole) * 100);
+    const minor = Math.round(numeric * 100);
+    const whole = Math.floor(minor / 100);
+    const cents = minor % 100;
+    const units = INVOICE_CURRENCY_WORDS[currency];
+    if (units) {
+      // e.g. "FORTY-FOUR THOUSAND AND FORTY UAE DIRHAMS AND EIGHTY FILS ONLY".
+      const [one, many, minorOne, minorMany] = units;
+      let named = numberToWords(whole).toUpperCase() + ' ' + (whole === 1 ? one : many);
+      if (cents > 0) named += ' AND ' + numberToWords(cents).toUpperCase() + ' ' + (cents === 1 ? minorOne : minorMany);
+      return named + ' ONLY';
+    }
     let line = (currency ? currency + ' ' : '') + numberToWords(whole).toUpperCase();
     if (cents > 0) line += ' AND ' + numberToWords(cents).toUpperCase() + ' CENTS';
     return line + ' ONLY';

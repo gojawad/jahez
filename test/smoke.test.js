@@ -227,7 +227,7 @@ async function main() {
       assert.ok(companyWizard.includes("['stamp','qr']"));
       assert.ok(!companyWizard.includes('bce-show-header'));
       assert.ok(!companyWizard.includes("transformFields('header'"));
-      assert.ok(appHtml.includes('company-wizard.js?v=20260915-merge-routing-1'));
+      assert.ok(appHtml.includes('company-wizard.js?v=20260923-currency-words-1'));
       assert.ok(appHtml.includes('contract-client-assets.js?v=20260919-placement-1'));
       assert.ok(companyWizard.includes('تحريك الجدول لأعلى أو أسفل'));
       assert.ok(companyWizard.includes('Office 307 Al Faheem Building'));
