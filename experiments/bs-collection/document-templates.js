@@ -75,13 +75,13 @@ window.CollectionHtmlTemplates = (()=>{
     const total=collectionTotal(rows);
     return {...rows[0],...state.settings,rows,settings:{...state.settings},
       document_title:title(kind),currency:total.currency,total:total.number,
-      amount:formatMoney(total.currency,total.number),words:`${total.currency} ${amountWords(total.number)} ONLY`,
+      amount:formatMoney(total.currency,total.number),words:currencyAmountWords(total.number,total.currency),
       drawee:consignees.join(' / '),draweeAddress:state.settings.draweeAddress||rows[0].consigneeAddress||'',
       collectionDateText:collectionDateText(state.settings.collectionDate),
       exchangeAmount:`${total.currency} ${total.number}`,
       exchangeCollectionDate:collectionDateText(state.settings.collectionDate).replace(/-(\d{4})$/,'- $1'),
       exchangeBank:String(state.settings.remittingBank||'').toUpperCase(),
-      exchangeWords:`${amountWords(total.number)} ${total.currency} ONLY`.toUpperCase(),
+      exchangeWords:currencyAmountWords(total.number,total.currency).toUpperCase(),
       letterTenor:String(state.settings.term||'').trim().replace(/\.?$/,'.'),
       undertakingBankAddress:String(state.settings.remittingBankAddress||'').replace(/(BANIYAS BRANCH BUILDING,)\s*/i,'$1\n'),
       undertakingRows:rows.map((row,index)=>{

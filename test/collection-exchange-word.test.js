@@ -23,7 +23,7 @@ module.exports=async({page,BASE,OUTPUT})=>{
   });
   assert.ok(result.brandUnchanged&&result.layoutsUnchanged,'reference body never rewrites saved branding/layouts');
   assert.ok(result.emptyMatches,'an empty HTML draft previews the same built-in template used after save');
-  assert.ok(result.html.includes('AED 411040')&&result.html.includes('FOUR HUNDRED ELEVEN THOUSAND FORTY AED ONLY'));
+  assert.ok(result.html.includes('AED 411040')&&result.html.includes('FOUR HUNDRED ELEVEN THOUSAND FORTY UAE DIRHAMS ONLY'));
   assert.ok(result.html.includes('30 Jan 2026')&&result.html.includes('10 Jan 2026'));
   assert.ok(result.html.includes('D/A 180 DAYS FROM BILL OF EXCHANGE DATE'));
   assert.ok(!result.html.includes('{{'));

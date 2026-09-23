@@ -23,7 +23,7 @@ module.exports=async({page,BASE,OUTPUT})=>{
     }finally{Object.assign(state,original);}
   });
   assert.ok(result.unchanged&&result.emptyMatches);
-  assert.ok(result.html.includes('411040')&&result.html.includes('FOUR HUNDRED ELEVEN THOUSAND FORTY AED ONLY'));
+  assert.ok(result.html.includes('411040')&&result.html.includes('FOUR HUNDRED ELEVEN THOUSAND FORTY UAE DIRHAMS ONLY'));
   assert.ok(result.updated.includes('311040')&&!result.updated.includes('411040'),'amounts follow the existing selection/override calculation');
   assert.ok(!result.html.includes('{{'));
   assert.ok(result.html.includes('DATE.</b>')&&!result.html.includes('DATE..'));
