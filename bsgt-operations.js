@@ -111,7 +111,9 @@
       uploadedCount,
       completedCount: generatedCount + uploadedCount,
       requiredCount: Object.keys(generated).length + Object.keys(uploaded).length,
-      completed: missing.length === 0
+      completed: missing.length === 0,
+      // Merging and sending to finance only need one available document.
+      mergeable: generatedCount + uploadedCount > 0
     });
   }
 

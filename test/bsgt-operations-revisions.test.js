@@ -142,9 +142,12 @@ test('duplicate uploads are rejected before reading or storing package sources',
     async () => assert.fail('must not download'),async () => assert.fail('must not store'),'duplicate'),/scope/);
 });
 
-test('missing or invalid sources fail rather than publishing an incomplete PDF', async () => {
+test('partial packages merge only the available documents; empty or invalid sources fail', async () => {
   const f = await fixture();
-  await assert.rejects(buildPackage({...f.input,files:f.input.files.slice(1)},f.generated,async()=>f.bytes,async()=>{},'r'), /Missing/);
+  const partial = await buildPackage({...f.input,generated:{contract:true},files:f.input.files.slice(1)},{contract:f.generated.contract},async()=>f.bytes,async()=>{},'r');
+  assert.deepEqual(partial.documents.map(d=>d.kind).sort(), ['bill_of_lading','certificate_of_origin','contract']);
+  await assert.rejects(buildPackage({...f.input,generated:{},files:[]},{},async()=>f.bytes,async()=>{},'r'), /No operations documents/);
+  await assert.rejects(buildPackage({...f.input,generated:{contract:true}},f.generated,async()=>f.bytes,async()=>{},'r'), /Unexpected generated/);
   await assert.rejects(buildPackage(f.input,f.generated,async()=>Buffer.from('not a document'),async()=>{},'r'), /Unsupported/);
 });
 

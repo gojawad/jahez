@@ -50,8 +50,9 @@ async function asPdf(bytes, mime) {
 // Generated operations PDFs come from the existing templates. Uploaded sources
 // and the merge order come exclusively from the authorized server snapshot.
 async function buildPackage(input, generated, download, store, revisionId) {
-  const kinds = Object.keys(input.generated).sort();
-  if (JSON.stringify(kinds) !== JSON.stringify([...GENERATED].sort()) ||
+  // The snapshot lists only the generated kinds that are ready (migration 63).
+  const kinds = Object.keys(input.generated || {}).sort();
+  if (kinds.some(kind => !GENERATED.includes(kind)) ||
       JSON.stringify(Object.keys(generated || {}).sort()) !== JSON.stringify(kinds)) {
     throw new Error('Unexpected generated document scope');
   }
@@ -76,7 +77,7 @@ async function buildPackage(input, generated, download, store, revisionId) {
     if (!allowedUploads.delete(file.kind)) throw new Error('Unexpected uploaded document scope');
     uploads.set(file.kind, file);
   }
-  if (allowedUploads.size) throw new Error('Missing required operations attachments');
+  if (!kinds.length && !uploads.size) throw new Error('No operations documents to merge');
   // Match the legacy shipment order, with contract and import permit always first.
   // Only the authorized snapshot supplies preferences; it cannot expand document scope.
   const savedOrder = input.shipment.data?.docOrder;
@@ -90,7 +91,7 @@ async function buildPackage(input, generated, download, store, revisionId) {
     const file = uploads.get(kind);
     if (file) {
       await append(kind, downloaded.get(kind), file.id);
-    } else {
+    } else if (kinds.includes(kind)) {
       const encoded = generated[kind];
       if (typeof encoded !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Invalid generated PDF');
       const pdf = Buffer.from(encoded, 'base64');

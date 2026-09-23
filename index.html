@@ -5877,7 +5877,7 @@ SWIFT: NBEGEGCX"></textarea>
 <script src="portal-access.js?v=20260920-finance-readonly-1"></script>
 <script src="session-navigation.js?v=20260915-sending-master-1"></script>
   <script src="bsgt-workspace.js?v=20260921-bank-sent-permission-1"></script>
-<script src="bsgt-operations.js?v=20260914-operations-revisions-1"></script>
+<script src="bsgt-operations.js?v=20260923-optional-requirements-1"></script>
 <script src="commodity-images.js?v=20260913-wide-images-1"></script>
 <script src="bsgt-finance.js?v=20260919-cad-1"></script>
 <script src="bsgt-management.js?v=20260920-optional-signing-1"></script>
@@ -9464,7 +9464,7 @@ function bsgtFullShipmentActions(r, documents = shipmentFilesCache[r?.id] || [])
     canEditContract:Boolean(window.JahezPermissions?.can('contracts.edit')),
     canUseClientAssets:Boolean(window.JahezPermissions?.can('client_assets.use')),
     canMergePackage:canMergePermission,
-    canSendToFinance:canEditDocuments && Boolean(readiness?.completed),
+    canSendToFinance:canEditDocuments && Boolean(readiness?.mergeable),
     readiness
   };
 }
@@ -9514,7 +9514,7 @@ function syncBsgtOperationsConsigneeFilter(){
 function bsgtOperationsStageBadge(stage, record){
   const packageReady = stage === 'operations_draft' && record &&
     window.JahezRevisionWorkflow?.hasOperationsQrPackage(record) &&
-    window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, shipmentFilesCache[record.id] || []).completed;
+    window.JahezBsgtOperations.evaluateBsgtOperationsReadiness(record, shipmentFilesCache[record.id] || []).mergeable;
   const ready = stage === 'ready_for_finance' || packageReady;
   return `<span class="bsgt-stage-badge${ready?' is-ready':''}"${packageReady?' title="الحزمة جاهزة للإرسال للمالية، ولم تُرسل بعد."':''}>${escapeHtml(window.JahezBsgtOperations.stageLabel(ready?'ready_for_finance':stage))}</span>`;
 }
@@ -9689,7 +9689,7 @@ function renderBsgtOperationsDetail(record){
   host.innerHTML = `<button type="button" class="bsgt-operations-mobile-back" id="bsgtOperationsMobileBack">${icon('arrow',14)} العودة للقائمة</button>
     <header class="bsgt-operations-detail-head">
       <div class="bsgt-operations-detail-identity"><div><span>${bsgtOperationsStageBadge(record.bsgtStage,record)}</span><h3>${escapeHtml(record.operationNo||'—')}</h3><b>${escapeHtml(record.itemDesc||'بدون وصف')}</b><small>${escapeHtml(record.consignee||'—')}</small></div></div>
-      <div class="bsgt-operations-detail-actions"><button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.completed||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
+      <div class="bsgt-operations-detail-actions"><button type="button" class="btn btn-primary" id="bsgtOperationsOpenFull">${icon('eye',14)} فتح الشحنة بالكامل</button>${bsgtOperationsPermission(true)?`<button type="button" class="btn btn-ghost" id="bsgtOperationsQuickSend" ${(!evaluation.mergeable||record.bsgtStage!=='operations_draft')?'disabled':''}>${icon('arrow',14)} ${record.bsgtStage==='operations_draft'?'إرسال للمالية':'تم إرسالها من العمليات'}</button>`:''}</div>
     </header>
     <div class="bsgt-operations-top-summary">${summaries.map(([ic,label,value,flag])=>`<div><span>${flag||icon(ic,19)}</span><small>${label}</small><b dir="auto">${escapeHtml(String(value??'').trim()||'—')}</b></div>`).join('')}</div>
     <div class="bsgt-operations-progress-card"><header><div><h4>متطلبات العمليات</h4><span>${evaluation.completedCount} من ${evaluation.requiredCount} متطلبات مكتملة</span></div><b>${evaluation.completedCount}/${evaluation.requiredCount}</b></header><div class="bsgt-operations-progress-bar" aria-label="اكتمال مستندات العمليات"><i style="width:${evaluation.completedCount/evaluation.requiredCount*100}%"></i></div>${renderBsgtOperationsStageTrack(record,returnContext)}</div>
@@ -17375,14 +17375,14 @@ function renderBsgtOperationsDocuments(r){
     <div class="bsgt-operations-summary">
       <div class="bsgt-operations-stat"><span>المستندات المولدة</span><b>${evaluation.generatedCount} / 4</b></div>
       <div class="bsgt-operations-stat"><span>المستندات المطلوبة</span><b>${evaluation.uploadedCount} / 3</b></div>
-      <div class="bsgt-operations-stat"><span>إجمالي المتطلبات الإلزامية</span><b>${evaluation.completedCount} / ${evaluation.requiredCount}</b></div>
+      <div class="bsgt-operations-stat"><span>إجمالي المتطلبات</span><b>${evaluation.completedCount} / ${evaluation.requiredCount}</b></div>
     </div>
     <div class="bsgt-operations-groups">
       <div class="bsgt-operations-group"><h4>المستندات المولدة تلقائياً</h4>${generatedCards}</div>
       <div class="bsgt-operations-group"><h4>المستندات المرفوعة</h4>${uploadedCards}${optionalCards}${canEditDocuments?`<div class="bsgt-operation-doc-card" data-bsgt-document-kind="upload-control"><span class="bsgt-operation-doc-icon">${icon('plus',15)}</span><span class="bsgt-operation-doc-info"><b>ملف إضافي اختياري</b><small>PDF أو PNG أو JPG، ويمكن رفع أكثر من ملف</small></span><span class="bsgt-operation-doc-actions"><button type="button" class="btn btn-ghost btn-small bsgt-icon-btn" data-bsgt-upload="optionalAttachment" title="رفع ملف إضافي اختياري" aria-label="رفع ملف إضافي اختياري" data-tip="رفع">${icon('upload',15)} <span class="bsgt-icon-label">رفع</span></button></span></div>`:''}</div>
     </div>
-    ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة الإلزامية.</div>':`<div class="bsgt-operations-missing"><b>ناقص:</b> ${evaluation.missing.map(escapeHtml).join('، ')}</div>`}
-    <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage,r)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${canSendToFinance?'':`disabled title="${escapeHtml(leftOperations?'المستندات للقراءة فقط بعد مغادرة مرحلة العمليات.':'أكمل المتطلبات السبعة أولاً.')}"`}>${icon('arrow',14)} ${leftOperations?'تم إرسالها من العمليات':'إرسال للمالية'}</button>`:''}</div>
+    ${evaluation.completed?'<div class="bsgt-operations-complete">اكتملت المتطلبات السبعة.</div>':`<div class="bsgt-operations-missing"><b>غير مرفق:</b> ${evaluation.missing.map(escapeHtml).join('، ')} — يمكن الدمج بالمستندات المتاحة.</div>`}
+    <div class="bsgt-operations-submit"><span>${bsgtOperationsStageBadge(r.bsgtStage,r)}</span>${canEditOperations?`<button type="button" class="btn btn-primary" id="bsgtSendToFinanceBtn" ${canSendToFinance?'':`disabled title="${escapeHtml(leftOperations?'المستندات للقراءة فقط بعد مغادرة مرحلة العمليات.':'أضف مستنداً واحداً على الأقل أولاً.')}"`}>${icon('arrow',14)} ${leftOperations?'تم إرسالها من العمليات':'إرسال للمالية'}</button>`:''}</div>
   </div>`;
 }
 
@@ -17545,12 +17545,12 @@ async function mergeBsgtOperationsPackage(id, lang, button){
       toast('الدمج متاح في مرحلة العمليات فقط.', 'err');
       return;
     }
-    if(!evaluation.completed){
+    if(!evaluation.mergeable){
       shipmentFilesCache[id] = filesResult.data || [];
       const index = records.findIndex(record=>record.id===id);
       if(index >= 0) records[index] = latestRecord;
       rerenderBsgtOperationsDocumentState(latestRecord);
-      toast('تعذر الدمج. المتطلبات الناقصة: '+evaluation.missing.join('، '), 'err');
+      toast('تعذر الدمج. لا توجد مستندات متاحة للدمج.', 'err');
       return;
     }
     const data = await window.JahezRevisionWorkflow.mergeOperations(latestRecord, lang);
@@ -22241,7 +22241,7 @@ initializeAuthentication();
 <script src="client-company-profiles.js?v=20260919-placement-2"></script>
 <script src="company-profile.js?v=20260919-placement-2"></script>
 <script src="mobile-shell.js?v=20260913-mobile-1"></script>
-<script src="bsgt-revision-workflow.js?v=20260920-bank-sent-7"></script>
+<script src="bsgt-revision-workflow.js?v=20260923-optional-requirements-1"></script>
 <script src="bsgt-bank-sent.js?v=20260921-compact-2"></script>
 <script src="bsgt-trade-files.js?v=20260918-archive-1"></script>
 <script src="bsgt-financial-ledger.js?v=20260921-phase2-3"></script>
