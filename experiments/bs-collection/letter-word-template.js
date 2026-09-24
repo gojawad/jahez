@@ -4,33 +4,33 @@ window.CollectionLetterWordTemplate = {
   config(){
     return {version:1,header:'collection',unit:'mm',top:51.3,bottom:25,left:12.7,right:12.7,headerSize:0,footerSize:0,html:`
 <style>
-.bank-collection-letter{font-family:'Times New Roman','Liberation Serif',serif;font-size:12pt;line-height:13.8pt;color:#000;text-align:left;font-kerning:none}
+.bank-collection-letter{font-family:'Times New Roman','Liberation Serif',serif;font-size:12pt;line-height:13.2pt;color:#000;text-align:left;font-kerning:none}
 .bank-collection-letter *{box-sizing:border-box}
 .bank-collection-letter p{margin:0}
-.bank-collection-letter .letter-date{margin-bottom:2.5mm}
+.bank-collection-letter .letter-date{margin-bottom:1.2mm}
 .bank-collection-letter .letter-date b{font-family:Calibri,sans-serif;font-size:11pt}
-.bank-collection-letter .letter-recipient{margin-bottom:2mm;white-space:pre-line}
-.bank-collection-letter .letter-dear{margin-bottom:2mm}
-.bank-collection-letter .letter-instructions{text-align:justify;margin-bottom:2.8mm}
-.bank-collection-letter .letter-charges{margin-bottom:2mm;font-weight:bold}
+.bank-collection-letter .letter-recipient{margin-bottom:1mm;white-space:pre-line}
+.bank-collection-letter .letter-dear{margin-bottom:1mm}
+.bank-collection-letter .letter-instructions{text-align:justify;margin-bottom:1.5mm}
+.bank-collection-letter .letter-charges{margin-bottom:1mm;font-weight:bold}
 .bank-collection-letter .letter-charges span{font-family:Garamond,'Times New Roman',serif}
-.bank-collection-letter .letter-amount{line-height:15pt;margin-bottom:2mm}
+.bank-collection-letter .letter-amount{line-height:14pt;margin-bottom:1mm}
 .bank-collection-letter .letter-amount-number{font-family:Calibri,sans-serif;font-size:14pt;font-weight:bold}
-.bank-collection-letter .letter-tenor{margin-bottom:2.5mm}
-.bank-collection-letter .letter-bank{margin-bottom:2mm}
+.bank-collection-letter .letter-tenor{margin-bottom:1.2mm}
+.bank-collection-letter .letter-bank{margin-bottom:1mm}
 .bank-collection-letter .letter-bank-name{display:block;margin-top:.65mm}
 .bank-collection-letter .letter-bank-address{display:block;font-family:Calibri,sans-serif;font-size:11pt;font-style:italic;margin-top:.7mm;white-space:pre-line}
-.bank-collection-letter .letter-drawee{margin-bottom:2.5mm}
+.bank-collection-letter .letter-drawee{margin-bottom:1.2mm}
 .bank-collection-letter .letter-drawee-name{display:block;font-family:Calibri,sans-serif;font-size:12pt;font-weight:bold;margin-top:.3mm}
 .bank-collection-letter .letter-drawee-address{display:block;font-family:Calibri,sans-serif;font-size:12pt;font-style:italic;margin-top:.3mm;white-space:pre-line}
-.bank-collection-letter .letter-documents{width:108mm;table-layout:fixed;font-size:12pt;line-height:13.8pt;margin:0}
+.bank-collection-letter .letter-documents{width:108mm;table-layout:fixed;font-size:12pt;line-height:13pt;margin:0}
 .bank-collection-letter .letter-documents td,.bank-collection-letter .letter-documents th{border:0;padding:0;text-align:left;font-weight:normal;vertical-align:top}
 .bank-collection-letter .letter-documents th{font-weight:bold}
 .bank-collection-letter .letter-documents td:nth-child(n+3),.bank-collection-letter .letter-documents th:nth-child(n+3){text-align:center}
 .bank-collection-letter .letter-swift{font-family:'IBM Plex Sans Arabic Medium','IBM Plex Sans Arabic',sans-serif;font-size:10pt;font-weight:500;line-height:12pt;margin-top:.9mm}
 .bank-collection-letter .letter-swift span{background:#ff0;color:#000;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 .bank-collection-letter .letter-signature{break-inside:avoid;margin-top:1mm}
-.bank-collection-letter .letter-faithfully{margin-bottom:1.5mm}
+.bank-collection-letter .letter-faithfully{margin-bottom:0.8mm}
 .bank-collection-letter .letter-author{font-family:Tahoma,sans-serif;font-size:12pt;margin:2.65mm 0 0 12.7mm}
 .bank-collection-letter .letter-title{font-family:'IBM Plex Sans Arabic SemiBold','IBM Plex Sans Arabic',sans-serif;font-size:12pt;font-weight:600;margin:1.4mm 0 0 25.4mm}
 </style>
