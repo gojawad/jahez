@@ -74,7 +74,8 @@
 .bsgt-operations-search:focus-within{border-color:#ea1b23;box-shadow:0 0 0 3px rgba(234,27,35,.1)}
 .bsgt-operations-search input{width:100%;min-width:0;height:36px;border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;font-size:10px}
 .bsgt-operations-tool-row{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:8px}
-.bsgt-operations-consignee-filter,.bsgt-operations-sort-filter{display:grid;min-width:0;gap:4px;color:#667085;font-size:8px;font-weight:700}
+.bsgt-operations-tool-row.is-even{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bsgt-operations-consignee-filter,.bsgt-operations-sort-filter,.bsgt-operations-payment-filter,.bsgt-operations-bank-filter{display:grid;min-width:0;gap:4px;color:#667085;font-size:8px;font-weight:700}
 .bsgt-operations-tools select{width:100%;min-width:0;height:36px;padding:0 8px;border:1px solid #dfe5ec;border-radius:10px;background:#fff;color:#344054;font-size:10px}
 .bsgt-operations-tools select:focus{border-color:#ea1b23;outline:0;box-shadow:0 0 0 3px rgba(234,27,35,.1)}
 .bsgt-operations-list{flex:1;overflow:auto;border:0;border-radius:0;background:transparent}
@@ -341,7 +342,9 @@
     gap:8px;
   }
   #viewBsgtWorkspace .bsgt-operations-consignee-filter,
-  #viewBsgtWorkspace .bsgt-operations-sort-filter{gap:5px;font-size:10px}
+  #viewBsgtWorkspace .bsgt-operations-sort-filter,
+  #viewBsgtWorkspace .bsgt-operations-payment-filter,
+  #viewBsgtWorkspace .bsgt-operations-bank-filter{gap:5px;font-size:10px}
   #viewBsgtWorkspace .bsgt-operations-tools select{
     height:44px;
     min-height:44px;

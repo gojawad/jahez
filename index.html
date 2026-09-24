@@ -2502,7 +2502,7 @@ body.role-editor #navMoney,body.role-editor #navWallet{display:flex !important;}
   <link rel="stylesheet" href="bsgt-relations.css?v=20260918-ready-cards-1">
   <link rel="stylesheet" href="bsgt-bank-sent.css?v=20260921-compact-2">
   <link rel="stylesheet" href="archive.css?v=20260918-archive-1">
-  <link rel="stylesheet" href="bsgt-operations.css?v=20260915-route-art-1">
+  <link rel="stylesheet" href="bsgt-operations.css?v=20260924-payment-bank-filters-1">
   <link rel="stylesheet" href="mobile-app.css?v=20260913-mobile-1">
   <link rel="stylesheet" href="bsgt-detail-compact.css?v=20260918-compact-3">
 </head>
@@ -9410,7 +9410,7 @@ function switchView(v, options){
   if(accessDenied && requestedView!=='dashboard') setTimeout(()=>toast('ليس لديك صلاحية للوصول إلى هذه البوابة.', 'err'), 0);
 }
 
-const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}, selectedId:null, activeTab:'overview', mobileDetail:false, search:'', consignee:'', consigneeOptions:[], consigneeCompanyId:null, sort:'newest', kpis:{total:0,draft:0,ready:0}};
+const bsgtOperationsListState = {page:1, pageSize:10, total:0, requestId:0, rows:[], filesByShipment:{}, tradeContextByShipment:{}, selectedId:null, activeTab:'overview', mobileDetail:false, search:'', consignee:'', consigneeOptions:[], consigneeCompanyId:null, paymentType:'', paymentTermsByType:{}, destBank:'', bankOptions:[], sort:'newest', kpis:{total:0,draft:0,ready:0}};
 const bsgtFinanceState = {requestId:0, readyRows:[], files:[], links:[], linkedRows:[], events:[], selected:new Set(), detailId:null};
 let bsgtWorkspaceFormContext = false;
 let bsgtOperationsSearchTimer = null;
@@ -9491,6 +9491,10 @@ function renderBsgtOperationsShell(canEditOperations){
             <label class="bsgt-operations-consignee-filter"><span>المرسل إليه</span><select id="bsgtOperationsConsignee" aria-label="المرسل إليه">${renderBsgtOperationsConsigneeOptions()}</select></label>
             <label class="bsgt-operations-sort-filter"><span>الترتيب</span><select id="bsgtOperationsSort" aria-label="ترتيب الشحنات"><option value="newest" ${bsgtOperationsListState.sort==='newest'?'selected':''}>الأحدث أولاً</option><option value="oldest" ${bsgtOperationsListState.sort==='oldest'?'selected':''}>الأقدم أولاً</option></select></label>
           </div>
+          <div class="bsgt-operations-tool-row is-even">
+            <label class="bsgt-operations-payment-filter"><span>طريقة الدفع</span><select id="bsgtOperationsPayment" aria-label="طريقة الدفع">${renderBsgtOperationsPaymentOptions()}</select></label>
+            <label class="bsgt-operations-bank-filter"><span>البنك المرسل إليه</span><select id="bsgtOperationsBank" aria-label="البنك المرسل إليه">${renderBsgtOperationsBankOptions()}</select></label>
+          </div>
         </div>
         <div class="bsgt-operations-list" id="bsgtOperationsList"><div class="bsgt-operations-loading">جاري تحميل شحنات BSGT…</div></div>
       </aside>
@@ -9509,6 +9513,35 @@ function syncBsgtOperationsConsigneeFilter(){
   if(!select) return;
   select.innerHTML=renderBsgtOperationsConsigneeOptions();
   select.value=bsgtOperationsListState.consignee;
+}
+
+// Payment terms are free text ("DA (180) DAYS FROM B/L DATE", "D/A 90 DAYS", "CAD"),
+// so the filter groups them by type and queries the exact stored values of that type.
+const BSGT_PAYMENT_TYPES=[['cad','CAD'],['da','D/A'],['dp','D/P'],['tt','T/T'],['lc','L/C'],['other','أخرى']];
+function bsgtPaymentTermType(term){
+  const text=String(term||'').trim().toUpperCase();
+  if(!text) return '';
+  const code=letters=>new RegExp(`(^|[^A-Z])${letters[0]}\\s*[/.]?\\s*${letters[1]}([^A-Z]|$)`).test(text);
+  if(/(^|[^A-Z])CAD([^A-Z]|$)|CASH\s+AGAINST/.test(text)) return 'cad';
+  if(code('DA')||/AGAINST\s+ACCEPTANCE/.test(text)) return 'da';
+  if(code('DP')||/AGAINST\s+PAYMENT/.test(text)) return 'dp';
+  if(code('TT')||/TELEGRAPHIC/.test(text)) return 'tt';
+  if(code('LC')||/LETTER\s+OF\s+CREDIT/.test(text)) return 'lc';
+  return 'other';
+}
+function renderBsgtOperationsPaymentOptions(){
+  const state=bsgtOperationsListState;
+  return `<option value="">كل طرق الدفع</option>${BSGT_PAYMENT_TYPES.filter(([type])=>state.paymentTermsByType[type]?.length).map(([type,label])=>`<option value="${type}" ${state.paymentType===type?'selected':''}>${escapeHtml(label)}</option>`).join('')}`;
+}
+function renderBsgtOperationsBankOptions(){
+  const state=bsgtOperationsListState;
+  return `<option value="">كل البنوك</option>${state.bankOptions.map(value=>`<option value="${escapeHtml(value)}" ${state.destBank===value?'selected':''}>${escapeHtml(value)}</option>`).join('')}`;
+}
+function syncBsgtOperationsExtraFilters(){
+  const payment=document.getElementById('bsgtOperationsPayment');
+  if(payment){ payment.innerHTML=renderBsgtOperationsPaymentOptions(); payment.value=bsgtOperationsListState.paymentType; }
+  const bank=document.getElementById('bsgtOperationsBank');
+  if(bank){ bank.innerHTML=renderBsgtOperationsBankOptions(); bank.value=bsgtOperationsListState.destBank; }
 }
 
 function bsgtOperationsStageBadge(stage, record){
@@ -9822,6 +9855,10 @@ async function loadBsgtOperationsPage(){
     state.consignee='';
     state.consigneeOptions=[];
     state.consigneeCompanyId=null;
+    state.paymentType='';
+    state.paymentTermsByType={};
+    state.destBank='';
+    state.bankOptions=[];
     state.page=1;
   }
   const requestId = ++bsgtOperationsListState.requestId;
@@ -9835,6 +9872,11 @@ async function loadBsgtOperationsPage(){
     const search = bsgtOperationsListState.search.trim().replace(/[,()]/g,' ');
     if(search) pageQuery=pageQuery.or(`data->>operationNo.ilike.%${search}%,data->>itemDesc.ilike.%${search}%,data->>consignee.ilike.%${search}%`);
     if(bsgtOperationsListState.consignee) pageQuery=pageQuery.eq('data->>consignee',bsgtOperationsListState.consignee);
+    if(bsgtOperationsListState.paymentType){
+      const terms=bsgtOperationsListState.paymentTermsByType[bsgtOperationsListState.paymentType]||[];
+      pageQuery=terms.length?pageQuery.in('data->>paymentTerm',terms):pageQuery.eq('id','00000000-0000-0000-0000-000000000000');
+    }
+    if(bsgtOperationsListState.destBank) pageQuery=pageQuery.eq('data->>destBank',bsgtOperationsListState.destBank);
     pageQuery=pageQuery.order('created_at', {ascending:bsgtOperationsListState.sort==='oldest'}).range(from,to);
     const consigneeOptionsRequest=bsgtOperationsListState.consigneeCompanyId===companyId
       ? Promise.resolve(null)
@@ -9856,6 +9898,18 @@ async function loadBsgtOperationsPage(){
       bsgtOperationsListState.consigneeCompanyId=companyId;
       if(bsgtOperationsListState.consignee&&!bsgtOperationsListState.consigneeOptions.includes(bsgtOperationsListState.consignee)) bsgtOperationsListState.consignee='';
       syncBsgtOperationsConsigneeFilter();
+      const termsByType={}, banks=new Set();
+      (consigneeOptionsResult.data||[]).forEach(row=>{
+        const term=String(row.data?.paymentTerm||''), type=bsgtPaymentTermType(term);
+        if(type) (termsByType[type]||=new Set()).add(term);
+        const bank=String(row.data?.destBank||'').trim();
+        if(bank) banks.add(bank);
+      });
+      bsgtOperationsListState.paymentTermsByType=Object.fromEntries(Object.entries(termsByType).map(([type,set])=>[type,[...set]]));
+      bsgtOperationsListState.bankOptions=[...banks].sort((a,b)=>a.localeCompare(b,'ar'));
+      if(bsgtOperationsListState.paymentType&&!bsgtOperationsListState.paymentTermsByType[bsgtOperationsListState.paymentType]) bsgtOperationsListState.paymentType='';
+      if(bsgtOperationsListState.destBank&&!banks.has(bsgtOperationsListState.destBank)) bsgtOperationsListState.destBank='';
+      syncBsgtOperationsExtraFilters();
     }
     const pageRecords = (data || []).map(rowToRecord);
     const ids = pageRecords.map(record=>record.id);
@@ -10572,6 +10626,16 @@ function renderBsgtWorkspace(requestedSection){
     });
     document.getElementById('bsgtOperationsConsignee')?.addEventListener('change',event=>{
       bsgtOperationsListState.consignee=event.target.value;
+      bsgtOperationsListState.page=1;
+      loadBsgtOperationsPage();
+    });
+    document.getElementById('bsgtOperationsPayment')?.addEventListener('change',event=>{
+      bsgtOperationsListState.paymentType=event.target.value;
+      bsgtOperationsListState.page=1;
+      loadBsgtOperationsPage();
+    });
+    document.getElementById('bsgtOperationsBank')?.addEventListener('change',event=>{
+      bsgtOperationsListState.destBank=event.target.value;
       bsgtOperationsListState.page=1;
       loadBsgtOperationsPage();
     });

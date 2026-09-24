@@ -191,8 +191,9 @@ async function main(){
       if(url.pathname==='/rest/v1/companies') return route.fulfill({status:200,headers,body:JSON.stringify([{id:companyId,name_ar:'بحر سواكن للتجارة العامة',name_en:'Bahar Swaken General Trading',active:true,is_default:false,sort_order:1,settings:{}}])});
       if(url.pathname==='/rest/v1/shipments'){
         if(url.searchParams.get('select')==='data') return route.fulfill({status:200,headers,body:JSON.stringify([
-          {data:{consignee:'TEST BUYER'}},
-          {data:{consignee:'STANDER FOR IMPORT AND EXPORT CO.LTD'}}
+          {data:{consignee:'TEST BUYER',paymentTerm:'DA (180) DAYS FROM B/L DATE',destBank:'ALNILE BANK'}},
+          {data:{consignee:'STANDER FOR IMPORT AND EXPORT CO.LTD',paymentTerm:'CAD',destBank:'BANK OF KHARTOUM'}},
+          {data:{consignee:'TEST BUYER',paymentTerm:'D/A 90 DAYS FROM BILL OF EXCHANGE DATE.'}}
         ])});
         if(request.method()==='GET'){
           shipmentPageRequests.push(url.toString());
@@ -245,7 +246,7 @@ async function main(){
     assert.ok(assetState.brand < assetState.workspace && assetState.workspace < assetState.operations, 'CSS order is base/brand, workspace, then operations');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.css')).length, 1, 'finance CSS is loaded once');
     assert.strictEqual(assetState.assets.filter(asset=>asset?.includes('bsgt-finance.js')).length, 1, 'finance script is loaded once');
-    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260915-route-art-1')), 'operations CSS invalidates the prior overview layout');
+    assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.css?v=20260924-payment-bank-filters-1')), 'operations CSS invalidates the prior overview layout');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-operations.js?v=20260923-optional-requirements-1')), 'operations JS invalidates the mandatory-requirements cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('bsgt-management.js?v=20260920-optional-signing-1')), 'management JS invalidates the mandatory-signature cached version');
     assert.ok(assetState.assets.some(asset=>asset?.includes('company-wizard.js?v=20260923-currency-words-1')), 'company wizard invalidates the legacy merge click interceptor');
@@ -296,6 +297,22 @@ async function main(){
     await page.waitForTimeout(100);
     latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
     assert.strictEqual(latestShipmentQuery.searchParams.has('data->>consignee'), false, 'all consignees clears the server-side filter');
+    assert.deepStrictEqual(await page.locator('#bsgtOperationsPayment option').allTextContents(), ['كل طرق الدفع','CAD','D/A'], 'payment filter groups the stored payment terms by type');
+    assert.deepStrictEqual(await page.locator('#bsgtOperationsBank option').allTextContents(), ['كل البنوك','ALNILE BANK','BANK OF KHARTOUM'], 'bank filter uses current destination banks');
+    await page.locator('#bsgtOperationsPayment').selectOption('da');
+    await page.waitForTimeout(100);
+    latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
+    assert.strictEqual(latestShipmentQuery.searchParams.get('data->>paymentTerm'), 'in.("DA (180) DAYS FROM B/L DATE",D/A 90 DAYS FROM BILL OF EXCHANGE DATE.)', 'D/A matches every stored D/A wording');
+    await page.locator('#bsgtOperationsBank').selectOption('ALNILE BANK');
+    await page.waitForTimeout(100);
+    latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
+    assert.strictEqual(latestShipmentQuery.searchParams.get('data->>destBank'), 'eq.ALNILE BANK', 'bank is applied to the server-side query');
+    assert.ok(latestShipmentQuery.searchParams.has('data->>paymentTerm'), 'payment and bank filters are combined');
+    await page.locator('#bsgtOperationsPayment').selectOption('');
+    await page.locator('#bsgtOperationsBank').selectOption('');
+    await page.waitForTimeout(100);
+    latestShipmentQuery=new URL(shipmentPageRequests.at(-1));
+    assert.ok(!latestShipmentQuery.searchParams.has('data->>paymentTerm')&&!latestShipmentQuery.searchParams.has('data->>destBank'), 'clearing both filters restores the full list');
     await page.evaluate(()=>{bsgtOperationsListState.total=11;renderBsgtOperationsRows();});
     const requestsBeforePaging=shipmentPageRequests.length;
     await page.locator('[data-bsgt-page="2"]').click();
