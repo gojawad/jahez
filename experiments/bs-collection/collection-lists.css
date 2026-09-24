@@ -90,49 +90,49 @@ body, .lab-header, .lab-shell, button, input, select, textarea { font-family: 'I
 .section-is-collapsed > :not(.section-heading) { display: none; }
 @media print { .portal-step-grid, .section-is-collapsed > .preview-tools, .section-collapse-btn, .collection-portal-section, .text-layer-controls, .text-review-controls { display: none !important; } .preview-section.section-is-collapsed, .section-is-collapsed > .document-preview { display: block !important; } }
 @media (max-width: 640px) { .collapsible-heading-title { flex-wrap: wrap; } }
-.collection-a4 .word-page-1 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 13px; line-height: 1.22; }
-.collection-a4 .word-page-1 p { margin: 0 0 13px; font-size: 13px; line-height: 1.22; }
-.collection-a4 .word-page-1 .word-date { margin-bottom: 23px; }
-.collection-a4 .word-page-1 .word-recipient { margin-bottom: 21px; }
-.collection-a4 .word-page-1 .word-collection-title { margin-top: 20px; margin-bottom: 6px; }
-.collection-a4 .word-page-1 .word-collection-data { margin-bottom: 19px; }
-.collection-a4 .word-page-1 .word-bank-label { margin-top: 24px; margin-bottom: 23px; }
-.collection-a4 .word-page-1 .word-drawee { margin-bottom: 24px; }
-.collection-a4 .word-page-1 .word-docs-title { margin-bottom: 3px; }
-.collection-a4 .word-page-1 .word-documents { width: 62%; margin: 0; border-collapse: collapse; font-size: 13px; }
-.collection-a4 .word-page-1 .word-documents th, .collection-a4 .word-page-1 .word-documents td { padding: 0 6px 2px 0; border: 0 !important; font-family: Georgia, 'Times New Roman', serif; font-size: 13px; line-height: 1.05; background: transparent !important; }
-.collection-a4 .word-page-1 .word-documents th:nth-child(1), .collection-a4 .word-page-1 .word-documents td:nth-child(1) { width: 7%; }
-.collection-a4 .word-page-1 .word-documents th:nth-child(2), .collection-a4 .word-page-1 .word-documents td:nth-child(2) { width: 50%; }
-.collection-a4 .word-page-1 .word-documents th:nth-child(3), .collection-a4 .word-page-1 .word-documents td:nth-child(3), .collection-a4 .word-page-1 .word-documents th:nth-child(4), .collection-a4 .word-page-1 .word-documents td:nth-child(4) { text-align: center; }
-.collection-a4 .word-page-1 .word-bill-by { margin-top: 4px; margin-bottom: 4px; font-family: Arial, sans-serif; font-size: 10px; background: #ffff00; display: inline-block; }
-.collection-a4 .word-page-1 .word-signature { margin-top: 0; font-size: 13px; line-height: 1.15; }
-.collection-a4 .word-page-2 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 10.8px; line-height: 1.1; }
-.collection-a4 .word-page-2 .undertaking-head { display: block; font-size: 10.8px; line-height: 1.25; }
-.collection-a4 .word-page-2 .undertaking-date { margin: 0 0 12px; text-align: right; }
-.collection-a4 .word-page-2 h2 { margin: 13px 0 2px; font-family: Georgia, 'Times New Roman', serif; font-size: 11.5px; text-align: center; }
+.collection-a4.word-page-1 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 13px; line-height: 1.22; }
+.collection-a4.word-page-1 p { margin: 0 0 13px; font-size: 13px; line-height: 1.22; }
+.collection-a4.word-page-1 .word-date { margin-bottom: 23px; }
+.collection-a4.word-page-1 .word-recipient { margin-bottom: 21px; }
+.collection-a4.word-page-1 .word-collection-title { margin-top: 20px; margin-bottom: 6px; }
+.collection-a4.word-page-1 .word-collection-data { margin-bottom: 19px; }
+.collection-a4.word-page-1 .word-bank-label { margin-top: 24px; margin-bottom: 23px; }
+.collection-a4.word-page-1 .word-drawee { margin-bottom: 24px; }
+.collection-a4.word-page-1 .word-docs-title { margin-bottom: 3px; }
+.collection-a4.word-page-1 .word-documents { width: 62%; margin: 0; border-collapse: collapse; font-size: 13px; }
+.collection-a4.word-page-1 .word-documents th, .collection-a4.word-page-1 .word-documents td { padding: 0 6px 2px 0; border: 0 !important; font-family: Georgia, 'Times New Roman', serif; font-size: 13px; line-height: 1.05; background: transparent !important; }
+.collection-a4.word-page-1 .word-documents th:nth-child(1), .collection-a4.word-page-1 .word-documents td:nth-child(1) { width: 7%; }
+.collection-a4.word-page-1 .word-documents th:nth-child(2), .collection-a4.word-page-1 .word-documents td:nth-child(2) { width: 50%; }
+.collection-a4.word-page-1 .word-documents th:nth-child(3), .collection-a4.word-page-1 .word-documents td:nth-child(3), .collection-a4.word-page-1 .word-documents th:nth-child(4), .collection-a4.word-page-1 .word-documents td:nth-child(4) { text-align: center; }
+.collection-a4.word-page-1 .word-bill-by { margin-top: 4px; margin-bottom: 4px; font-family: Arial, sans-serif; font-size: 10px; background: #ffff00; display: inline-block; }
+.collection-a4.word-page-1 .word-signature { margin-top: 0; font-size: 13px; line-height: 1.15; }
+.collection-a4.word-page-2 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 10.8px; line-height: 1.1; }
+.collection-a4.word-page-2 .undertaking-head { display: block; font-size: 10.8px; line-height: 1.25; }
+.collection-a4.word-page-2 .undertaking-date { margin: 0 0 12px; text-align: right; }
+.collection-a4.word-page-2 h2 { margin: 13px 0 2px; font-family: Georgia, 'Times New Roman', serif; font-size: 11.5px; text-align: center; }
 .collection-a4.word-page-2 .undertaking-refs { width: auto !important; max-width: 100%; margin: 0 0 14px; border: 0 !important; border-collapse: collapse; table-layout: auto; font: 700 11.5px Georgia, 'Times New Roman', serif; color: #000; background: transparent !important; }
 .collection-a4.word-page-2 .undertaking-refs :is(th,td) { width: auto; min-width: 0; padding: 0 .16cm 0 0; border: 0 !important; line-height: 1.25; white-space: nowrap; text-align: left; background: transparent !important; }
 .collection-a4.word-page-2 .undertaking-refs th { padding-inline-end: .12cm; vertical-align: top; }
 .role-bsgt-portal-user .text-position-controls, .role-bsgt-portal-user .text-layer-controls, .role-bsgt-portal-user .text-review-controls, .role-bsgt-portal-user .stamp-hint, .role-bsgt-portal-user #resetStampBtn, .role-bsgt-portal-user #selectParagraphForArrowsBtn, .role-bsgt-portal-user #resetCurrentPreviewBtn { display: none !important; }
-.collection-a4 .word-page-2 .undertaking-dear { margin: 0 0 16px; font-size: 11px; }
-.collection-a4 .word-page-2 .undertaking-terms { margin: 0; padding-left: 18px; font-size: 10.6px; line-height: 1.16; }
-.collection-a4 .word-page-2 .undertaking-terms li { margin-bottom: 3px; padding-left: 6px; }
-.collection-a4 .word-page-2 mark { background: transparent !important; padding: 0 !important; color: inherit !important; }
-.collection-a4 .word-page-2 .undertaking-signature { margin-top: 12px; font-size: 10.8px; line-height: 1.18; }
-.collection-a4 .word-page-3 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 12px; line-height: 1.3; }
-.collection-a4 .word-page-3 h2 { margin: 0 0 24px; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; text-align: center; }
+.collection-a4.word-page-2 .undertaking-dear { margin: 0 0 16px; font-size: 11px; }
+.collection-a4.word-page-2 .undertaking-terms { margin: 0; padding-left: 18px; font-size: 10.6px; line-height: 1.16; }
+.collection-a4.word-page-2 .undertaking-terms li { margin-bottom: 3px; padding-left: 6px; }
+.collection-a4.word-page-2 mark { background: transparent !important; padding: 0 !important; color: inherit !important; }
+.collection-a4.word-page-2 .undertaking-signature { margin-top: 12px; font-size: 10.8px; line-height: 1.18; }
+.collection-a4.word-page-3 { font-family: Georgia, 'Times New Roman', serif; color: #000; font-size: 12px; line-height: 1.3; }
+.collection-a4.word-page-3 h2 { margin: 0 0 24px; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; text-align: center; }
 .collection-a4.word-page-3 .boe-meta { width: 68% !important; margin: 0 auto 78px; border: .25mm solid #000 !important; border-collapse: collapse; table-layout: fixed; }
 .collection-a4.word-page-3 .boe-meta td { width: 50%; padding: .3cm .55cm; border: .25mm solid #000 !important; text-align: left; background: transparent !important; }
 .collection-a4.word-page-3 .boe-meta-box { display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; gap: .35cm; white-space: nowrap; }
 .collection-a4.word-page-3 .boe-meta-label { flex: 0 0 auto; text-align: left; }
 .collection-a4.word-page-3 .boe-meta-value { flex: 0 0 auto; margin-left: auto; text-align: right; }
-.collection-a4 .word-page-3 .boe-order { margin: 0 0 12px; line-height: 1.6; }
-.collection-a4 .word-page-3 .boe-words { margin: 0 0 16px; }
+.collection-a4.word-page-3 .boe-order { margin: 0 0 12px; line-height: 1.6; }
+.collection-a4.word-page-3 .boe-words { margin: 0 0 16px; }
 .collection-a4.word-page-3 .boe-invoices { width: 48% !important; margin: 0 auto 78px; border: 0 !important; border-collapse: collapse; table-layout: auto; font-size: 12px; background: transparent !important; }
 .collection-a4.word-page-3 .boe-invoices :is(th,td) { height: 24px; padding: 0 8px 0 0; border: 0 !important; text-align: left; white-space: nowrap; background: transparent !important; }
 .collection-a4.word-page-3 .boe-invoices th { font-weight: 700; }
-.collection-a4 .word-page-3 .boe-drawn { margin: 0 0 82px; white-space: pre-line; line-height: 1.55; }
-.collection-a4 .word-page-3 .boe-drawer { margin-left: 56%; line-height: 1.55; }
+.collection-a4.word-page-3 .boe-drawn { margin: 0 0 82px; white-space: pre-line; line-height: 1.55; }
+.collection-a4.word-page-3 .boe-drawer { margin-left: 56%; line-height: 1.55; }
 .collection-lists { display: grid; gap: 10px; padding: 14px; border: 1px dashed #b9d2ea; border-radius: 10px; background: #fbfdff; }
 .collection-lists strong, .collection-lists small { display: block; }
 .collection-lists small { margin-top: 3px; color: var(--muted); font-size: 9.5px; }

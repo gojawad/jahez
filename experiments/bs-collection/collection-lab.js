@@ -1309,7 +1309,7 @@ function printAllCollectionDocuments(){
   const popup = window.open('', '_blank');
   if(!popup){ alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.'); return; }
   popup.opener = null;
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>BSGT Collection Documents</title><link rel="stylesheet" href="/experiments/bs-collection/collection-lab.css?v=20260905-6"><link rel="stylesheet" href="/experiments/bs-collection/collection-lists.css?v=20260910-boe-meta-2"><style>${brandCss}.print-page{break-after:page;page-break-after:always}.print-page:last-child{break-after:auto;page-break-after:auto}@media screen{body{background:#eaf0f6}.print-page{padding:12mm 0}}</style></head><body>${previews.map(page=>`<section class="print-page">${page}</section>`).join('')}</body></html>`);
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>BSGT Collection Documents</title><link rel="stylesheet" href="/experiments/bs-collection/collection-lab.css?v=20260924-safe-fix-1"><link rel="stylesheet" href="/experiments/bs-collection/collection-lists.css?v=20260924-safe-fix-1"><style>${brandCss}.print-page{break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid;overflow:hidden}.print-page:last-child{break-after:auto;page-break-after:auto}@media screen{body{background:#eaf0f6}.print-page{padding:12mm 0}}@media print{html,body{margin:0!important;padding:0!important}.print-page{clip-path:inset(0)!important}}</style></head><body>${previews.map(page=>`<section class="print-page">${page}</section>`).join('')}</body></html>`);
   popup.document.close();
   popup.onload = ()=>setTimeout(()=>popup.print(), 450);
 }
@@ -1407,7 +1407,7 @@ function applyCollectionBranding(){
       .collection-a4{position:relative;isolation:isolate;width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;padding:0!important;overflow:hidden!important}
       .collection-a4>.collection-brand-layer{position:absolute;display:block;pointer-events:none}
       .collection-a4>.collection-brand-bg{inset:0;width:100%;height:100%;object-fit:fill;z-index:0}
-      .collection-a4>.collection-page-content{position:relative;z-index:1;display:flex;flex-direction:column;height:297mm;padding:49mm 17mm 28mm;overflow-wrap:anywhere;transform-origin:top left}
+      .collection-a4>.collection-page-content{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;padding:49mm 17mm 28mm;overflow-wrap:anywhere;transform-origin:top left}
       .collection-a4 .signature{margin-top:8mm!important;width:64mm!important;font-size:9.5px!important;line-height:1.25!important}
       .collection-a4 table,.collection-a4 table th,.collection-a4 table td{background:transparent!important;border-color:#000!important}
       .collection-a4 .document-total{background:transparent!important}
@@ -1422,7 +1422,7 @@ function applyCollectionBranding(){
       .collection-a4 .stamp-resize-handle.nw{top:-8px;left:-8px;cursor:nwse-resize}.collection-a4 .stamp-resize-handle.n{top:-8px;left:50%;margin-left:-4px;cursor:ns-resize}.collection-a4 .stamp-resize-handle.ne{top:-8px;right:-8px;cursor:nesw-resize}.collection-a4 .stamp-resize-handle.e{top:50%;right:-8px;margin-top:-4px;cursor:ew-resize}.collection-a4 .stamp-resize-handle.se{right:-8px;bottom:-8px;cursor:nwse-resize}.collection-a4 .stamp-resize-handle.s{bottom:-8px;left:50%;margin-left:-4px;cursor:ns-resize}.collection-a4 .stamp-resize-handle.sw{bottom:-8px;left:-8px;cursor:nesw-resize}.collection-a4 .stamp-resize-handle.w{top:50%;left:-8px;margin-top:-4px;cursor:ew-resize}
       .collection-a4 .text-move-guides{display:none;position:absolute;inset:0;z-index:2;pointer-events:none;background-image:linear-gradient(rgba(23,104,189,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(23,104,189,.12) 1px,transparent 1px);background-size:10mm 10mm}.collection-a4.is-text-guiding .text-move-guides{display:block}.collection-a4 .text-move-guides .guide-v,.collection-a4 .text-move-guides .guide-h{position:absolute;background:#1768bd;opacity:.72}.collection-a4 .text-move-guides .guide-v{top:0;bottom:0;left:50%;width:1px}.collection-a4 .text-move-guides .guide-h{left:0;right:0;top:50%;height:1px}
       .preview-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.preview-tools .preview-tabs{margin-bottom:0}.preview-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.stamp-hint{font-size:10px;color:#637d98}
-      @media print{@page{size:A4;margin:0}.collection-a4{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;box-shadow:none!important}.collection-a4>.collection-page-content{height:297mm;padding:49mm 17mm 28mm}.collection-a4 .stamp-resize-handle,.collection-a4 .text-move-guides{display:none!important}.collection-a4 .collection-stamp-overlay{outline:0!important}}
+      @media print{html,body{margin:0!important;padding:0!important}@page{size:A4;margin:0}.collection-a4{width:210mm!important;height:296mm!important;min-height:0!important;max-height:296mm!important;margin:0!important;box-shadow:none!important;break-inside:avoid!important;page-break-inside:avoid!important;clip-path:inset(0)!important}.collection-a4>.collection-page-content{height:100%;padding:49mm 17mm 27mm}.collection-a4 .stamp-resize-handle,.collection-a4 .text-move-guides{display:none!important}.collection-a4 .collection-stamp-overlay{outline:0!important}}
     </style>`);
   }
   paper.classList.add('collection-a4');
@@ -1434,7 +1434,15 @@ function applyCollectionBranding(){
   Array.from(paper.childNodes).forEach(node=>content.append(node));
   const flowImage = (className, source, position) => source ? `<img class="${className}" src="${esc(source)}" alt="" style="width:${Math.max(10,Math.min(Number(position.widthPercent)||16,35))}%;transform:rotate(${Number(position.rotate)||0}deg)">` : '';
   const stampHandles=state.preview==='letter'?'<span class="stamp-resize-handle nw" data-resize="nw"></span><span class="stamp-resize-handle n" data-resize="n"></span><span class="stamp-resize-handle ne" data-resize="ne"></span><span class="stamp-resize-handle e" data-resize="e"></span><span class="stamp-resize-handle se" data-resize="se"></span><span class="stamp-resize-handle s" data-resize="s"></span><span class="stamp-resize-handle sw" data-resize="sw"></span><span class="stamp-resize-handle w" data-resize="w"></span>':'';
-  const stampOverlay = stamp ? `<div class="collection-stamp-overlay" style="left:${Number(stampPos.xPercent)||78}%;top:${Number(stampPos.yPercent)||78}%;width:${Math.max(10,Math.min(Number(stampPos.widthPercent)||16,35))}%;transform:rotate(${Number(stampPos.rotate)||0}deg)" title="${state.preview==='letter'?'اسحب الختم أو استخدم المقابض لتحديد الحجم الموحد':'اسحب الختم لتحريك موضعه في هذه الصفحة'}"><img src="${esc(stamp)}" alt="">${stampHandles}</div>` : '';
+  // Clamp the stamp so it can never sit (even partially) past the page edge — a saved position
+  // that overflows can look fine on screen (clipped by overflow:hidden) but some browsers'
+  // print/PDF pagination doesn't honor that clip for absolutely-positioned children, and will
+  // allocate a near-blank extra page for the overflowing sliver instead of just hiding it.
+  const stampWidthPercent = Math.max(10, Math.min(Number(stampPos.widthPercent) || 16, 35));
+  const stampHeightPercentEquivalent = stampWidthPercent * (210 / 297); // assumes a roughly square stamp image
+  const stampXPercent = Math.max(0, Math.min(Number(stampPos.xPercent) || 78, 100 - stampWidthPercent));
+  const stampYPercent = Math.max(0, Math.min(Number(stampPos.yPercent) || 78, 100 - stampHeightPercentEquivalent));
+  const stampOverlay = stamp ? `<div class="collection-stamp-overlay" style="left:${stampXPercent}%;top:${stampYPercent}%;width:${stampWidthPercent}%;transform:rotate(${Number(stampPos.rotate)||0}deg)" title="${state.preview==='letter'?'اسحب الختم أو استخدم المقابض لتحديد الحجم الموحد':'اسحب الختم لتحريك موضعه في هذه الصفحة'}"><img src="${esc(stamp)}" alt="">${stampHandles}</div>` : '';
   if(signature) content.insertAdjacentHTML('beforeend', `<div class="collection-flow-seals">${flowImage('collection-flow-signature', signature, signaturePos)}</div>`);
   paper.append(content);
   const background = settings.background ? `<img class="collection-brand-layer collection-brand-bg" src="${esc(settings.background)}" alt="">` : '';
@@ -1523,6 +1531,14 @@ function wireCollectionStampDrag(paper){
     yMm:Number.isFinite(saved.yMm)?saved.yMm:(stampRect.top-paperRect.top)/pxPerMm
   };
   saved.positions[preview]=position;
+  // Clamp whatever position/width came from storage (which may predate any clamping logic,
+  // or was saved by an admin drag that never enforced bounds) so the stamp can never render
+  // partially past the page edge — that looks fine on screen (clipped by overflow:hidden) but
+  // some browsers' print/PDF pagination allocates a near-blank extra page for it instead.
+  saved.widthMm = Math.max(12, Math.min(110, saved.widthMm));
+  const stampAspectRatio = defaultHeightMm / defaultWidthMm;
+  position.xMm = Math.max(0, Math.min(210 - saved.widthMm, position.xMm));
+  position.yMm = Math.max(0, Math.min(297 - saved.widthMm * stampAspectRatio, position.yMm));
   const apply = () => {
     stamp.style.left = `${position.xMm*pxPerMm}px`;
     stamp.style.top = `${position.yMm*pxPerMm}px`;
