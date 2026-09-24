@@ -16,18 +16,18 @@ window.CollectionUndertakingWordTemplate = {
 .bank-undertaking .undertaking-refs td{border:0;padding:0 2.1mm;text-align:center;vertical-align:top;overflow-wrap:anywhere}
 .bank-undertaking .undertaking-refs td:first-child{padding-left:0;text-align:left;white-space:nowrap}
 .bank-undertaking .undertaking-highlight{background:#ff0;color:#000;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-.bank-undertaking .undertaking-dear{margin:25.4mm 0 5.1mm}
+.bank-undertaking .undertaking-dear{margin:10mm 0 3mm}
 .bank-undertaking .undertaking-terms{list-style:none;counter-reset:undertaking-term;margin:0;padding:0 0 0 6.35mm}
-.bank-undertaking .undertaking-terms li{position:relative;counter-increment:undertaking-term;margin:0;padding:0;text-align:justify;line-height:11.75pt}
+.bank-undertaking .undertaking-terms li{position:relative;counter-increment:undertaking-term;margin:0;padding:0;text-align:justify;line-height:11.2pt}
 .bank-undertaking .undertaking-terms li::before{content:counter(undertaking-term) '.';position:absolute;left:-6.35mm;font-weight:bold}
 .bank-undertaking sup{font-size:6.5pt;line-height:0;vertical-align:super}
-.bank-undertaking .undertaking-signature{margin-top:2.8mm;break-inside:avoid}
+.bank-undertaking .undertaking-signature{margin-top:1.5mm;break-inside:avoid}
 .bank-undertaking .undertaking-signature p{margin-bottom:3.15mm}
 .bank-undertaking .undertaking-signer{width:auto;margin:0;line-height:11.75pt}
 .bank-undertaking .undertaking-signer td{border:0;padding:0;text-align:left;vertical-align:top}
 .bank-undertaking .undertaking-signer td:first-child{width:25.4mm}
-.bank-undertaking .undertaking-signature .undertaking-sign-label{margin:8.2mm 0 0}
-.bank-undertaking .undertaking-footnote-rule{border:0;border-top:.5pt solid #000;width:50.8mm;margin:12.4mm 0 0}
+.bank-undertaking .undertaking-signature .undertaking-sign-label{margin:4mm 0 0}
+.bank-undertaking .undertaking-footnote-rule{border:0;border-top:.5pt solid #000;width:50.8mm;margin:6mm 0 0}
 </style>
 <section class="bank-undertaking" dir="ltr">
 <div class="undertaking-head"><div class="undertaking-first"><span>THE MANAGER</span><span class="undertaking-date">Dated : <b>{{exchangeCollectionDate}}</b></span></div><div>TRADE FINANCE DEPARTMENT</div><div>{{exchangeBank}}</div><div class="undertaking-address">{{undertakingBankAddress}}</div></div>
