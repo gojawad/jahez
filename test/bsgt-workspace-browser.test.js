@@ -84,7 +84,7 @@ async function main(){
     const fileId='11111111-1111-4111-8111-111111111111',shipmentId='22222222-2222-4222-8222-222222222222',revisionId='33333333-3333-4333-8333-333333333333';
     const documents=[{id:'44444444-4444-4444-8444-444444444444',document_type:'letter',document_variant:'finance_original',is_active:true,revision_no:2,file_name:'original.pdf'},
       {id:'55555555-5555-4555-8555-555555555555',document_type:'letter',document_variant:'administration_signed',is_active:false,revision_no:1,file_name:'signed-history.pdf'}];
-    const files=Array.from({length:25},(_,i)=>({id:i===0?fileId:`file-${i}`,company_id:'bsgt-company',operation_no:`TC-2026-${String(i+1).padStart(6,'0')}`,status:i===0?'sent_to_collecting':'draft',revision_no:2,created_at:'2026-09-15T00:00:00Z',remitting_bank:'TEST BANK'}));
+    const files=Array.from({length:25},(_,i)=>({id:i===0?fileId:`file-${i}`,company_id:'bsgt-company',operation_no:`TC-2026-${String(i+1).padStart(6,'0')}`,status:i===0?'sent_to_collecting':'draft',revision_no:2,created_at:'2026-09-15T00:00:00Z',updated_at:'2026-09-15T12:00:00Z',sent_to_collecting_at:i===0?'2026-09-15T11:00:00Z':null,metadata:i===0?{operationsRevisionWorkflow:true}:{},remitting_bank:'TEST BANK'}));
     const previewRequests=[],tableReads=[];
     await adminPage.evaluate(()=>{
       window.__tradePrintCalls=[];
@@ -131,6 +131,10 @@ async function main(){
       return route.fulfill({status:200,headers,body:JSON.stringify(data)});
     });
     await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/bsgt_operations_revisions*`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:revisionId,revision_no:3,shipment_snapshot:{id:shipmentId,data:{operationNo:'BSGTX-2026-0001'}},documents:[{kind:'invoice',path:'unused'}]},{id:'88888888-8888-4888-8888-888888888888',revision_no:2,shipment_snapshot:{id:'77777777-7777-4777-8777-777777777777',data:{operationNo:'BSGTX-2026-0002'}},documents:[{kind:'packing',path:'unused-2'}]}])}));
+    await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/shipments*`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+      {id:shipmentId,company_id:'bsgt-company',data:{operationNo:'BSGTX-2026-0001'}},
+      {id:'77777777-7777-4777-8777-777777777777',company_id:'bsgt-company',data:{operationNo:'BSGTX-2026-0002'}}
+    ])}));
     const {PDFDocument}=require('../experiments/bs-collection/collection-pdf-lib');const pdf=await PDFDocument.create();pdf.addPage();const encoded=Buffer.from(await pdf.save()).toString('base64');
     await adminContext.route(`${APP_ORIGIN}/api/bsgt-trade-file-preview`,route=>{previewRequests.push(route.request().postDataJSON());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mimeType:'application/pdf',base64:encoded})});});
     await adminPage.getByRole('button',{name:'ملفات العمليات التجارية',exact:true}).click();
@@ -182,10 +186,26 @@ async function main(){
     await adminPage.setViewportSize({width:390,height:844});
     assert.strictEqual(await adminPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'trade files fit mobile width');
     await adminPage.setViewportSize({width:1440,height:900});
+    const correctionRequests=[];
+    await adminContext.route(`${SUPABASE_ORIGIN}/rest/v1/rpc/reopen_bsgt_dispatched_for_correction`,route=>{
+      const body=route.request().postDataJSON();correctionRequests.push(body);
+      files[0].status='returned_to_operations';files[0].revision_no++;
+      return route.fulfill({status:200,contentType:'application/json',body:'{"reopened":true}'});
+    });
+    await adminPage.locator('#bsgtTradeFiles [data-reopen-dispatched]').click();
+    await adminPage.getByRole('dialog').getByRole('textbox').fill('Incorrect bank document');
+    await adminPage.getByRole('dialog').getByRole('button',{name:'تأكيد الإرجاع'}).click();
+    await adminPage.waitForFunction(()=>!document.querySelector('dialog[open]'));
+    assert.equal(correctionRequests.length,1);
+    assert.equal(correctionRequests[0].p_trade_file_id,fileId);
+    assert.equal(correctionRequests[0].p_revision_no,2);
+    assert.equal(correctionRequests[0].p_shipment_ids.length,2,'entire trade file is returned together');
+    assert.equal(correctionRequests[0].p_note,'Incorrect bank document');
     await adminPage.reload({waitUntil:'domcontentloaded'});
     await adminPage.locator('#bsgtTradeFiles').waitFor({timeout:20000});
     assert.ok(adminPage.url().includes('section=tradeFiles'),'refresh stays in the independent portal');
     await adminContext.unroute(`${SUPABASE_ORIGIN}/rest/v1/trade_collection*`);
+    await adminContext.unroute(`${SUPABASE_ORIGIN}/rest/v1/shipments*`);
     const scopedRequest = adminPage.waitForRequest(request=>{
       const url = new URL(request.url());
       return url.pathname==='/rest/v1/shipments' && url.searchParams.get('company_id')===`eq.bsgt-company`;

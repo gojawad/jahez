@@ -309,6 +309,7 @@ const {PGlite} = require(process.env.PGLITE_MODULE || './output/relations-sql-ru
     await db.query('select send_bsgt_trade_file_to_collecting($1,$2,$3)',[legacyId,'TEST BANK','TEST ADDRESS']);
     assert.equal((await db.query('select status from trade_collection_files where id=$1',[legacyId])).rows[0].status,'sent_to_collecting','unsigned legacy file accepts and dispatches');
     await require('./bsgt-relations-reopen-sql.cjs')(db,{id,tradeFile,revision2});
+    await require('./bsgt-dispatched-correction-sql.cjs')(db,{id,tradeFile,revision2});
     await require('./bsgt-bank-sent-permission-sql.cjs')(db,{id,tradeFile,revision2});
     await require('./bsgt-optional-operations-requirements-sql.cjs')(db);
     console.log('Operations SQL: existing revision workflow + optional CAD/legacy signatures, preserved finance-original gate, relations signing scope and migration 57 idempotency/data preservation: passed');

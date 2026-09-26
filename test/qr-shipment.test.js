@@ -97,10 +97,12 @@ function startFakeSupabase() {
       if (String(url.searchParams.get('select') || '').includes('data->>operationNo')) {
         return json(res, [{
           id: shipment.id,
+          bsgt_stage: shipment.bsgt_stage || null,
           operations_revision_id: shipment.operations_revision_id || null,
           operationNo: shipment.data.operationNo,
           qrPackagePath: shipment.data.qrPackagePath || null,
-          qrPublishedAt: shipment.data.qrPublishedAt || null
+          qrPublishedAt: shipment.data.qrPublishedAt || null,
+          bsgtFinanceReturn: shipment.data.bsgtFinanceReturn || null
         }]);
       }
       return json(res, [shipment]);
@@ -218,6 +220,17 @@ async function main() {
     assert.strictEqual(await (await fetch(packageUrl+'&document=letter&bucket=trade-collection-documents')).text(),'%PDF-operations-revision-1');
     shipment.operations_revision_id='revision-2';
     assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-2');
+
+    shipment.bsgt_stage='operations_draft';
+    shipment.data.bsgtFinanceReturn={correction:true,source:'sent_to_collecting',previousRevisionId:'revision-2'};
+    const correctionResponse=await fetch(packageUrl);
+    assert.match(correctionResponse.headers.get('content-type'),/text\/html/);
+    assert.match(await correctionResponse.text(),/الملف قيد التصحيح/);
+    shipment.operations_revision_id='revision-3';
+    assert.strictEqual(await (await fetch(packageUrl)).text(),'%PDF-operations-revision-3','new approved package replaces correction notice');
+    shipment.operations_revision_id='revision-2';
+    shipment.data.bsgtFinanceReturn=null;
+    shipment.bsgt_stage='final_accepted';
 
     // Administration signatures appear as soon as they are saved (review, accepted, sent); returned files show the plain package.
     signedScenario.active = true; signedScenario.fileStatus = 'returned_to_finance';

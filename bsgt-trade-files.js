@@ -1,4 +1,4 @@
-/* Read-only index over existing trade files. RLS remains the authority. */
+/* Trade-file index; the only mutation here is an administrator-audited correction return. */
 (function(){
   'use strict';
   const pageSize=24, esc=value=>escapeHtml(String(value??''));
@@ -14,7 +14,7 @@
   }
   function mount(container){
     if(!allowed()){container.textContent='ليس لديك صلاحية عرض ملفات العمليات التجارية.';return;}
-    container.innerHTML=`<div id="bsgtTradeFiles"><section class="tf-panel"><header><div><h2>ملفات العمليات التجارية</h2><p>كل الملفات المتاحة لحسابك، وشحناتها ومستنداتها المحفوظة في مكان واحد.</p></div><span>عرض فقط</span></header><div class="tf-tools"><input type="search" data-search aria-label="البحث برقم الملف التجاري" placeholder="ابحث برقم العملية TC…"><select data-status aria-label="حالة الملف"><option value="">جميع الحالات</option>${['draft','sent_to_remitting','under_management_review','final_accepted','sent_to_collecting','returned_to_operations','returned_to_finance'].map(value=>`<option value="${value}">${esc(status({status:value}))}</option>`).join('')}<option value="__archived">مؤرشف (الأرشيف)</option></select><button class="btn btn-ghost" data-refresh>تحديث</button></div><div class="tf-list" data-list aria-live="polite"></div><div class="tf-pages"><button class="btn btn-ghost" data-prev>السابق</button><span data-count></span><button class="btn btn-ghost" data-next>التالي</button></div></section><div data-detail></div></div>`;
+    container.innerHTML=`<div id="bsgtTradeFiles"><section class="tf-panel"><header><div><h2>ملفات العمليات التجارية</h2><p>كل الملفات المتاحة لحسابك، وشحناتها ومستنداتها المحفوظة في مكان واحد.</p></div><span>${isAdmin()?'عرض وإرجاع':'عرض فقط'}</span></header><div class="tf-tools"><input type="search" data-search aria-label="البحث برقم الملف التجاري" placeholder="ابحث برقم العملية TC…"><select data-status aria-label="حالة الملف"><option value="">جميع الحالات</option>${['draft','sent_to_remitting','under_management_review','final_accepted','sent_to_collecting','returned_to_operations','returned_to_finance'].map(value=>`<option value="${value}">${esc(status({status:value}))}</option>`).join('')}<option value="__archived">مؤرشف (الأرشيف)</option></select><button class="btn btn-ghost" data-refresh>تحديث</button></div><div class="tf-list" data-list aria-live="polite"></div><div class="tf-pages"><button class="btn btn-ghost" data-prev>السابق</button><span data-count></span><button class="btn btn-ghost" data-next>التالي</button></div></section><div data-detail></div></div>`;
     const root=container.querySelector('#bsgtTradeFiles');
     let page=0,selected=null,listRequest=0,detailRequest=0,timer;
     const live=()=>root.isConnected&&allowed();
@@ -80,6 +80,37 @@
         const totals=window.JahezBsgtFinance.summarizeShipments(rows).totals;
         const facts=[['رقم الملف',file.operation_no],['الحالة',status(file)],['المراجعة',file.revision_no||1],['الشحنات المرتبطة',links.length],['إجمالي قيمة الشحنات',Object.entries(totals).map(([currency,amount])=>window.JahezBsgtFinance.formatMoney(currency,amount)).join(' / ')],['البنك المرسل',file.remitting_bank],['البنك المحصل',file.collecting_bank_name||file.collecting_bank],['عنوان البنك المحصل',file.metadata?.collectingBankAddress],['تاريخ الإنشاء',formatShipmentAuditDate(file.created_at)],['الإرسال للبنك المرسل',formatShipmentAuditDate(file.sent_to_remitting_at)],['القبول النهائي',formatShipmentAuditDate(file.final_accepted_at)],['الإرسال للبنك المحصل',formatShipmentAuditDate(file.sent_to_collecting_at)]];
         host.innerHTML=`<section class="tf-panel"><header><div><h3>${esc(file.operation_no)}</h3><p>البيانات والمستندات المحفوظة، دون تعديل أو إعادة توليد.</p></div><div class="tf-head-actions">${window.JahezArchive?.canArchive()?`<button type="button" class="btn btn-ghost jahez-archive-action" data-archive-file="${file.archived_at?'restore':'archive'}" title="${file.archived_at?'إرجاع الملف وشحناته إلى القوائم':'إخراج الملف وكل شحناته من القوائم والحسابات دون حذف'}">${icon(file.archived_at?'refresh':'archive',14)} ${file.archived_at?'إلغاء الأرشفة':'أرشفة الملف'}</button>`:''}<button class="btn btn-ghost" data-close>إغلاق التفاصيل</button></div></header><div class="tf-facts">${facts.map(([key,value])=>`<div><span>${esc(key)}</span><b>${esc(value||'—')}</b></div>`).join('')}</div><section class="tf-section"><h4>الشحنات المرتبطة</h4>${rows.map(row=>`<div class="tf-row"><div><b>${esc(row.operationNo)}</b><span>${esc(row.consignee)} · ${esc(row.itemDesc)}</span><small>الفاتورة ${esc(row.invoiceNo||'—')} · البوليصة ${esc(row.billNo||'—')} · ${esc(row.totalAmount||'')}</small></div></div>`).join('')||'<p>لا توجد شحنات متاحة للعرض.</p>'}</section><section class="tf-section"><h4>مستندات التحصيل والأصول والنسخ الموقعة</h4>${documentRows||'<p>لا توجد نسخ محفوظة متاحة لهذا الملف بعد.</p>'}</section><section class="tf-section"><h4>مرفقات العلاقات التجارية</h4>${attachmentRows||'<p>لا توجد مرفقات محفوظة متاحة.</p>'}</section><section class="tf-section"><h4>حزم ومستندات الشحنات</h4>${operationRows||'<p>لا توجد ملفات محفوظة متاحة للمعاينة.</p>'}</section><section class="tf-section"><h4>سجل الأحداث</h4>${events.map(event=>`<div class="tf-row"><div><b>${esc(bsgtRelationsEventLabel(event))}</b><span>${esc(event.note||'')}</span><small>${esc(formatShipmentAuditDate(event.created_at))} · المراجعة ${Number(event.revision_no)||1}</small></div></div>`).join('')||'<p>لا توجد أحداث مسجلة.</p>'}</section></section>`;
+        if(isAdmin()&&file.status==='sent_to_collecting'&&!file.archived_at&&file.metadata?.operationsRevisionWorkflow&&links.length&&shipments.length===links.length){
+          const button=document.createElement('button');button.type='button';button.className='btn btn-ghost';button.dataset.reopenDispatched='';
+          button.textContent='إرجاع للعمليات للتصحيح';host.querySelector('.tf-head-actions').prepend(button);
+          button.onclick=()=>{
+            const modal=document.createElement('dialog');modal.className='bsgt-management-modal-card';
+            modal.style.cssText='max-width:min(650px,95vw);width:95vw;padding:20px;border:1px solid #e5e7eb;border-radius:16px';
+            modal.innerHTML=`<h3>إرجاع ${esc(file.operation_no)} إلى العمليات</h3><p>سيُعاد الملف وكل شحناته (${links.length}) إلى المرحلة الأولى للتصحيح. النسخ السابقة وسجل تسليم البنك محفوظان، لكن النسخة التي استلمها البنك فعليًا لن تُسحب تلقائيًا.</p><p>خلال التصحيح سيظهر تنبيه بدل ملف QR القديم، وبعد إعادة الدمج والاعتماد يلزم تسليم النسخة المصححة للبنك يدويًا.</p><form><label>سبب التصحيح<textarea required maxlength="10000" rows="3" style="width:100%"></textarea></label><p role="alert" data-error></p><div class="tf-head-actions"><button type="submit" class="btn btn-primary">تأكيد الإرجاع</button><button type="button" class="btn btn-ghost" data-cancel>إلغاء</button></div></form>`;
+            document.body.append(modal);modal.showModal();modal.querySelector('[data-cancel]').onclick=()=>modal.close();
+            modal.addEventListener('close',()=>modal.remove(),{once:true});
+            modal.querySelector('form').onsubmit=async event=>{
+              event.preventDefault();const submit=modal.querySelector('[type="submit"]'),errorHost=modal.querySelector('[data-error]');
+              const note=modal.querySelector('textarea').value.trim();if(!note)return;
+              submit.disabled=true;errorHost.textContent='';
+              try{
+                const result=await sb.rpc('reopen_bsgt_dispatched_for_correction',{
+                  p_trade_file_id:file.id,p_revision_no:file.revision_no,p_expected_updated_at:file.updated_at,
+                  p_shipment_ids:links.map(link=>link.shipment_id),p_note:note
+                });
+                if(result.error)throw result.error;
+                modal.close();toast('أُعيد الملف وشحناته للعمليات. النسخ السابقة وسجل البنك محفوظان.');
+                await loadRecords();await load();await open(id);
+              }catch(error){errorHost.textContent=error.message||'تعذر إرجاع الملف. حدّث الصفحة وحاول مرة أخرى.';}
+              finally{submit.disabled=false;}
+            };
+          };
+        }
+        if(events.some(event=>event.from_status==='sent_to_collecting'&&event.to_status==='returned_to_operations')){
+          const notice=document.createElement('p');notice.className='tf-message';
+          notice.textContent='أُرسلت مراجعة سابقة للبنك ثم أُعيدت للتصحيح. راجع سجل الأحداث والنسخ السابقة قبل تسليم أي نسخة جديدة.';
+          host.querySelector('.tf-facts').before(notice);
+        }
         const shipmentSection=host.querySelector('.tf-section');
         const explanation=document.createElement('p');explanation.textContent='ملف واحد لكل شحنة يضم حزمة العمليات والمستندات المالية والنسخ الموقعة ومرفقات العلاقات التجارية المحفوظة للمراجعة الحالية. لا يغيّر حزمة QR.';shipmentSection.querySelector('h4').after(explanation);
         shipmentSection.querySelectorAll('.tf-row').forEach((element,index)=>{

@@ -24,6 +24,11 @@ function preliminaryPage(operationNo) {
   return page('الملف في المرحلة المبدئية', `لم يتم تجميع الحزمة الكاملة PDF حتى الآن.${operation}`);
 }
 
+function correctionPage(operationNo) {
+  const operation = operationNo ? `<br><small>رقم العملية: ${escapeHtml(operationNo)}</small>` : '';
+  return page('الملف قيد التصحيح', `أُعيدت العملية للعمليات بعد إرسال نسخة سابقة للبنك. النسخة المصححة غير منشورة بعد؛ راجع الجهة المرسلة قبل الاعتماد على المستندات.${operation}`);
+}
+
 function authHeaders() {
   const headers = { apikey: SERVICE_KEY };
   // المفاتيح الجديدة sb_secret_ تكفيها apikey، ومفاتيح JWT القديمة تحتاج Authorization أيضاً.
@@ -63,7 +68,7 @@ module.exports = async (req, res) => {
 
   try {
     const query = new URLSearchParams({
-      select: 'id,operations_revision_id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt',
+      select: 'id,bsgt_stage,operations_revision_id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt,data->bsgtFinanceReturn',
       'data->>qrToken': `eq.${token}`,
       limit: '1'
     });
@@ -73,7 +78,7 @@ module.exports = async (req, res) => {
       // Compatibility during schema-first rollout only. Never fall back when
       // a revision exists but its package cannot be read.
       if (detail.code === '42703' && String(detail.message).includes('operations_revision_id')) {
-        query.set('select', 'id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt');
+        query.set('select', 'id,data->>operationNo,data->>qrPackagePath,data->>qrPublishedAt,data->bsgtFinanceReturn');
         lookup = await fetch(`${SUPABASE_URL}/rest/v1/shipments?${query}`, { headers: authHeaders() });
       }
     }
@@ -81,6 +86,10 @@ module.exports = async (req, res) => {
     const [row] = await lookup.json();
     if (!row) {
       return res.status(404).send(page('الشحنة غير موجودة', 'الرمز لا يطابق أي عملية، أو حُذفت العملية.'));
+    }
+    if (row.bsgt_stage === 'operations_draft' && row.bsgtFinanceReturn?.correction === true
+      && row.bsgtFinanceReturn.previousRevisionId === row.operations_revision_id) {
+      return res.status(200).send(correctionPage(row.operationNo));
     }
     let packagePath = row.qrPackagePath;
     let bucket = BUCKET;
